@@ -56,7 +56,6 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
 
     const session = await getSession();
     session.userId = user.id;
-    session.isLoggedIn = true;
     await session.save();
 
   } catch (error) {
