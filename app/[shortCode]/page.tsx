@@ -1,45 +1,40 @@
 import { sql } from '@vercel/postgres';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import UAParser from 'ua-parser-js';
+// Correzione 1: Importazione corretta come "named export"
+import { UAParser } from 'ua-parser-js';
 
+// Correzione 2: Definizione esplicita dell'interfaccia per le props
 interface ShortCodePageProps {
   params: {
     shortCode: string;
   };
 }
 
-// Tipo di ritorno dalla query iniziale, che ora include l'ID del link
+// Tipo per il ritorno dal DB
 type LinkFromDb = {
   id: number;
   original_url: string;
 }
 
-// Funzione per registrare l'evento del click
+// Funzione per registrare il click (invariata, ma corretta nel contesto)
 async function recordClick(linkId: number, requestHeaders: Headers) {
-  // Estrazione delle informazioni dagli header della richiesta
   const userAgent = requestHeaders.get('user-agent') || '';
   const referrer = requestHeaders.get('referer') || 'Direct';
-  // Vercel fornisce l'header 'x-vercel-ip-country' per la geolocalizzazione
   const country = requestHeaders.get('x-vercel-ip-country') || 'Unknown';
 
-  // Parsing dello User-Agent
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
-  const browserName = result.browser.name || 'Unknown';
-  const osName = result.os.name || 'Unknown';
-  const deviceType = result.device.type || 'desktop'; // Default a 'desktop' se non identificato
+  
+  // Usiamo il 'type' del dispositivo; se non presente, ripieghiamo su 'desktop'
+  const deviceType = result.device.type || 'desktop';
 
   try {
-    // Eseguiamo due operazioni in una transazione per garantire la consistenza
     await sql.begin(async (tx) => {
-      // 1. Inserisci il record dettagliato del click
       await tx`
         INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
-        VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName})
+        VALUES (${linkId}, ${country}, ${result.browser.name || 'Unknown'}, ${deviceType}, ${result.os.name || 'Unknown'})
       `;
-      
-      // 2. Incrementa il contatore atomico nella tabella dei link
       await tx`
         UPDATE links
         SET click_count = click_count + 1
@@ -47,20 +42,16 @@ async function recordClick(linkId: number, requestHeaders: Headers) {
       `;
     });
   } catch (error) {
-    // Se la registrazione del click fallisce, non blocchiamo il reindirizzamento.
-    // L'esperienza utente (il redirect) è più importante della statistica.
     console.error("Failed to record click, but proceeding with redirect:", error);
   }
 }
 
+// Applichiamo il tipo corretto alla firma della funzione
 export default async function ShortCodePage({ params }: ShortCodePageProps) {
   const { shortCode } = params;
-
-  // Recuperiamo tutti gli header della richiesta
   const requestHeaders = headers();
   
   try {
-    // Cerchiamo il link nel database
     const result = await sql<LinkFromDb>`
       SELECT id, original_url FROM links WHERE short_code = ${shortCode}
     `;
@@ -70,11 +61,8 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
       notFound();
     }
 
-    // Avviamo la registrazione del click ma NON la attendiamo (fire-and-forget).
-    // Questo permette di reindirizzare l'utente immediatamente, senza ritardi.
     recordClick(link.id, requestHeaders);
 
-    // Reindirizziamo all'URL originale
     redirect(link.original_url);
 
   } catch (error) {
