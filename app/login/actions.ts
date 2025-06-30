@@ -1,16 +1,15 @@
 'use server';
 
 import { z } from 'zod';
-import { sql } from '@/app/lib/db'; // Import corretto
+import { sql } from '@/app/lib/db';
 import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
-import { getSession } from '@/app/lib/session'; // Rimosso 'SessionData' dall'import
+import { getSession } from '@/app/lib/session';
 
-// Definiamo un tipo per il record utente completo come arriva dal DB
 type UserFromDb = {
   id: string;
   email: string;
-  password_hash: string; // <-- Aggiunto il campo mancante
+  password_hash: string;
 };
 
 export interface LoginState {
@@ -39,7 +38,6 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
   const { email, password } = validatedFields.data;
   
   try {
-    // Usiamo il nostro nuovo tipo per la query
     const result = await sql<UserFromDb>`SELECT id, email, password_hash FROM users WHERE email = ${email}`;
     const user = result.rows[0];
 
@@ -47,7 +45,6 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
       return { message: 'Credenziali non valide.', success: false };
     }
 
-    // Ora TypeScript sa che user.password_hash esiste e non serve 'any'
     const passwordsMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordsMatch) {
