@@ -1,21 +1,20 @@
 import { sql } from '@vercel/postgres';
 import { notFound, redirect } from 'next/navigation';
 
-// Definiamo un'interfaccia esplicita per le props della pagina.
-// Questa è la best practice per tipizzare le props in Next.js.
-interface ShortCodePageProps {
-  params: {
-    shortCode: string;
-  };
-}
-
-type LinkFromDb = {
-  original_url: string;
-}
-
-// Usiamo l'interfaccia nella firma della funzione.
-export default async function ShortCodePage({ params }: ShortCodePageProps) {
+// Non definiamo più l'intera `props` della pagina.
+// Tipizziamo solo il pezzo che destrutturiamo, che è `params`.
+// Questo è un approccio più robusto e meno fragile.
+export default async function ShortCodePage({
+  params,
+}: {
+  params: { shortCode: string };
+}) {
   const { shortCode } = params;
+
+  // Definiamo il tipo per il risultato del database localmente.
+  type LinkFromDb = {
+    original_url: string;
+  }
 
   try {
     const result = await sql<LinkFromDb>`
@@ -32,7 +31,6 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
 
   } catch (error) {
     console.error('Redirect Error:', error);
-    // In caso di errore, reindirizziamo alla pagina principale.
     redirect('/');
   }
 }
