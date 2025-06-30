@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 export interface SessionData {
   userId?: string;
   isLoggedIn: boolean;
+  workspaceId?: string;
 }
 
 // 2. Definiamo le opzioni della sessione

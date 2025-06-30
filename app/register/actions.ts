@@ -1,10 +1,12 @@
 'use server';
 
 import { z } from 'zod';
-import { sql } from '@vercel/postgres'; // <-- MODIFICA QUI
+import { sql } from '@vercel/postgres';
 import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
+import { db } from '@vercel/postgres'; // <-- Importiamo il client per le transazioni
 
+// ... (RegisterState, RegisterSchema rimangono invariati)
 export interface RegisterState {
   message: string;
   success: boolean;
@@ -29,27 +31,42 @@ export async function register(prevState: RegisterState, formData: FormData): Pr
   }
 
   const { email, password } = validatedFields.data;
-
+  const hashedPassword = await bcrypt.hash(password, 10);
+  
+  // Usiamo una transazione per garantire l'atomicità
+  const client = await db.connect();
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    await client.query('BEGIN'); // Inizia la transazione
 
-    await sql`
-      INSERT INTO users (email, password_hash)
-      VALUES (${email}, ${hashedPassword})
-    `;
+    // 1. Inserisci il nuovo utente e recupera il suo ID
+    const userResult = await client.query(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id',
+      [email, hashedPassword]
+    );
+    const userId = userResult.rows[0].id;
+
+    // 2. Crea il workspace di default per il nuovo utente
+    await client.query(
+      `INSERT INTO workspaces (user_id, name) VALUES ($1, 'Il mio Workspace')`,
+      [userId]
+    );
+
+    await client.query('COMMIT'); // Conferma la transazione
   } catch (error) {
+    await client.query('ROLLBACK'); // Annulla la transazione in caso di errore
     if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
       return {
         message: 'Un utente con questa email esiste già.',
         success: false,
       };
     }
-    
-    console.error('Database Error:', error);
+    console.error('Database Transaction Error:', error);
     return {
       message: 'Errore del database. Riprova più tardi.',
       success: false,
     };
+  } finally {
+    client.release(); // Rilascia il client al pool di connessioni
   }
 
   redirect('/login');
