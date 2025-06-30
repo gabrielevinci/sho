@@ -55,8 +55,6 @@ export async function switchWorkspace(workspaceId: string) {
   if (rows.length === 0) {
     throw new Error('Workspace not found or access denied');
   }
-  
-  // ORA QUESTO È VALIDO E TYPE-SAFE, SENZA BISOGNO DI 'any'.
   session.workspaceId = workspaceId; 
   await session.save();
   revalidatePath('/dashboard');
@@ -74,7 +72,7 @@ export async function logout() {
 export interface CreateLinkState {
   message: string;
   success: boolean;
-  shortCode?: string; // <-- Correzione mantenuta
+  shortCode?: string;
 }
 const LinkSchema = z.object({
   originalUrl: z.string().url({ message: "Per favore, inserisci un URL valido." }),
@@ -112,7 +110,7 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
       
       return {
         success: true,
-        message: `Link creato con successo! Il tuo short link è: ${fullShortUrl}`,
+        message: `Link creato con successo!`,
         shortCode: shortCode,
       };
     } catch (error) {
