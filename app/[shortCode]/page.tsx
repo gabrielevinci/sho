@@ -1,23 +1,19 @@
 import { sql } from '@vercel/postgres';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-// Correzione 1: Importazione corretta come "named export"
 import { UAParser } from 'ua-parser-js';
 
-// Correzione 2: Definizione esplicita dell'interfaccia per le props
 interface ShortCodePageProps {
   params: {
     shortCode: string;
   };
 }
 
-// Tipo per il ritorno dal DB
 type LinkFromDb = {
   id: number;
   original_url: string;
 }
 
-// Funzione per registrare il click (invariata, ma corretta nel contesto)
 async function recordClick(linkId: number, requestHeaders: Headers) {
   const userAgent = requestHeaders.get('user-agent') || '';
   const referrer = requestHeaders.get('referer') || 'Direct';
@@ -26,15 +22,17 @@ async function recordClick(linkId: number, requestHeaders: Headers) {
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
   
-  // Usiamo il 'type' del dispositivo; se non presente, ripieghiamo su 'desktop'
   const deviceType = result.device.type || 'desktop';
 
   try {
     await sql.begin(async (tx) => {
+      // --- CORREZIONE QUI ---
+      // Aggiungiamo la variabile 'referrer' alla lista dei valori.
       await tx`
         INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
-        VALUES (${linkId}, ${country}, ${result.browser.name || 'Unknown'}, ${deviceType}, ${result.os.name || 'Unknown'})
+        VALUES (${linkId}, ${country}, ${referrer}, ${result.browser.name || 'Unknown'}, ${deviceType}, ${result.os.name || 'Unknown'})
       `;
+      
       await tx`
         UPDATE links
         SET click_count = click_count + 1
@@ -46,7 +44,6 @@ async function recordClick(linkId: number, requestHeaders: Headers) {
   }
 }
 
-// Applichiamo il tipo corretto alla firma della funzione
 export default async function ShortCodePage({ params }: ShortCodePageProps) {
   const { shortCode } = params;
   const requestHeaders = headers();
