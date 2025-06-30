@@ -1,88 +1,67 @@
 import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
-import { sql } from '@vercel/postgres';
-
 import { logout } from './actions';
 import CreateLinkForm from './create-link-form';
-import LinkList from './link-list';
-import WorkspaceSwitcher from './workspace-switcher';
-
-// Definiamo i tipi per i dati che recuperiamo
-type Link = {
-  id: number;
-  short_code: string;
-  original_url: string;
-  created_at: Date;
-};
-
-type Workspace = {
-  id: string;
-  name: string;
-};
+import LinksList, { LinkFromDB } from './links-list'; // Importiamo il componente e il tipo
+import { sql } from '@vercel/postgres';
 
 function LogoutButton() {
   return (
     <form action={logout}>
-      <button type="submit" className="text-sm text-gray-600 hover:text-gray-900">
+      <button
+        type="submit"
+        className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75"
+      >
         Logout
       </button>
     </form>
   );
 }
 
+// Funzione per recuperare i link dal database
+async function getLinksForUser(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
+  try {
+    const { rows } = await sql<LinkFromDB>`
+      SELECT short_code, original_url, created_at
+      FROM links
+      WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
+      ORDER BY created_at DESC
+    `;
+    return rows;
+  } catch (error) {
+    console.error("Failed to fetch links:", error);
+    return []; // Restituisce un array vuoto in caso di errore
+  }
+}
+
 export default async function DashboardPage() {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
+    // Se manca anche il workspace, non possiamo mostrare i link
     redirect('/login');
   }
 
-  // --- Data Fetching "Workspace-Aware" ---
-
-  const { rows: workspaces } = await sql<Workspace>`
-    SELECT id, name 
-    FROM workspaces 
-    WHERE user_id = ${session.userId} 
-    ORDER BY name ASC;
-  `;
-
-  const { rows: links } = await sql<Link>`
-    SELECT id, short_code, original_url, created_at 
-    FROM links 
-    WHERE user_id = ${session.userId} AND workspace_id = ${session.workspaceId}
-    ORDER BY created_at DESC;
-  `;
-  
-  const baseUrl = process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : 'http://localhost:3000';
-
-  const activeWorkspace = workspaces.find(ws => ws.id === session.workspaceId);
+  // Recuperiamo i link per l'utente e il workspace attivi
+  const userLinks = await getLinksForUser(session.userId, session.workspaceId);
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gray-50 py-8">
-      <div className="w-full max-w-5xl px-4 sm:px-6 lg:px-8 space-y-8">
-        
-        <header className="flex justify-between items-center">
-          <WorkspaceSwitcher 
-            workspaces={workspaces} 
-            activeWorkspace={activeWorkspace} 
-          />
+    <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12">
+      <div className="w-full max-w-4xl p-8 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Dashboard
+          </h1>
           <LogoutButton />
-        </header>
+        </div>
 
-        <main>
-          <CreateLinkForm />
-          <div className="mt-12">
-            {/* --- CORREZIONE APPLICATA QUI --- */}
-            {/* Abbiamo rimosso gli apici e usato una sintassi JSX pulita. */}
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              Link in: <span className="font-bold">{activeWorkspace?.name}</span>
-            </h2>
-            <LinkList links={links} baseUrl={baseUrl} />
-          </div>
-        </main>
+        <CreateLinkForm />
 
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">I tuoi link</h2>
+          {/* Passiamo i link recuperati al componente di visualizzazione */}
+          <LinksList links={userLinks} />
+        </div>
       </div>
     </div>
   );
