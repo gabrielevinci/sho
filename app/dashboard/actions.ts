@@ -105,8 +105,8 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
       `;
 
       revalidatePath('/dashboard');
-
-      const fullShortUrl = `${SITE_URL}/${shortCode}`;
+      
+      // La variabile 'fullShortUrl' è stata rimossa.
       
       return {
         success: true,
