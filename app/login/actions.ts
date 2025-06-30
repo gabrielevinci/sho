@@ -51,7 +51,6 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
       return { message: 'Credenziali non valide.', success: false };
     }
 
-    // Utilizzo corretto dell'oggetto sessione restituito da getIronSession
     const session = await getSession();
     session.isLoggedIn = true;
     session.userId = user.id;
