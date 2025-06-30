@@ -5,7 +5,7 @@ import { sql } from '@vercel/postgres';
 import { logout } from './actions';
 import CreateLinkForm from './create-link-form';
 import LinkList from './link-list';
-import WorkspaceSwitcher from './workspace-switcher'; // <-- Importiamo il nuovo componente
+import WorkspaceSwitcher from './workspace-switcher';
 
 // Definiamo i tipi per i dati che recuperiamo
 type Link = {
@@ -34,13 +34,11 @@ export default async function DashboardPage() {
   const session = await getSession();
 
   if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
-    // Se manca una qualsiasi informazione critica, l'utente deve riloggarsi.
     redirect('/login');
   }
 
   // --- Data Fetching "Workspace-Aware" ---
 
-  // 1. Recuperiamo tutti i workspace dell'utente per il menu a tendina
   const { rows: workspaces } = await sql<Workspace>`
     SELECT id, name 
     FROM workspaces 
@@ -48,7 +46,6 @@ export default async function DashboardPage() {
     ORDER BY name ASC;
   `;
 
-  // 2. Recuperiamo solo i link per il workspace ATTIVO
   const { rows: links } = await sql<Link>`
     SELECT id, short_code, original_url, created_at 
     FROM links 
@@ -67,7 +64,6 @@ export default async function DashboardPage() {
       <div className="w-full max-w-5xl px-4 sm:px-6 lg:px-8 space-y-8">
         
         <header className="flex justify-between items-center">
-          {/* Componente per cambiare workspace */}
           <WorkspaceSwitcher 
             workspaces={workspaces} 
             activeWorkspace={activeWorkspace} 
@@ -78,7 +74,11 @@ export default async function DashboardPage() {
         <main>
           <CreateLinkForm />
           <div className="mt-12">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Link in '{activeWorkspace?.name}'</h2>
+            {/* --- CORREZIONE APPLICATA QUI --- */}
+            {/* Abbiamo rimosso gli apici e usato una sintassi JSX pulita. */}
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+              Link in: <span className="font-bold">{activeWorkspace?.name}</span>
+            </h2>
             <LinkList links={links} baseUrl={baseUrl} />
           </div>
         </main>
