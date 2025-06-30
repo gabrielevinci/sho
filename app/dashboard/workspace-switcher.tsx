@@ -1,13 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronsUpDown, PlusCircle, Check } from 'lucide-react';
+import { useFormStatus } from 'react-dom';
+import { ChevronsUpDown, PlusCircle, Check, Loader2 } from 'lucide-react';
 import { createWorkspace, switchWorkspace } from './actions';
 
 type Workspace = {
   id: string;
   name: string;
 };
+
+/*
+ * CreateButton: Un sub-componente che usa l'hook useFormStatus.
+ * Questo è il pattern professionale per mostrare uno stato di caricamento
+ * all'interno di un form gestito da Server Actions, senza bisogno di state management complesso.
+ */
+function CreateButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="p-1.5 text-gray-500 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+      aria-label="Crea workspace"
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+    </button>
+  );
+}
 
 export default function WorkspaceSwitcher({
   workspaces,
@@ -17,6 +37,14 @@ export default function WorkspaceSwitcher({
   activeWorkspace: Workspace | undefined;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Funzione per gestire la chiusura del dropdown dopo l'invio del form.
+  // Un piccolo ritardo migliora la percezione dell'utente, dando tempo al feedback visivo.
+  const handleFormSubmit = () => {
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 500);
+  };
 
   return (
     <div className="relative">
@@ -47,15 +75,15 @@ export default function WorkspaceSwitcher({
             ))}
           </div>
           <div className="border-t border-gray-200 p-2">
-            <form action={createWorkspace} onSubmit={() => setIsOpen(false)}>
-              <div className="flex items-center gap-2">
-                <PlusCircle className="h-4 w-4 text-gray-400" />
-                <input
-                  name="name"
-                  placeholder="Crea nuovo workspace..."
-                  className="flex-grow bg-transparent text-sm placeholder-gray-400 focus:outline-none"
-                />
-              </div>
+            <form action={createWorkspace} onSubmit={handleFormSubmit} className="flex items-center gap-1">
+              <input
+                name="name"
+                placeholder="Nuovo workspace..."
+                required
+                minLength={2}
+                className="flex-grow bg-transparent px-2 py-1 text-sm placeholder-gray-400 focus:outline-none"
+              />
+              <CreateButton />
             </form>
           </div>
         </div>
