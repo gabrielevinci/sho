@@ -2,13 +2,11 @@ import { unsealData, sealData, IronSession, SessionOptions } from 'iron-session'
 import { cookies } from 'next/headers';
 import { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 
-// Definiamo un'interfaccia che descrive il cookie store di Next.js
-// includendo il metodo 'set', che esiste ma non è nel tipo Readonly.
+// Tipi helper per la gestione dei cookie
 type MutableCookieStore = ReadonlyRequestCookies & {
   set: (name: string, value: string, options: Partial<ResponseCookie>) => void;
 };
 
-// Definiamo un tipo parziale per le opzioni del cookie, come richiesto dal metodo `set`.
 type ResponseCookie = {
   name: string;
   value: string;
@@ -21,13 +19,13 @@ type ResponseCookie = {
   sameSite?: 'strict' | 'lax' | 'none';
 };
 
-// 1. Definiamo la struttura dei nostri dati di sessione
+// 1. Dati della sessione
 export interface SessionData {
   userId: string;
   isLoggedIn: boolean;
 }
 
-// 2. Definiamo le opzioni della sessione
+// 2. Opzioni della sessione
 export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_PASSWORD as string,
   cookieName: 'sho-session',
@@ -38,12 +36,12 @@ export const sessionOptions: SessionOptions = {
   },
 };
 
-// 3. Creiamo la nostra funzione `getSession` personalizzata
+// Funzione "noop" (no-operation) per soddisfare il tipo IronSession
+const noop = () => {};
+
+// 3. Funzione principale per ottenere la sessione
 export async function getSession(): Promise<IronSession<SessionData>> {
-  // LA CORREZIONE CHIAVE È QUI: `await cookies()`
-  // Prima otteniamo la promise, poi la risolviamo con await.
   const cookieStore = (await cookies()) as MutableCookieStore;
-  
   const found = cookieStore.get(sessionOptions.cookieName);
 
   if (!found) {
@@ -55,11 +53,15 @@ export async function getSession(): Promise<IronSession<SessionData>> {
       password: sessionOptions.password,
     });
     
-    const session: IronSession<SessionData> = { 
+    // Creiamo un oggetto sessione che soddisfa pienamente il tipo IronSession<T>
+    // Dichiarando prima `session` possiamo usarla ricorsivamente in `save`.
+    let session: IronSession<SessionData>;
+    session = { 
       ...data,
       isLoggedIn: true,
       save: () => saveSessionToCookie(session, cookieStore),
       destroy: () => destroySessionCookie(cookieStore),
+      updateConfig: noop, // <-- PROPRIETÀ MANCANTE AGGIUNTA
     };
 
     return session;
@@ -70,17 +72,20 @@ export async function getSession(): Promise<IronSession<SessionData>> {
   }
 }
 
-// Helper per creare una sessione vuota
+// Helper per creare una sessione vuota che soddisfa il tipo
 function createEmptySession(cookieStore: MutableCookieStore): IronSession<SessionData> {
   const emptySessionData: SessionData = {
     userId: '',
     isLoggedIn: false,
   };
 
-  const session: IronSession<SessionData> = {
+  // Dichiarazione separata per permettere il riferimento ricorsivo in `save`
+  let session: IronSession<SessionData>;
+  session = {
     ...emptySessionData,
     save: () => saveSessionToCookie(session, cookieStore),
     destroy: () => destroySessionCookie(cookieStore),
+    updateConfig: noop, // <-- PROPRIETÀ MANCANTE AGGIUNTA
   };
   
   return session;
@@ -88,7 +93,13 @@ function createEmptySession(cookieStore: MutableCookieStore): IronSession<Sessio
 
 // Helper per salvare la sessione nel cookie
 async function saveSessionToCookie(session: IronSession<SessionData>, cookieStore: MutableCookieStore) {
-  const sealed = await sealData(session, {
+  // Rimuoviamo i metodi prima di sigillare, per salvare solo i dati puri.
+  const dataToSeal: Partial<IronSession<SessionData>> = { ...session };
+  delete dataToSeal.save;
+  delete dataToSeal.destroy;
+  delete dataToSeal.updateConfig;
+
+  const sealed = await sealData(dataToSeal, {
     password: sessionOptions.password,
   });
 
