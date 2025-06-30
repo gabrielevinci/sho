@@ -6,7 +6,6 @@ import { sql } from '@vercel/postgres';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
-// La riga 'import { SITE_URL } from '@/app/lib/config';' è stata rimossa.
 
 // AZIONE: MODIFICA NOME WORKSPACE
 export async function updateWorkspaceName(formData: FormData) {
@@ -84,6 +83,16 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
     return { success: false, message: "Autenticazione richiesta." };
   }
 
+  // --- LOGICA AGGIUNTA ---
+  // 1. Recupera il workspace attivo dalla sessione.
+  const workspaceId = session.workspaceId;
+
+  // 2. Controlla che un workspace sia effettivamente selezionato.
+  if (!workspaceId) {
+    return { success: false, message: "Nessun workspace attivo. Selezionane uno prima di creare un link." };
+  }
+  // --- FINE LOGICA AGGIUNTA ---
+
   const validatedFields = LinkSchema.safeParse({
     originalUrl: formData.get('originalUrl'),
   });
@@ -99,9 +108,10 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
   while (attempt < MAX_RETRIES) {
     const shortCode = nanoid(7);
     try {
+      // 3. Aggiungi workspace_id alla query INSERT.
       await sql`
-        INSERT INTO links (user_id, short_code, original_url)
-        VALUES (${session.userId}, ${shortCode}, ${originalUrl})
+        INSERT INTO links (user_id, workspace_id, short_code, original_url)
+        VALUES (${session.userId}, ${workspaceId}, ${shortCode}, ${originalUrl})
       `;
 
       revalidatePath('/dashboard');
