@@ -7,11 +7,56 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
 
-// --- AZIONI WORKSPACE (INVARIATE) ---
-export async function updateWorkspaceName(formData: FormData) { /* ... */ }
-export async function createWorkspace(formData: FormData) { /* ... */ }
-export async function switchWorkspace(workspaceId: string) { /* ... */ }
-// ... (Ho omesso il corpo delle funzioni workspace per brevità, ma nel tuo file devono esserci)
+// --- AZIONI WORKSPACE (LOGICA COMPLETA RIPRISTINATA) ---
+export async function updateWorkspaceName(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) {
+    throw new Error('Not authenticated');
+  }
+  const workspaceId = formData.get('workspaceId') as string;
+  const newName = formData.get('newName') as string;
+  if (!workspaceId || !newName || newName.trim().length < 2) {
+    throw new Error('Invalid data provided.');
+  }
+  await sql`
+    UPDATE workspaces
+    SET name = ${newName}
+    WHERE id = ${workspaceId} AND user_id = ${session.userId}
+  `;
+  revalidatePath('/dashboard');
+}
+
+export async function createWorkspace(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) {
+    throw new Error('Not authenticated');
+  }
+  const name = formData.get('name') as string;
+  if (!name || name.trim().length === 0) {
+    throw new Error('Workspace name cannot be empty');
+  }
+  await sql`
+    INSERT INTO workspaces (user_id, name) VALUES (${session.userId}, ${name})
+  `;
+  revalidatePath('/dashboard');
+}
+
+export async function switchWorkspace(workspaceId: string) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) {
+    throw new Error('Not authenticated');
+  }
+  const { rows } = await sql`
+    SELECT id FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}
+  `;
+  if (rows.length === 0) {
+    throw new Error('Workspace not found or access denied');
+  }
+  session.workspaceId = workspaceId; 
+  await session.save();
+  revalidatePath('/dashboard');
+  redirect('/dashboard');
+}
 
 // --- AZIONE LOGOUT (INVARIATA) ---
 export async function logout() {
@@ -20,9 +65,7 @@ export async function logout() {
   redirect('/login');
 }
 
-// --- AZIONE DI CREAZIONE LINK AVANZATA ---
-
-// Definiamo uno stato di ritorno più ricco per gestire errori per campo
+// --- AZIONE DI CREAZIONE LINK AVANZATA (INVARIATA) ---
 export interface CreateAdvancedLinkState {
   message: string;
   errors?: {
@@ -33,7 +76,6 @@ export interface CreateAdvancedLinkState {
   success: boolean;
 }
 
-// Schema di validazione con Zod per tutti i campi del nuovo form
 const AdvancedLinkSchema = z.object({
   originalUrl: z.string().url({ message: "L'URL di destinazione deve essere un URL valido." }),
   shortCode: z.string().optional().transform(val => val || '').refine(val => /^[a-zA-Z0-9_-]*$/.test(val), {
@@ -49,14 +91,12 @@ const AdvancedLinkSchema = z.object({
 });
 
 export async function createAdvancedLink(prevState: CreateAdvancedLinkState, formData: FormData): Promise<CreateAdvancedLinkState> {
-  // 1. Autenticazione e validazione sessione
   const session = await getSession();
   if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
     return { success: false, message: '', errors: { general: "Autenticazione richiesta o workspace non valido." } };
   }
   const { userId, workspaceId } = session;
 
-  // 2. Validazione dei dati del form con Zod
   const validatedFields = AdvancedLinkSchema.safeParse({
     originalUrl: formData.get('originalUrl'),
     shortCode: formData.get('shortCode'),
@@ -70,7 +110,6 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   });
 
   if (!validatedFields.success) {
-    // Se la validazione fallisce, mappiamo gli errori per mostrarli nel form
     const fieldErrors = validatedFields.error.flatten().fieldErrors;
     return {
       success: false,
@@ -85,19 +124,15 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   const { originalUrl, title, description, utm_source, utm_medium, utm_campaign, utm_term, utm_content } = validatedFields.data;
   let shortCode = validatedFields.data.shortCode;
 
-  // 3. Gestione dello short code
   if (shortCode) {
-    // Se l'utente fornisce uno short code, controlliamo se è già in uso
     const { rows } = await sql`SELECT id FROM links WHERE short_code = ${shortCode}`;
     if (rows.length > 0) {
       return { success: false, message: '', errors: { shortCode: "Questo short code è già in uso. Scegline un altro." } };
     }
   } else {
-    // Se non viene fornito, ne generiamo uno casuale
     shortCode = nanoid(7);
   }
   
-  // 4. Inserimento nel database
   try {
     await sql`
       INSERT INTO links (
@@ -114,12 +149,11 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
     return { success: false, message: '', errors: { general: "Si è verificato un errore del database. Riprova." } };
   }
 
-  // 5. Successo!
-  revalidatePath('/dashboard'); // Invalida la cache della dashboard per aggiornare la lista
-  redirect('/dashboard'); // Reindirizza l'utente alla dashboard dopo la creazione
+  revalidatePath('/dashboard');
+  redirect('/dashboard');
 }
 
-// MANTENIAMO LA VECCHIA AZIONE PER NON ROMPERE IL VECCHIO FORM SE ESISTE ANCORA
+// --- VECCHIA AZIONE DI CREAZIONE (mantenuta per sicurezza) ---
 export interface CreateLinkState { message: string; success: boolean; shortCode?: string; }
 const LinkSchema = z.object({ originalUrl: z.string().url({ message: "Per favore, inserisci un URL valido." }), });
 export async function createShortLink(prevState: CreateLinkState, formData: FormData): Promise<CreateLinkState> {
