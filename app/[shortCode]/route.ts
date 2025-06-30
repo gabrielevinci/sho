@@ -20,21 +20,16 @@ async function recordClick(linkId: number, request: NextRequest) {
   const deviceType = result.device.type || 'desktop';
 
   try {
-    // Avviamo la transazione
     await sql.begin(async (tx) => {
-      // Usiamo la sintassi corretta tx.query() con segnaposto $1, $2...
       const insertClickQuery = tx.query(
         `INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [linkId, country, referrer, result.browser.name || 'Unknown', deviceType, result.os.name || 'Unknown']
       );
-
       const updateLinkQuery = tx.query(
         `UPDATE links SET click_count = click_count + 1 WHERE id = $1`,
         [linkId]
       );
-      
-      // Eseguiamo entrambe le query in parallelo per la massima efficienza
       await Promise.all([insertClickQuery, updateLinkQuery]);
     });
   } catch (error) {
@@ -42,12 +37,14 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-// Handler per le richieste GET
+// --- CORREZIONE DEFINITIVA QUI ---
+// Usiamo una firma esplicita, non destrutturata, per il secondo argomento.
 export async function GET(
   request: NextRequest, 
-  { params }: { params: { shortCode: string } }
+  context: { params: { shortCode: string } }
 ) {
-  const { shortCode } = params;
+  // Estraiamo i params dal contesto all'interno della funzione.
+  const { shortCode } = context.params;
   
   try {
     const result = await sql<LinkFromDb>`
