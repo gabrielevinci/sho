@@ -28,7 +28,7 @@ export default function LinksList({ links }: LinksListProps) {
   if (links.length === 0) {
     return (
       <div className="mt-4 p-6 bg-white rounded-lg shadow-md text-center text-gray-500">
-        <p>Non hai ancora creato nessun link. Inizia ora!</p>
+        <p>Non hai ancora creato nessun link in questo workspace.</p>
       </div>
     );
   }
