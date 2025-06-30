@@ -6,7 +6,7 @@ import { sql } from '@vercel/postgres';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
-import { SITE_URL } from '@/app/lib/config';
+// La riga 'import { SITE_URL } from '@/app/lib/config';' è stata rimossa.
 
 // AZIONE: MODIFICA NOME WORKSPACE
 export async function updateWorkspaceName(formData: FormData) {
@@ -105,8 +105,6 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
       `;
 
       revalidatePath('/dashboard');
-      
-      // La variabile 'fullShortUrl' è stata rimossa.
       
       return {
         success: true,
