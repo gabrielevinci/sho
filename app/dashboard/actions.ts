@@ -6,6 +6,7 @@ import { sql } from '@vercel/postgres';
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
+import { SITE_URL } from '@/app/lib/config';
 
 // AZIONE: MODIFICA NOME WORKSPACE
 export async function updateWorkspaceName(formData: FormData) {
@@ -79,12 +80,14 @@ const LinkSchema = z.object({
 
 export async function createShortLink(prevState: CreateLinkState, formData: FormData): Promise<CreateLinkState> {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
-    return { success: false, message: "Workspace non valido o autenticazione richiesta." };
+  if (!session.isLoggedIn || !session.userId) {
+    return { success: false, message: "Autenticazione richiesta." };
   }
+
   const validatedFields = LinkSchema.safeParse({
     originalUrl: formData.get('originalUrl'),
   });
+
   if (!validatedFields.success) {
     return { success: false, message: validatedFields.error.errors[0].message };
   }
@@ -92,36 +95,36 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
 
   const MAX_RETRIES = 5;
   let attempt = 0;
+  
   while (attempt < MAX_RETRIES) {
     const shortCode = nanoid(7);
     try {
       await sql`
-        INSERT INTO links (user_id, workspace_id, short_code, original_url)
-        VALUES (${session.userId}, ${session.workspaceId}, ${shortCode}, ${originalUrl})
+        INSERT INTO links (user_id, short_code, original_url)
+        VALUES (${session.userId}, ${shortCode}, ${originalUrl})
       `;
 
-      // --- MODIFICA CHIAVE QUI ---
-      // Usiamo la nostra variabile d'ambiente CANONICA invece di quella dinamica.
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-      
-      if (!baseUrl) {
-        // Aggiungiamo un controllo di sicurezza
-        throw new Error('NEXT_PUBLIC_APP_URL is not set.');
-      }
-
-      const shortUrl = `${baseUrl}/${shortCode}`;
-
       revalidatePath('/dashboard');
-      return { success: true, message: `Link creato con successo!`, shortUrl };
+
+      // --- MODIFICA QUI ---
+      // Usiamo la costante SITE_URL per costruire il link completo.
+      const fullShortUrl = `${SITE_URL}/${shortCode}`;
+
+      return {
+        success: true,
+        message: `Link creato con successo! Il tuo short link è: ${fullShortUrl}`,
+        shortCode: shortCode,
+      };
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
         attempt++;
-        console.warn(`Collision detected... Retrying...`);
+        console.warn(`Collision detected for shortCode ${shortCode}. Retrying... (Attempt ${attempt})`);
       } else {
-        console.error('Database or App URL Error:', error);
-        return { success: false, message: "Errore del database o di configurazione." };
+        console.error('Database Error:', error);
+        return { success: false, message: "Errore del database durante la creazione del link." };
       }
     }
   }
-  return { success: false, message: "Impossibile creare un link unico." };
+
+  return { success: false, message: "Impossibile creare un link unico. Riprova più tardi." };
 }
