@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { sql } from '@vercel/postgres';
-import { headers } from 'next/headers';
 import { UAParser } from 'ua-parser-js';
-import { redirect } from 'next/navigation';
-import { notFound } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 
 // Tipo per il ritorno dal DB
 type LinkFromDb = {
@@ -12,36 +10,39 @@ type LinkFromDb = {
 }
 
 // Funzione helper per registrare il click
-async function recordClick(linkId: number, requestHeaders: Headers) {
-  const userAgent = requestHeaders.get('user-agent') || '';
-  const referrer = requestHeaders.get('referer') || 'Direct';
-  const country = requestHeaders.get('x-vercel-ip-country') || 'Unknown';
+async function recordClick(linkId: number, request: NextRequest) {
+  const userAgent = request.headers.get('user-agent') || '';
+  const referrer = request.headers.get('referer') || 'Direct';
+  const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
 
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
   const deviceType = result.device.type || 'desktop';
 
   try {
-    // Usiamo `Promise.all` per avviare entrambe le query in parallelo dentro la transazione
+    // Avviamo la transazione
     await sql.begin(async (tx) => {
-      await Promise.all([
-        tx`
-          INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
-          VALUES (${linkId}, ${country}, ${referrer}, ${result.browser.name || 'Unknown'}, ${deviceType}, ${result.os.name || 'Unknown'})
-        `,
-        tx`
-          UPDATE links
-          SET click_count = click_count + 1
-          WHERE id = ${linkId}
-        `
-      ]);
+      // Usiamo la sintassi corretta tx.query() con segnaposto $1, $2...
+      const insertClickQuery = tx.query(
+        `INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [linkId, country, referrer, result.browser.name || 'Unknown', deviceType, result.os.name || 'Unknown']
+      );
+
+      const updateLinkQuery = tx.query(
+        `UPDATE links SET click_count = click_count + 1 WHERE id = $1`,
+        [linkId]
+      );
+      
+      // Eseguiamo entrambe le query in parallelo per la massima efficienza
+      await Promise.all([insertClickQuery, updateLinkQuery]);
     });
   } catch (error) {
     console.error("Failed to record click, but proceeding with redirect:", error);
   }
 }
 
-// Handler per le richieste GET, con la firma corretta
+// Handler per le richieste GET
 export async function GET(
   request: NextRequest, 
   { params }: { params: { shortCode: string } }
@@ -55,20 +56,15 @@ export async function GET(
     const link = result.rows[0];
 
     if (!link) {
-      // In un Route Handler, notFound() deve essere chiamato per terminare
-      return notFound();
+      notFound();
     }
 
-    // Avviamo la registrazione del click in background.
-    // Usiamo `request.headers` che è l'oggetto corretto qui.
-    recordClick(link.id, request.headers);
+    recordClick(link.id, request);
 
-    // Reindirizziamo usando la funzione di next/navigation
     redirect(link.original_url);
 
   } catch (error) {
     console.error('Redirect Error:', error);
-    // In caso di errore, reindirizziamo alla pagina principale
     redirect('/');
   }
 }
