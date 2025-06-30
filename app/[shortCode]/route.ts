@@ -3,6 +3,15 @@ import { sql } from '@vercel/postgres';
 import { UAParser } from 'ua-parser-js';
 import { redirect, notFound } from 'next/navigation';
 
+// --- CORREZIONE DEFINITIVA: UN'INTERFACCIA NOMINATA PER IL CONTESTO ---
+// Definiamo un tipo esplicito e nominato per il secondo argomento della funzione GET.
+// Questo elimina ogni ambiguità per il compilatore di Next.js.
+interface RouteContext {
+  params: {
+    shortCode: string;
+  };
+}
+
 // Tipo per il ritorno dal DB
 type LinkFromDb = {
   id: number;
@@ -37,13 +46,11 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-// --- CORREZIONE DEFINITIVA QUI ---
-// Usiamo una firma esplicita, non destrutturata, per il secondo argomento.
+// Handler per le richieste GET, che ora usa l'interfaccia nominata 'RouteContext'
 export async function GET(
   request: NextRequest, 
-  context: { params: { shortCode: string } }
+  context: RouteContext
 ) {
-  // Estraiamo i params dal contesto all'interno della funzione.
   const { shortCode } = context.params;
   
   try {
