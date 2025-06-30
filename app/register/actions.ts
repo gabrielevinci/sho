@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { sql } from '@/app/lib/db'; // Import corretto
+import { sql } from '@vercel/postgres'; // <-- MODIFICA QUI
 import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
 
@@ -37,8 +37,7 @@ export async function register(prevState: RegisterState, formData: FormData): Pr
       INSERT INTO users (email, password_hash)
       VALUES (${email}, ${hashedPassword})
     `;
-  } catch (error) { // Rimosso ': any'
-    // Adesso verifichiamo il tipo dell'errore prima di usarlo
+  } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
       return {
         message: 'Un utente con questa email esiste già.',

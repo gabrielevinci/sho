@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { sql } from '@/app/lib/db';
+import { sql } from '@vercel/postgres'; // <-- MODIFICA QUI
 import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/app/lib/session';
