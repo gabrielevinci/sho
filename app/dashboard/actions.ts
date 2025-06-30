@@ -55,9 +55,9 @@ export async function switchWorkspace(workspaceId: string) {
   if (rows.length === 0) {
     throw new Error('Workspace not found or access denied');
   }
-  // Qui dovrai definire il tipo della sessione per includere workspaceId
-  // Esempio in session.ts: export interface SessionData { ..., workspaceId?: string }
-  (session as any).workspaceId = workspaceId; 
+  
+  // ORA QUESTO È VALIDO E TYPE-SAFE, SENZA BISOGNO DI 'any'.
+  session.workspaceId = workspaceId; 
   await session.save();
   revalidatePath('/dashboard');
   redirect('/dashboard');
@@ -74,7 +74,7 @@ export async function logout() {
 export interface CreateLinkState {
   message: string;
   success: boolean;
-  shortCode?: string; // <-- CORREZIONE APPLICATA QUI
+  shortCode?: string; // <-- Correzione mantenuta
 }
 const LinkSchema = z.object({
   originalUrl: z.string().url({ message: "Per favore, inserisci un URL valido." }),
@@ -110,7 +110,6 @@ export async function createShortLink(prevState: CreateLinkState, formData: Form
 
       const fullShortUrl = `${SITE_URL}/${shortCode}`;
       
-      // Ora questo oggetto di ritorno è valido
       return {
         success: true,
         message: `Link creato con successo! Il tuo short link è: ${fullShortUrl}`,
