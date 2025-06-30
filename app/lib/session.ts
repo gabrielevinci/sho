@@ -4,7 +4,6 @@ import { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adap
 
 // Definiamo un'interfaccia che descrive il cookie store di Next.js
 // includendo il metodo 'set', che esiste ma non è nel tipo Readonly.
-// Questo è il modo corretto e type-safe per risolvere il problema.
 type MutableCookieStore = ReadonlyRequestCookies & {
   set: (name: string, value: string, options: Partial<ResponseCookie>) => void;
 };
@@ -28,7 +27,7 @@ export interface SessionData {
   isLoggedIn: boolean;
 }
 
-// 2. Definiamo le opzioni della sessione come prima
+// 2. Definiamo le opzioni della sessione
 export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_PASSWORD as string,
   cookieName: 'sho-session',
@@ -36,18 +35,19 @@ export const sessionOptions: SessionOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    // maxAge: 60 * 60 * 24 * 7, // 1 settimana
   },
 };
 
 // 3. Creiamo la nostra funzione `getSession` personalizzata
 export async function getSession(): Promise<IronSession<SessionData>> {
-  const cookieStore = cookies() as MutableCookieStore;
+  // LA CORREZIONE CHIAVE È QUI: `await cookies()`
+  // Prima otteniamo la promise, poi la risolviamo con await.
+  const cookieStore = (await cookies()) as MutableCookieStore;
+  
   const found = cookieStore.get(sessionOptions.cookieName);
 
   if (!found) {
-    const session = createEmptySession(cookieStore);
-    return session;
+    return createEmptySession(cookieStore);
   }
 
   try {
@@ -66,8 +66,7 @@ export async function getSession(): Promise<IronSession<SessionData>> {
 
   } catch (error) {
     console.error("Failed to unseal session, creating a new one.", error);
-    const session = createEmptySession(cookieStore);
-    return session;
+    return createEmptySession(cookieStore);
   }
 }
 
@@ -77,11 +76,14 @@ function createEmptySession(cookieStore: MutableCookieStore): IronSession<Sessio
     userId: '',
     isLoggedIn: false,
   };
-  return {
+
+  const session: IronSession<SessionData> = {
     ...emptySessionData,
-    save: () => saveSessionToCookie({ ...emptySessionData, save: () => {}, destroy: () => {} }, cookieStore),
+    save: () => saveSessionToCookie(session, cookieStore),
     destroy: () => destroySessionCookie(cookieStore),
   };
+  
+  return session;
 }
 
 // Helper per salvare la sessione nel cookie
