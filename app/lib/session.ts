@@ -20,8 +20,10 @@ export const sessionOptions: SessionOptions = {
 
 // 3. Funzione helper per ottenere la sessione
 export async function getSession(): Promise<IronSession<SessionData>> {
-  // Risolviamo la promise restituita da cookies() PRIMA di passarla.
-  const cookieStore = cookies();
+  // QUESTA È LA SOLUZIONE. Aspettiamo (await) che cookies() si risolva.
+  const cookieStore = await cookies();
+  
+  // Ora passiamo l'oggetto risolto (non più una promise) a getIronSession.
   const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
   
   // Inizializziamo i valori di default se la sessione è nuova
