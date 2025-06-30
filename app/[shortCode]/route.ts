@@ -3,22 +3,13 @@ import { sql } from '@vercel/postgres';
 import { UAParser } from 'ua-parser-js';
 import { redirect, notFound } from 'next/navigation';
 
-// --- CORREZIONE DEFINITIVA: UN'INTERFACCIA NOMINATA PER IL CONTESTO ---
-// Definiamo un tipo esplicito e nominato per il secondo argomento della funzione GET.
-// Questo elimina ogni ambiguità per il compilatore di Next.js.
-interface RouteContext {
-  params: {
-    shortCode: string;
-  };
-}
-
 // Tipo per il ritorno dal DB
 type LinkFromDb = {
   id: number;
   original_url: string;
 }
 
-// Funzione helper per registrare il click
+// Funzione helper per registrare il click (invariata)
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const referrer = request.headers.get('referer') || 'Direct';
@@ -46,12 +37,18 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-// Handler per le richieste GET, che ora usa l'interfaccia nominata 'RouteContext'
-export async function GET(
-  request: NextRequest, 
-  context: RouteContext
-) {
-  const { shortCode } = context.params;
+// --- SOLUZIONE DEFINITIVA QUI ---
+// La funzione GET ora accetta solo l'oggetto 'request'.
+// Il secondo argomento, fonte di tutti gli errori, è stato eliminato.
+export async function GET(request: NextRequest) {
+  // Estraiamo lo shortCode direttamente dall'URL della richiesta.
+  const shortCode = new URL(request.url).pathname.slice(1); // es. "/xyz" -> "xyz"
+
+  // Se per qualche motivo lo shortCode è vuoto (accesso alla root),
+  // reindirizziamo alla home. Questo è un caso limite di sicurezza.
+  if (!shortCode) {
+    redirect('/');
+  }
   
   try {
     const result = await sql<LinkFromDb>`
