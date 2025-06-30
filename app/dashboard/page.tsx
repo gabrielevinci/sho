@@ -1,11 +1,13 @@
 import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
-import { logout } from './actions';
-import CreateLinkForm from './create-link-form';
-import LinkList from './link-list'; // <-- 1. Importiamo il nuovo componente
 import { sql } from '@vercel/postgres';
 
-// Definiamo un tipo per i nostri link, per avere type safety.
+import { logout } from './actions';
+import CreateLinkForm from './create-link-form';
+import LinkList from './link-list';
+import WorkspaceSwitcher from './workspace-switcher'; // <-- Importiamo il nuovo componente
+
+// Definiamo i tipi per i dati che recuperiamo
 type Link = {
   id: number;
   short_code: string;
@@ -13,13 +15,15 @@ type Link = {
   created_at: Date;
 };
 
+type Workspace = {
+  id: string;
+  name: string;
+};
+
 function LogoutButton() {
   return (
     <form action={logout}>
-      <button
-        type="submit"
-        className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75"
-      >
+      <button type="submit" className="text-sm text-gray-600 hover:text-gray-900">
         Logout
       </button>
     </form>
@@ -29,44 +33,56 @@ function LogoutButton() {
 export default async function DashboardPage() {
   const session = await getSession();
 
-  if (!session.isLoggedIn || !session.userId) {
+  if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
+    // Se manca una qualsiasi informazione critica, l'utente deve riloggarsi.
     redirect('/login');
   }
 
-  // --- 2. Data Fetching ---
-  // Interroghiamo il database per ottenere i link dell'utente.
-  // Ordiniamo per data di creazione decrescente per mostrare i più recenti in cima.
+  // --- Data Fetching "Workspace-Aware" ---
+
+  // 1. Recuperiamo tutti i workspace dell'utente per il menu a tendina
+  const { rows: workspaces } = await sql<Workspace>`
+    SELECT id, name 
+    FROM workspaces 
+    WHERE user_id = ${session.userId} 
+    ORDER BY name ASC;
+  `;
+
+  // 2. Recuperiamo solo i link per il workspace ATTIVO
   const { rows: links } = await sql<Link>`
     SELECT id, short_code, original_url, created_at 
     FROM links 
-    WHERE user_id = ${session.userId} 
+    WHERE user_id = ${session.userId} AND workspace_id = ${session.workspaceId}
     ORDER BY created_at DESC;
   `;
   
-  // --- 3. Costruzione del Base URL ---
-  // Necessario per costruire gli URL completi da mostrare e copiare.
   const baseUrl = process.env.VERCEL_URL 
     ? `https://${process.env.VERCEL_URL}` 
     : 'http://localhost:3000';
 
+  const activeWorkspace = workspaces.find(ws => ws.id === session.workspaceId);
+
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12">
-      <div className="w-full max-w-4xl p-4 sm:p-8 space-y-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Dashboard
-          </h1>
+    <div className="flex flex-col items-center min-h-screen bg-gray-50 py-8">
+      <div className="w-full max-w-5xl px-4 sm:px-6 lg:px-8 space-y-8">
+        
+        <header className="flex justify-between items-center">
+          {/* Componente per cambiare workspace */}
+          <WorkspaceSwitcher 
+            workspaces={workspaces} 
+            activeWorkspace={activeWorkspace} 
+          />
           <LogoutButton />
-        </div>
+        </header>
 
-        <CreateLinkForm />
+        <main>
+          <CreateLinkForm />
+          <div className="mt-12">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Link in '{activeWorkspace?.name}'</h2>
+            <LinkList links={links} baseUrl={baseUrl} />
+          </div>
+        </main>
 
-        <div className="mt-12">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">I tuoi link</h2>
-          {/* --- 4. Integrazione del Componente --- */}
-          {/* Passiamo la lista di link e il base URL al componente che li renderizzerà. */}
-          <LinkList links={links} baseUrl={baseUrl} />
-        </div>
       </div>
     </div>
   );
