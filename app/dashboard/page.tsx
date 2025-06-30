@@ -24,11 +24,11 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 }
 
 // --- MODIFICA QUI ---
-// Aggiorniamo la query per recuperare anche title e description.
+// Aggiorniamo la query per recuperare anche click_count.
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
     const { rows } = await sql<LinkFromDB>`
-      SELECT short_code, original_url, created_at, title, description
+      SELECT short_code, original_url, created_at, title, description, click_count
       FROM links
       WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
       ORDER BY created_at DESC
@@ -90,7 +90,6 @@ export default async function DashboardPage() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                 Link in: <span className="text-blue-600">{activeWorkspace.name}</span>
               </h2>
-              {/* Il componente LinksList ora riceverà i dati arricchiti */}
               <LinksList links={userLinks} />
             </div>
           ) : (

@@ -1,41 +1,84 @@
 import { sql } from '@vercel/postgres';
 import { notFound, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import UAParser from 'ua-parser-js';
 
-// Disabilitiamo la regola di ESLint per la riga successiva per risolvere il bug di build.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function ShortCodePage(props: any) {
-  const { params } = props;
+interface ShortCodePageProps {
+  params: {
+    shortCode: string;
+  };
+}
+
+// Tipo di ritorno dalla query iniziale, che ora include l'ID del link
+type LinkFromDb = {
+  id: number;
+  original_url: string;
+}
+
+// Funzione per registrare l'evento del click
+async function recordClick(linkId: number, requestHeaders: Headers) {
+  // Estrazione delle informazioni dagli header della richiesta
+  const userAgent = requestHeaders.get('user-agent') || '';
+  const referrer = requestHeaders.get('referer') || 'Direct';
+  // Vercel fornisce l'header 'x-vercel-ip-country' per la geolocalizzazione
+  const country = requestHeaders.get('x-vercel-ip-country') || 'Unknown';
+
+  // Parsing dello User-Agent
+  const parser = new UAParser(userAgent);
+  const result = parser.getResult();
+  const browserName = result.browser.name || 'Unknown';
+  const osName = result.os.name || 'Unknown';
+  const deviceType = result.device.type || 'desktop'; // Default a 'desktop' se non identificato
+
+  try {
+    // Eseguiamo due operazioni in una transazione per garantire la consistenza
+    await sql.begin(async (tx) => {
+      // 1. Inserisci il record dettagliato del click
+      await tx`
+        INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
+        VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName})
+      `;
+      
+      // 2. Incrementa il contatore atomico nella tabella dei link
+      await tx`
+        UPDATE links
+        SET click_count = click_count + 1
+        WHERE id = ${linkId}
+      `;
+    });
+  } catch (error) {
+    // Se la registrazione del click fallisce, non blocchiamo il reindirizzamento.
+    // L'esperienza utente (il redirect) è più importante della statistica.
+    console.error("Failed to record click, but proceeding with redirect:", error);
+  }
+}
+
+export default async function ShortCodePage({ params }: ShortCodePageProps) {
   const { shortCode } = params;
 
-  if (!shortCode || typeof shortCode !== 'string') {
-    notFound();
-  }
-
-  type LinkFromDb = {
-    original_url: string;
-  }
-
-  let link: LinkFromDb | undefined;
-
-  // Il blocco try...catch ora avvolge SOLO l'operazione che può fallire: la query al DB.
+  // Recuperiamo tutti gli header della richiesta
+  const requestHeaders = headers();
+  
   try {
+    // Cerchiamo il link nel database
     const result = await sql<LinkFromDb>`
-      SELECT original_url FROM links WHERE short_code = ${shortCode}
+      SELECT id, original_url FROM links WHERE short_code = ${shortCode}
     `;
-    link = result.rows[0];
+    const link = result.rows[0];
+
+    if (!link) {
+      notFound();
+    }
+
+    // Avviamo la registrazione del click ma NON la attendiamo (fire-and-forget).
+    // Questo permette di reindirizzare l'utente immediatamente, senza ritardi.
+    recordClick(link.id, requestHeaders);
+
+    // Reindirizziamo all'URL originale
+    redirect(link.original_url);
+
   } catch (error) {
-    // Se c'è un errore nel DB, lo logghiamo e reindirizziamo alla home.
-    console.error('Database query failed:', error);
+    console.error('Redirect Error:', error);
     redirect('/');
   }
-
-  // La logica di business è ora fuori dal catch.
-  // Se il link non è stato trovato nel DB, mostriamo la pagina 404.
-  if (!link) {
-    notFound();
-  }
-
-  // Se il link esiste, eseguiamo il redirect.
-  // L'eccezione NEXT_REDIRECT verrà lanciata qui e gestita correttamente da Next.js.
-  redirect(link.original_url);
 }
