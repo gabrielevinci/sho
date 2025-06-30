@@ -1,20 +1,15 @@
 /**
- * Questo file centralizza la configurazione del sito, come l'URL di base.
- * Utilizza le variabili d'ambiente di Vercel per determinare l'URL corretto
- * in ogni ambiente (produzione, preview, sviluppo locale).
+ * Questo file esporta l'URL canonico del sito, che deve essere usato
+ * in tutta l'applicazione, sia lato server che lato client.
+ * Utilizza una variabile d'ambiente pubblica per garantire coerenza.
  */
 
-// Determina l'URL di base del sito.
-const getSiteUrl = () => {
-  // Se siamo in un ambiente Vercel, usiamo VERCEL_URL.
-  if (process.env.VERCEL_URL) {
-    // VERCEL_URL non include il protocollo, quindi lo aggiungiamo.
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  
-  // Altrimenti, per lo sviluppo locale, usiamo localhost.
-  return 'http://localhost:3000';
-};
+// Leggiamo la variabile d'ambiente. Se non è impostata, lanciamo un errore
+// per evitare comportamenti inaspettati in produzione.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
-// Esportiamo la costante che verrà usata nel resto dell'applicazione.
-export const SITE_URL = getSiteUrl();
+if (!siteUrl) {
+  throw new Error("La variabile d'ambiente NEXT_PUBLIC_SITE_URL non è stata impostata.");
+}
+
+export const SITE_URL = siteUrl;
