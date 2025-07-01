@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
 
-// --- AZIONI WORKSPACE (LOGICA COMPLETA RIPRISTINATA) ---
+// --- AZIONI WORKSPACE (COMPLETE E FUNZIONANTI) ---
 export async function updateWorkspaceName(formData: FormData) {
   const session = await getSession();
   if (!session.isLoggedIn || !session.userId) {
@@ -65,7 +65,7 @@ export async function logout() {
   redirect('/login');
 }
 
-// --- AZIONE DI CREAZIONE LINK AVANZATA (CORRETTA) ---
+// --- AZIONE DI CREAZIONE LINK AVANZATA (UNICA E CORRETTA) ---
 export interface CreateAdvancedLinkState {
   message: string;
   errors?: {
@@ -156,22 +156,4 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
     message: "Link creato con successo!",
     finalShortCode: shortCode
   };
-}
-
-// --- VECCHIA AZIONE DI CREAZIONE (mantenuta per sicurezza) ---
-export interface CreateLinkState { message: string; success: boolean; shortCode?: string; }
-const LinkSchema = z.object({ originalUrl: z.string().url({ message: "Per favore, inserisci un URL valido." }), });
-export async function createShortLink(prevState: CreateLinkState, formData: FormData): Promise<CreateLinkState> {
-  const session = await getSession();
-  if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
-    return { success: false, message: "Nessun workspace attivo. Selezionane uno." };
-  }
-  const { originalUrl } = LinkSchema.parse({ originalUrl: formData.get('originalUrl') });
-  const shortCode = nanoid(7);
-  await sql`
-    INSERT INTO links (user_id, workspace_id, short_code, original_url)
-    VALUES (${session.userId}, ${session.workspaceId}, ${shortCode}, ${originalUrl})
-  `;
-  revalidatePath('/dashboard');
-  return { success: true, message: 'Link creato!', shortCode };
 }
