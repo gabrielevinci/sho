@@ -8,11 +8,10 @@ type LinkFromDb = {
   original_url: string;
 }
 
-// Funzione helper per registrare il click, invariata
+// Funzione helper per registrare il click, corretta
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const referrer = request.headers.get('referer') || 'Direct';
-  // 'x-vercel-ip-country' per la geolocalizzazione
   const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
 
   const parser = new UAParser(userAgent);
@@ -22,7 +21,6 @@ async function recordClick(linkId: number, request: NextRequest) {
   const deviceType = result.device.type || 'desktop';
 
   try {
-    // Usiamo due chiamate separate per semplicità e robustezza
     await sql`
       INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
       VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName})
@@ -35,13 +33,14 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-// --- QUESTA È LA FUNZIONE CORRETTA PER UN ROUTE HANDLER ---
-// Gestisce specificamente le richieste GET a questa rotta.
+// --- QUESTA È LA FUNZIONE GET CON LA FIRMA CORRETTA ---
 export async function GET(
   request: NextRequest, 
-  { params }: { params: { shortCode: string } }
+  // Accettiamo l'oggetto 'context' per intero
+  context: { params: { shortCode: string } }
 ) {
-  const { shortCode } = params;
+  // E destrutturiamo 'shortCode' da context.params
+  const { shortCode } = context.params;
   
   try {
     const result = await sql<LinkFromDb>`
@@ -50,20 +49,15 @@ export async function GET(
     const link = result.rows[0];
 
     if (!link) {
-      // Se il link non è trovato, reindirizziamo alla home con un 404 implicito.
-      // O per essere più espliciti, si potrebbe reindirizzare a una pagina 404 custom.
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Avviamo la registrazione del click in background (fire-and-forget)
     recordClick(link.id, request);
 
-    // Eseguiamo un reindirizzamento permanente (308) all'URL originale.
     return NextResponse.redirect(new URL(link.original_url));
 
   } catch (error) {
     console.error('Redirect Error:', error);
-    // In caso di errore grave, reindirizza alla home.
     return NextResponse.redirect(new URL('/', request.url));
   }
 }
