@@ -8,7 +8,7 @@ type LinkFromDb = {
   original_url: string;
 }
 
-// Funzione helper per registrare il click, corretta
+// Funzione helper per registrare il click (invariata e corretta)
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const referrer = request.headers.get('referer') || 'Direct';
@@ -33,13 +33,19 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-// --- QUESTA È LA FUNZIONE GET CON LA FIRMA DEFINITIVA E CORRETTA ---
-export async function GET(
-  request: NextRequest,
-  // La sintassi richiesta è una destrutturazione con un tipo esplicito inline.
-  { params }: { params: { shortCode: string } }
-) {
-  const { shortCode } = params;
+// --- QUESTA È LA FUNZIONE GET CON LA FIRMA DEFINITIVA E A PROVA DI ERRORE ---
+// La funzione accetta solo l'oggetto 'request'.
+export async function GET(request: NextRequest) {
+  
+  // Deriviamo lo shortCode direttamente dall'URL della richiesta.
+  const url = new URL(request.url);
+  // url.pathname sarà ad esempio "/xyz123". Con .slice(1) otteniamo "xyz123".
+  const shortCode = url.pathname.slice(1);
+
+  // Un controllo di sicurezza nel caso in cui lo shortCode sia vuoto.
+  if (!shortCode) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
   
   try {
     const result = await sql<LinkFromDb>`
