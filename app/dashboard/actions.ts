@@ -10,48 +10,28 @@ import { revalidatePath } from 'next/cache';
 // --- AZIONI WORKSPACE (COMPLETE E FUNZIONANTI) ---
 export async function updateWorkspaceName(formData: FormData) {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.userId) {
-    throw new Error('Not authenticated');
-  }
+  if (!session.isLoggedIn || !session.userId) { throw new Error('Not authenticated'); }
   const workspaceId = formData.get('workspaceId') as string;
   const newName = formData.get('newName') as string;
-  if (!workspaceId || !newName || newName.trim().length < 2) {
-    throw new Error('Invalid data provided.');
-  }
-  await sql`
-    UPDATE workspaces
-    SET name = ${newName}
-    WHERE id = ${workspaceId} AND user_id = ${session.userId}
-  `;
+  if (!workspaceId || !newName || newName.trim().length < 2) { throw new Error('Invalid data provided.'); }
+  await sql`UPDATE workspaces SET name = ${newName} WHERE id = ${workspaceId} AND user_id = ${session.userId}`;
   revalidatePath('/dashboard');
 }
 
 export async function createWorkspace(formData: FormData) {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.userId) {
-    throw new Error('Not authenticated');
-  }
+  if (!session.isLoggedIn || !session.userId) { throw new Error('Not authenticated'); }
   const name = formData.get('name') as string;
-  if (!name || name.trim().length === 0) {
-    throw new Error('Workspace name cannot be empty');
-  }
-  await sql`
-    INSERT INTO workspaces (user_id, name) VALUES (${session.userId}, ${name})
-  `;
+  if (!name || name.trim().length === 0) { throw new Error('Workspace name cannot be empty'); }
+  await sql`INSERT INTO workspaces (user_id, name) VALUES (${session.userId}, ${name})`;
   revalidatePath('/dashboard');
 }
 
 export async function switchWorkspace(workspaceId: string) {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.userId) {
-    throw new Error('Not authenticated');
-  }
-  const { rows } = await sql`
-    SELECT id FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}
-  `;
-  if (rows.length === 0) {
-    throw new Error('Workspace not found or access denied');
-  }
+  if (!session.isLoggedIn || !session.userId) { throw new Error('Not authenticated'); }
+  const { rows } = await sql`SELECT id FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}`;
+  if (rows.length === 0) { throw new Error('Workspace not found or access denied'); }
   session.workspaceId = workspaceId; 
   await session.save();
   revalidatePath('/dashboard');
@@ -65,14 +45,10 @@ export async function logout() {
   redirect('/login');
 }
 
-// --- AZIONE DI CREAZIONE LINK AVANZATA (UNICA E CORRETTA) ---
+// --- AZIONE DI CREAZIONE LINK AVANZATA (RISCRITTA CON LOGICA CORRETTA) ---
 export interface CreateAdvancedLinkState {
   message: string;
-  errors?: {
-    originalUrl?: string;
-    shortCode?: string;
-    general?: string;
-  };
+  errors?: { originalUrl?: string; shortCode?: string; general?: string; };
   success: boolean;
   finalShortCode?: string;
 }
@@ -98,27 +74,17 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   }
   const { userId, workspaceId } = session;
 
-  const validatedFields = AdvancedLinkSchema.safeParse({
-    originalUrl: formData.get('originalUrl'),
-    shortCode: formData.get('shortCode'),
-    title: formData.get('title'),
-    description: formData.get('description'),
-    utm_source: formData.get('utm_source'),
-    utm_medium: formData.get('utm_medium'),
-    utm_campaign: formData.get('utm_campaign'),
-    utm_term: formData.get('utm_term'),
-    utm_content: formData.get('utm_content'),
-  });
+  // --- QUESTA È LA MODIFICA CHIAVE ---
+  // Convertiamo l'intero formData in un oggetto JS pulito, il modo robusto per usare Zod.
+  const rawData = Object.fromEntries(formData.entries());
+  const validatedFields = AdvancedLinkSchema.safeParse(rawData);
 
   if (!validatedFields.success) {
     const fieldErrors = validatedFields.error.flatten().fieldErrors;
     return {
       success: false,
       message: "Errore di validazione. Controlla i campi.",
-      errors: {
-        originalUrl: fieldErrors.originalUrl?.[0],
-        shortCode: fieldErrors.shortCode?.[0],
-      }
+      errors: { originalUrl: fieldErrors.originalUrl?.[0], shortCode: fieldErrors.shortCode?.[0] }
     };
   }
   
