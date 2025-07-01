@@ -7,11 +7,56 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { revalidatePath } from 'next/cache';
 
-// --- AZIONI WORKSPACE (COMPLETE E CORRETTE) ---
-export async function updateWorkspaceName(formData: FormData) { /* ... logica completa ... */ }
-export async function createWorkspace(formData: FormData) { /* ... logica completa ... */ }
-export async function switchWorkspace(workspaceId: string) { /* ... logica completa ... */ }
-// (Ho riassunto per brevità, ma il tuo file contiene la logica completa che abbiamo già corretto)
+// --- AZIONI WORKSPACE (LOGICA COMPLETA RIPRISTINATA) ---
+export async function updateWorkspaceName(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) {
+    throw new Error('Not authenticated');
+  }
+  const workspaceId = formData.get('workspaceId') as string;
+  const newName = formData.get('newName') as string;
+  if (!workspaceId || !newName || newName.trim().length < 2) {
+    throw new Error('Invalid data provided.');
+  }
+  await sql`
+    UPDATE workspaces
+    SET name = ${newName}
+    WHERE id = ${workspaceId} AND user_id = ${session.userId}
+  `;
+  revalidatePath('/dashboard');
+}
+
+export async function createWorkspace(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) {
+    throw new Error('Not authenticated');
+  }
+  const name = formData.get('name') as string;
+  if (!name || name.trim().length === 0) {
+    throw new Error('Workspace name cannot be empty');
+  }
+  await sql`
+    INSERT INTO workspaces (user_id, name) VALUES (${session.userId}, ${name})
+  `;
+  revalidatePath('/dashboard');
+}
+
+export async function switchWorkspace(workspaceId: string) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) {
+    throw new Error('Not authenticated');
+  }
+  const { rows } = await sql`
+    SELECT id FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}
+  `;
+  if (rows.length === 0) {
+    throw new Error('Workspace not found or access denied');
+  }
+  session.workspaceId = workspaceId; 
+  await session.save();
+  revalidatePath('/dashboard');
+  redirect('/dashboard');
+}
 
 // --- AZIONE LOGOUT (INVARIATA) ---
 export async function logout() {
@@ -29,7 +74,7 @@ export interface CreateAdvancedLinkState {
     general?: string;
   };
   success: boolean;
-  finalShortCode?: string; // Usiamo un nome diverso per non confondere
+  finalShortCode?: string;
 }
 
 const AdvancedLinkSchema = z.object({
@@ -56,7 +101,13 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   const validatedFields = AdvancedLinkSchema.safeParse({
     originalUrl: formData.get('originalUrl'),
     shortCode: formData.get('shortCode'),
-    // ... tutti gli altri campi
+    title: formData.get('title'),
+    description: formData.get('description'),
+    utm_source: formData.get('utm_source'),
+    utm_medium: formData.get('utm_medium'),
+    utm_campaign: formData.get('utm_campaign'),
+    utm_term: formData.get('utm_term'),
+    utm_content: formData.get('utm_content'),
   });
 
   if (!validatedFields.success) {
@@ -99,8 +150,6 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
     return { success: false, message: '', errors: { general: "Si è verificato un errore del database. Riprova." } };
   }
 
-  // --- QUESTA È LA MODIFICA CHIAVE ---
-  // Rimuoviamo il redirect e restituiamo uno stato di successo.
   revalidatePath('/dashboard');
   return {
     success: true,
