@@ -10,7 +10,7 @@ export type LinkFromDB = {
   created_at: Date;
   title: string | null;
   description: string | null;
-  click_count: number; // Aggiunto
+  click_count: number;
 };
 
 interface LinksListProps {
@@ -61,7 +61,6 @@ export default function LinksList({ links }: LinksListProps) {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <a href={fullShortUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-medium">{fullShortUrl.replace(/^https?:\/\//, '')}</a>
                 </td>
-                {/* Nuova Colonna Click */}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-bold text-center">{link.click_count}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(link.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

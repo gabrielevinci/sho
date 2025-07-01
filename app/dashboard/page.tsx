@@ -23,8 +23,7 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
   }
 }
 
-// --- MODIFICA QUI ---
-// Aggiorniamo la query per recuperare anche click_count.
+// Ripristiniamo la query corretta che include tutti i campi necessari
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
     const { rows } = await sql<LinkFromDB>`
