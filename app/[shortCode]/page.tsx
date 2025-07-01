@@ -1,14 +1,16 @@
 import { sql } from '@vercel/postgres';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import UAParser from 'ua-parser-js';
+import { UAParser } from 'ua-parser-js'; // L'import ora funzionerà
 
+// Interfaccia per le props della pagina
 interface ShortCodePageProps {
   params: {
     shortCode: string;
   };
 }
 
+// Tipo per il risultato della query al DB
 type LinkFromDb = {
   id: number;
   original_url: string;
@@ -26,18 +28,21 @@ async function recordClick(linkId: number, requestHeaders: Headers) {
   const deviceType = result.device.type || 'desktop';
 
   try {
-    await sql.begin(async (tx) => {
-      await tx`
-        INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
-        VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName})
-      `;
-      
-      await tx`
-        UPDATE links
-        SET click_count = click_count + 1
-        WHERE id = ${linkId}
-      `;
-    });
+    // CORREZIONE: Rimuoviamo la transazione .begin() e usiamo due chiamate separate.
+    // Per questo caso d'uso, è un approccio robusto e più semplice.
+    
+    // 1. Inserisci il record dettagliato del click
+    await sql`
+      INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
+      VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName})
+    `;
+    
+    // 2. Incrementa il contatore atomico
+    await sql`
+      UPDATE links
+      SET click_count = click_count + 1
+      WHERE id = ${linkId}
+    `;
   } catch (error) {
     console.error("Failed to record click, but proceeding with redirect:", error);
   }
@@ -45,7 +50,9 @@ async function recordClick(linkId: number, requestHeaders: Headers) {
 
 export default async function ShortCodePage({ params }: ShortCodePageProps) {
   const { shortCode } = params;
-  const requestHeaders = headers();
+  
+  // CORREZIONE: Usiamo 'await' per risolvere la promise degli header.
+  const requestHeaders = await headers();
   
   try {
     const result = await sql<LinkFromDb>`
@@ -57,8 +64,10 @@ export default async function ShortCodePage({ params }: ShortCodePageProps) {
       notFound();
     }
 
+    // Avviamo la registrazione del click (fire-and-forget)
     recordClick(link.id, requestHeaders);
 
+    // Reindirizziamo
     redirect(link.original_url);
 
   } catch (error) {
