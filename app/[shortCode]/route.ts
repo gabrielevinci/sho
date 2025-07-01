@@ -8,7 +8,7 @@ type LinkFromDb = {
   original_url: string;
 }
 
-// Funzione helper per registrare il click (invariata)
+// Funzione helper per registrare il click (corretta)
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const referrer = request.headers.get('referer') || 'Direct';
@@ -33,11 +33,17 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { shortCode: string } }
-) {
-  const { shortCode } = params;
+// --- QUESTA È LA FUNZIONE GET DEFINITIVA ---
+// Firma inattaccabile che usa solo 'request'.
+export async function GET(request: NextRequest) {
+  
+  // 1. Deriviamo lo shortCode direttamente dall'URL (Scoperta Corretta #2)
+  const url = new URL(request.url);
+  const shortCode = url.pathname.slice(1);
+
+  if (!shortCode) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
   
   try {
     const result = await sql<LinkFromDb>`
@@ -49,11 +55,10 @@ export async function GET(
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // --- QUESTA È LA MODIFICA CHIAVE ---
-    // Attendiamo che la registrazione del click sia completata prima di procedere.
+    // 2. Attendiamo che la registrazione sia completa (Scoperta Corretta #3)
     await recordClick(link.id, request);
 
-    // Solo dopo aver salvato i dati, reindirizziamo.
+    // 3. Eseguiamo il reindirizzamento
     return NextResponse.redirect(new URL(link.original_url));
 
   } catch (error) {
