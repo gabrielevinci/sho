@@ -33,14 +33,13 @@ async function recordClick(linkId: number, request: NextRequest) {
   }
 }
 
-// --- QUESTA È LA FUNZIONE GET CON LA FIRMA CORRETTA ---
+// --- QUESTA È LA FUNZIONE GET CON LA FIRMA DEFINITIVA E CORRETTA ---
 export async function GET(
-  request: NextRequest, 
-  // Accettiamo l'oggetto 'context' per intero
-  context: { params: { shortCode: string } }
+  request: NextRequest,
+  // La sintassi richiesta è una destrutturazione con un tipo esplicito inline.
+  { params }: { params: { shortCode: string } }
 ) {
-  // E destrutturiamo 'shortCode' da context.params
-  const { shortCode } = context.params;
+  const { shortCode } = params;
   
   try {
     const result = await sql<LinkFromDb>`
