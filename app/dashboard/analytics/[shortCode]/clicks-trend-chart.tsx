@@ -96,18 +96,65 @@ export default function ClicksTrendChart({
       return { peak: 0, average: 0, trend: 'stabile', prediction: 0, confidence: 0 };
     }
 
-    const clicks = data.map(d => d.clicks);
+    // Filtra i dati in base al filtro selezionato
+    const getFilteredData = () => {
+      const now = new Date();
+      let filteredData = [...data];
+
+      switch (filterType) {
+        case 'today':
+          const today = now.toISOString().split('T')[0];
+          filteredData = data.filter(d => d.date === today);
+          break;
+        case 'week':
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const weekAgoStr = weekAgo.toISOString().split('T')[0];
+          filteredData = data.filter(d => d.date >= weekAgoStr);
+          break;
+        case 'month':
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const monthAgoStr = monthAgo.toISOString().split('T')[0];
+          filteredData = data.filter(d => d.date >= monthAgoStr);
+          break;
+        case '3months':
+          const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
+          filteredData = data.filter(d => d.date >= threeMonthsAgoStr);
+          break;
+        case 'year':
+          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          const yearAgoStr = yearAgo.toISOString().split('T')[0];
+          filteredData = data.filter(d => d.date >= yearAgoStr);
+          break;
+        case 'custom':
+          if (dateRange?.startDate && dateRange?.endDate) {
+            filteredData = data.filter(d => 
+              d.date >= dateRange.startDate && d.date <= dateRange.endDate
+            );
+          }
+          break;
+        case 'all':
+        default:
+          // Usa tutti i dati disponibili
+          break;
+      }
+
+      return filteredData.length > 0 ? filteredData : data;
+    };
+
+    const filteredData = getFilteredData();
+    const clicks = filteredData.map(d => d.clicks);
     
-    // Calcola il picco (massimo numero di click)
+    // Calcola il picco (massimo numero di click nel periodo filtrato)
     const peak = Math.max(...clicks);
 
-    // Calcola la media dei click
+    // Calcola la media dei click nel periodo filtrato
     const totalClicks = clicks.reduce((sum, c) => sum + c, 0);
     const average = Math.round((totalClicks / clicks.length) * 100) / 100;
 
     // Algoritmo di regressione lineare con analisi della tendenza avanzata
     const n = clicks.length;
-    if (n < 3) {
+    if (n < 2) {
       return { peak, average, trend: 'stabile', prediction: Math.round(average), confidence: 0 };
     }
 
@@ -154,7 +201,7 @@ export default function ClicksTrendChart({
     }
 
     // Calcola la tendenza basata su più fattori
-    const recentPeriod = Math.min(7, Math.floor(n / 3)); // Ultimi 7 giorni o 1/3 del periodo
+    const recentPeriod = Math.min(Math.max(2, Math.floor(n / 3)), 7); // Almeno 2, massimo 7 punti
     const recentAvg = yValues.slice(-recentPeriod).reduce((sum, c) => sum + c, 0) / recentPeriod;
     const earlierAvg = yValues.slice(0, recentPeriod).reduce((sum, c) => sum + c, 0) / recentPeriod;
     const percentChange = earlierAvg !== 0 ? ((recentAvg - earlierAvg) / earlierAvg) * 100 : 0;
@@ -163,19 +210,61 @@ export default function ClicksTrendChart({
     let trend = 'stabile';
     const slopeThreshold = Math.max(0.1, average * 0.05); // Soglia dinamica basata sulla media
     
-    if (slope > slopeThreshold && percentChange > 10) {
+    if (slope > slopeThreshold && percentChange > 5) {
       trend = 'crescente';
-    } else if (slope < -slopeThreshold && percentChange < -10) {
+    } else if (slope < -slopeThreshold && percentChange < -5) {
       trend = 'decrescente';
     }
 
-    // Previsione usando combinazione di regressione lineare e media mobile
-    const linearPrediction = intercept + slope * n;
-    const emaPrediction = emaValues[emaValues.length - 1];
-    const weightedPrediction = (linearPrediction * 0.7) + (emaPrediction * 0.3);
-    
-    // Applica limiti realistici alla previsione
-    const prediction = Math.max(0, Math.round(weightedPrediction));
+    // Previsione specifica per il tipo di filtro
+    const getPredictionForFilter = () => {
+      const linearPrediction = intercept + slope * n;
+      const emaPrediction = emaValues[emaValues.length - 1];
+      const basePrediction = (linearPrediction * 0.7) + (emaPrediction * 0.3);
+
+      switch (filterType) {
+        case 'today':
+          // Previsione per le prossime ore del giorno
+          const hoursRemaining = 24 - new Date().getHours();
+          const hourlyAverage = average / 24;
+          const hourlyTrend = slope / 24;
+          return Math.max(0, Math.round(hourlyAverage * hoursRemaining + hourlyTrend * hoursRemaining));
+          
+        case 'week':
+          // Previsione per la prossima settimana
+          const weeklyTrend = slope * 7;
+          return Math.max(0, Math.round((average * 7) + weeklyTrend));
+          
+        case 'month':
+          // Previsione per il prossimo mese
+          const monthlyTrend = slope * 30;
+          return Math.max(0, Math.round((average * 30) + monthlyTrend));
+          
+        case '3months':
+          // Previsione per i prossimi 3 mesi
+          const quarterlyTrend = slope * 90;
+          return Math.max(0, Math.round((average * 90) + quarterlyTrend));
+          
+        case 'year':
+          // Previsione per il prossimo anno
+          const yearlyTrend = slope * 365;
+          return Math.max(0, Math.round((average * 365) + yearlyTrend));
+          
+        case 'custom':
+          // Previsione per un periodo equivalente a quello personalizzato
+          const customDays = filteredData.length;
+          const customTrend = slope * customDays;
+          return Math.max(0, Math.round((average * customDays) + customTrend));
+          
+        case 'all':
+        default:
+          // Previsione per il prossimo mese (default)
+          const defaultTrend = slope * 30;
+          return Math.max(0, Math.round((average * 30) + defaultTrend));
+      }
+    };
+
+    const prediction = getPredictionForFilter();
 
     return { 
       peak, 
@@ -186,6 +275,29 @@ export default function ClicksTrendChart({
       slope: Math.round(slope * 100) / 100,
       percentChange: Math.round(percentChange * 10) / 10
     };
+  };
+
+  // Funzione per ottenere il testo del tooltip della tendenza
+  const getTrendTooltip = () => {
+    const baseText = `Previsione basata su analisi statistica (${stats.confidence}% affidabilità)`;
+    
+    switch (filterType) {
+      case 'today':
+        return `${baseText} - Stima click nelle prossime ore`;
+      case 'week':
+        return `${baseText} - Stima click nella prossima settimana`;
+      case 'month':
+        return `${baseText} - Stima click nel prossimo mese`;
+      case '3months':
+        return `${baseText} - Stima click nei prossimi 3 mesi`;
+      case 'year':
+        return `${baseText} - Stima click nel prossimo anno`;
+      case 'custom':
+        return `${baseText} - Stima click nel prossimo periodo equivalente`;
+      case 'all':
+      default:
+        return `${baseText} - Stima click nel prossimo mese`;
+    }
   };
 
   const stats = calculateAdvancedStats();
@@ -283,7 +395,7 @@ export default function ClicksTrendChart({
                <Minus className="h-4 w-4" />}
               <span>{stats.prediction}</span>
             </div>
-            <div className="text-gray-500" title={`Previsione basata su analisi statistica (${stats.confidence}% affidabilità)`}>
+            <div className="text-gray-500" title={getTrendTooltip()}>
               Tendenza
             </div>
           </div>
