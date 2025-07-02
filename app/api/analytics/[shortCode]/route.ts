@@ -68,32 +68,34 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
   try {
     let query;
     if (startDate && endDate) {
+      // Per i filtri, usa il range di date specificato
       query = sql<ClickAnalytics>`
         WITH link_data AS (
           SELECT id FROM links 
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
         ),
+        filtered_clicks AS (
+          SELECT * FROM clicks c
+          JOIN link_data ld ON c.link_id = ld.id
+          WHERE clicked_at >= ${startDate}::date AND clicked_at <= ${endDate}::date + INTERVAL '1 day'
+        ),
         click_stats AS (
           SELECT 
             COUNT(*) as total_clicks,
             COUNT(DISTINCT country) as unique_countries,
-            COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month
-          FROM clicks c
-          JOIN link_data ld ON c.link_id = ld.id
-          WHERE clicked_at >= ${startDate}::date AND clicked_at <= ${endDate}::date
+            COUNT(*) as clicks_today,
+            COUNT(*) as clicks_this_week,
+            COUNT(*) as clicks_this_month
+          FROM filtered_clicks
         ),
         top_stats AS (
           SELECT 
-            (SELECT referrer FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             WHERE referrer != 'Direct' AND clicked_at >= ${startDate}::date AND clicked_at <= ${endDate}::date 
+            (SELECT referrer FROM filtered_clicks 
+             WHERE referrer != 'Direct' 
              GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-            (SELECT browser_name FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             WHERE clicked_at >= ${startDate}::date AND clicked_at <= ${endDate}::date 
+            (SELECT browser_name FROM filtered_clicks 
              GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-            (SELECT device_type FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             WHERE clicked_at >= ${startDate}::date AND clicked_at <= ${endDate}::date 
+            (SELECT device_type FROM filtered_clicks 
              GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
         )
         SELECT 
@@ -307,35 +309,72 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     const actualStartDate = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const actualEndDate = endDate || new Date().toISOString().split('T')[0];
 
-    const { rows } = await sql<TimeSeriesData>`
-      WITH date_series AS (
-        SELECT generate_series(
-          ${actualStartDate}::date,
-          ${actualEndDate}::date,
-          INTERVAL '1 day'
-        )::date AS date
-      ),
-      daily_clicks AS (
+    // Se è oggi (stessa data di inizio e fine), usa dati orari
+    const isToday = actualStartDate === actualEndDate && actualStartDate === new Date().toISOString().split('T')[0];
+
+    if (isToday) {
+      // Dati orari per oggi
+      const { rows } = await sql<TimeSeriesData>`
+        WITH hour_series AS (
+          SELECT generate_series(
+            ${actualStartDate}::date,
+            ${actualStartDate}::date + INTERVAL '23 hours',
+            INTERVAL '1 hour'
+          ) AS date
+        ),
+        hourly_clicks AS (
+          SELECT 
+            date_trunc('hour', clicked_at) as date,
+            COUNT(*) as clicks
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} 
+            AND l.workspace_id = ${workspaceId} 
+            AND l.short_code = ${shortCode}
+            AND clicked_at >= ${actualStartDate}::date
+            AND clicked_at < ${actualStartDate}::date + INTERVAL '1 day'
+          GROUP BY date_trunc('hour', clicked_at)
+        )
         SELECT 
-          clicked_at::date as date,
-          COUNT(*) as clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
-        WHERE l.user_id = ${userId} 
-          AND l.workspace_id = ${workspaceId} 
-          AND l.short_code = ${shortCode}
-          AND clicked_at >= ${actualStartDate}::date
-          AND clicked_at <= ${actualEndDate}::date
-        GROUP BY clicked_at::date
-      )
-      SELECT 
-        ds.date::text as date,
-        COALESCE(dc.clicks, 0) as clicks
-      FROM date_series ds
-      LEFT JOIN daily_clicks dc ON ds.date = dc.date
-      ORDER BY ds.date
-    `;
-    return rows;
+          hs.date::text as date,
+          COALESCE(hc.clicks, 0) as clicks
+        FROM hour_series hs
+        LEFT JOIN hourly_clicks hc ON hs.date = hc.date
+        ORDER BY hs.date
+      `;
+      return rows;
+    } else {
+      // Dati giornalieri per altri periodi
+      const { rows } = await sql<TimeSeriesData>`
+        WITH date_series AS (
+          SELECT generate_series(
+            ${actualStartDate}::date,
+            ${actualEndDate}::date,
+            INTERVAL '1 day'
+          )::date AS date
+        ),
+        daily_clicks AS (
+          SELECT 
+            clicked_at::date as date,
+            COUNT(*) as clicks
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} 
+            AND l.workspace_id = ${workspaceId} 
+            AND l.short_code = ${shortCode}
+            AND clicked_at >= ${actualStartDate}::date
+            AND clicked_at <= ${actualEndDate}::date
+          GROUP BY clicked_at::date
+        )
+        SELECT 
+          ds.date::text as date,
+          COALESCE(dc.clicks, 0) as clicks
+        FROM date_series ds
+        LEFT JOIN daily_clicks dc ON ds.date = dc.date
+        ORDER BY ds.date
+      `;
+      return rows;
+    }
   } catch (error) {
     console.error("Failed to fetch filtered time series data:", error);
     return [];

@@ -261,6 +261,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
         <ClicksTrendChart 
           data={data.timeSeriesData} 
           totalClicks={data.clickAnalytics.total_clicks}
+          filterType={currentFilter}
+          dateRange={dateRange.startDate && dateRange.endDate ? {
+            startDate: dateRange.startDate.toISOString().split('T')[0],
+            endDate: dateRange.endDate.toISOString().split('T')[0]
+          } : undefined}
         />
 
         {/* Grafici e tabelle dettagliate */}
