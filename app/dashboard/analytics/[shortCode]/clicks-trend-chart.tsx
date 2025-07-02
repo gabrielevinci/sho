@@ -1,7 +1,7 @@
 'use client';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Calendar, TrendingUp } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 type TimeSeriesData = {
   date: string;
@@ -10,9 +10,11 @@ type TimeSeriesData = {
 
 interface ClicksTrendChartProps {
   data: TimeSeriesData[];
-  totalClicks: number;
   filterType?: string;
   dateRange?: { startDate: string; endDate: string };
+  clicksToday: number;
+  clicksThisWeek: number;
+  clicksThisMonth: number;
 }
 
 // Componente personalizzato per il tooltip
@@ -53,7 +55,14 @@ const CustomTooltip = ({ active, payload, label }: {
   return null;
 };
 
-export default function ClicksTrendChart({ data, totalClicks, filterType = 'all', dateRange }: ClicksTrendChartProps) {
+export default function ClicksTrendChart({ 
+  data, 
+  filterType = 'all', 
+  dateRange,
+  clicksToday,
+  clicksThisWeek,
+  clicksThisMonth
+}: ClicksTrendChartProps) {
   
   // Funzione per generare il titolo dinamico
   const getChartTitle = () => {
@@ -97,95 +106,12 @@ export default function ClicksTrendChart({ data, totalClicks, filterType = 'all'
       month: 'short'
     });
   };
-  // Calcolo delle statistiche per la sezione header basate sul filtro attivo
-  const getStatistics = () => {
-    if (data.length === 0) {
-      return {
-        maxClicks: 0,
-        avgClicks: '0',
-        trend: 0,
-        trendLabel: 'Trend'
-      };
-    }
-
-    const maxClicks = Math.max(...data.map(d => d.clicks));
-    
-    // Calcola la media in base al periodo
-    let avgClicks = '0';
-    let trendLabel = 'Trend';
-    let trend = 0;
-
-    switch (filterType) {
-      case 'today':
-        avgClicks = (totalClicks / Math.max(data.length, 1)).toFixed(1);
-        trendLabel = 'Ultima ora';
-        // Confronta ultima ora con penultima
-        if (data.length >= 2) {
-          trend = data[data.length - 1].clicks - data[data.length - 2].clicks;
-        }
-        break;
-        
-      case 'week':
-        avgClicks = (totalClicks / 7).toFixed(1);
-        trendLabel = 'vs ieri';
-        // Confronta oggi con ieri
-        if (data.length >= 2) {
-          trend = data[data.length - 1].clicks - data[data.length - 2].clicks;
-        }
-        break;
-        
-      case 'month':
-        avgClicks = (totalClicks / 30).toFixed(1);
-        trendLabel = 'Settimana';
-        // Confronta ultima settimana con precedente
-        if (data.length >= 14) {
-          const lastWeek = data.slice(-7).reduce((sum, d) => sum + d.clicks, 0);
-          const prevWeek = data.slice(-14, -7).reduce((sum, d) => sum + d.clicks, 0);
-          trend = lastWeek - prevWeek;
-        }
-        break;
-        
-      case '3months':
-        avgClicks = (totalClicks / 90).toFixed(1);
-        trendLabel = 'Ultimo mese';
-        // Confronta ultimo mese con precedente
-        if (data.length >= 60) {
-          const lastMonth = data.slice(-30).reduce((sum, d) => sum + d.clicks, 0);
-          const prevMonth = data.slice(-60, -30).reduce((sum, d) => sum + d.clicks, 0);
-          trend = lastMonth - prevMonth;
-        }
-        break;
-        
-      case 'year':
-        avgClicks = (totalClicks / 365).toFixed(1);
-        trendLabel = 'Ultimo trim.';
-        // Confronta ultimo trimestre con precedente
-        if (data.length >= 180) {
-          const lastQuarter = data.slice(-90).reduce((sum, d) => sum + d.clicks, 0);
-          const prevQuarter = data.slice(-180, -90).reduce((sum, d) => sum + d.clicks, 0);
-          trend = lastQuarter - prevQuarter;
-        }
-        break;
-        
-      default:
-        avgClicks = data.length > 0 ? (totalClicks / data.length).toFixed(1) : '0';
-        trendLabel = 'Generale';
-        if (data.length >= 7) {
-          const recent = data.slice(-7).reduce((sum, d) => sum + d.clicks, 0);
-          const previous = data.slice(-14, -7).reduce((sum, d) => sum + d.clicks, 0);
-          trend = recent - previous;
-        }
-    }
-
-    return {
-      maxClicks,
-      avgClicks,
-      trend,
-      trendLabel
-    };
+  // Statistiche fisse indipendenti dai filtri
+  const statistics = {
+    today: clicksToday,
+    week: clicksThisWeek, 
+    month: clicksThisMonth
   };
-
-  const statistics = getStatistics();
 
   // Formattiamo i dati per far visualizzare solo alcune etichette sull'asse X
   const formattedData = data.map((item, index) => {
@@ -238,19 +164,16 @@ export default function ClicksTrendChart({ data, totalClicks, filterType = 'all'
         </div>
         <div className="flex items-center space-x-4 text-sm">
           <div className="text-center">
-            <div className="text-lg font-bold text-gray-900">{statistics.maxClicks}</div>
-            <div className="text-gray-500">Picco</div>
+            <div className="text-lg font-bold text-gray-900">{statistics.today}</div>
+            <div className="text-gray-500">Oggi</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-gray-900">{statistics.avgClicks}</div>
-            <div className="text-gray-500">Media{filterType === 'today' ? '/ora' : '/giorno'}</div>
+            <div className="text-lg font-bold text-gray-900">{statistics.week}</div>
+            <div className="text-gray-500">Ultimi 7 giorni</div>
           </div>
           <div className="text-center">
-            <div className={`text-lg font-bold flex items-center ${statistics.trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              <TrendingUp className={`h-4 w-4 mr-1 ${statistics.trend < 0 ? 'rotate-180' : ''}`} />
-              {statistics.trend >= 0 ? '+' : ''}{statistics.trend}
-            </div>
-            <div className="text-gray-500">{statistics.trendLabel}</div>
+            <div className="text-lg font-bold text-gray-900">{statistics.month}</div>
+            <div className="text-gray-500">Ultimi 30 giorni</div>
           </div>
         </div>
       </div>

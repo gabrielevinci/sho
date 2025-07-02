@@ -217,12 +217,14 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
         {/* Grafico andamento temporale */}
         <ClicksTrendChart 
           data={data.timeSeriesData} 
-          totalClicks={data.clickAnalytics.total_clicks}
           filterType={currentFilter}
           dateRange={dateRange.startDate && dateRange.endDate ? {
             startDate: dateRange.startDate.toISOString().split('T')[0],
             endDate: dateRange.endDate.toISOString().split('T')[0]
           } : undefined}
+          clicksToday={initialData.clickAnalytics.clicks_today}
+          clicksThisWeek={initialData.clickAnalytics.clicks_this_week}
+          clicksThisMonth={initialData.clickAnalytics.clicks_this_month}
         />
 
         {/* Grafici e tabelle dettagliate */}
@@ -397,34 +399,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
-        {/* Informazioni aggiuntive */}
-        {(data.clickAnalytics.top_referrer || data.clickAnalytics.most_used_browser || data.clickAnalytics.most_used_device) && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Statistiche Principali</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {data.clickAnalytics.top_referrer && (
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Sorgente Principale</div>
-                  <div className="text-lg font-semibold text-gray-900 truncate">
-                    {data.clickAnalytics.top_referrer === 'Direct' ? 'Diretto' : data.clickAnalytics.top_referrer}
-                  </div>
-                </div>
-              )}
-              {data.clickAnalytics.most_used_browser && (
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Browser Principale</div>
-                  <div className="text-lg font-semibold text-gray-900">{data.clickAnalytics.most_used_browser}</div>
-                </div>
-              )}
-              {data.clickAnalytics.most_used_device && (
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Dispositivo Principale</div>
-                  <div className="text-lg font-semibold text-gray-900 capitalize">{data.clickAnalytics.most_used_device}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
