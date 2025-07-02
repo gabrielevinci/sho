@@ -218,10 +218,6 @@ export default function ClicksTrendChart({
 
     // Previsione specifica per il tipo di filtro
     const getPredictionForFilter = () => {
-      const linearPrediction = intercept + slope * n;
-      const emaPrediction = emaValues[emaValues.length - 1];
-      const basePrediction = (linearPrediction * 0.7) + (emaPrediction * 0.3);
-
       switch (filterType) {
         case 'today':
           // Previsione per le prossime ore del giorno
