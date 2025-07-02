@@ -18,6 +18,7 @@ type LinkAnalytics = {
 
 type ClickAnalytics = {
   total_clicks: number;
+  unique_clicks: number;
   unique_countries: number;
   top_referrer: string | null;
   most_used_browser: string | null;
@@ -223,7 +224,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             endDate: dateRange.endDate.toISOString().split('T')[0]
           } : undefined}
           totalClicks={initialData.clickAnalytics.total_clicks}
-          uniqueClicks={initialData.clickAnalytics.unique_countries} // Placeholder - dovrebbe essere unique clicks
+          uniqueClicks={initialData.clickAnalytics.unique_clicks} // Ora usa i click univoci reali
           totalReferrers={initialData.referrerData.length}
           totalDevices={initialData.deviceData.length}
           totalCountries={initialData.geographicData.length}

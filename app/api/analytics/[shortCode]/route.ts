@@ -14,6 +14,7 @@ type LinkAnalytics = {
 
 type ClickAnalytics = {
   total_clicks: number;
+  unique_clicks: number;        // Nuovo: click univoci reali basati su user_fingerprint
   unique_countries: number;
   top_referrer: string | null;
   most_used_browser: string | null;
@@ -82,6 +83,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         click_stats AS (
           SELECT 
             COUNT(*) as total_clicks,
+            COUNT(DISTINCT user_fingerprint) as unique_clicks,
             COUNT(DISTINCT country) as unique_countries,
             COUNT(*) as clicks_today,
             COUNT(*) as clicks_this_week,
@@ -100,6 +102,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         )
         SELECT 
           cs.total_clicks,
+          cs.unique_clicks,
           cs.unique_countries,
           ts.top_referrer,
           ts.most_used_browser,
@@ -118,6 +121,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         click_stats AS (
           SELECT 
             COUNT(*) as total_clicks,
+            COUNT(DISTINCT user_fingerprint) as unique_clicks,
             COUNT(DISTINCT country) as unique_countries,
             COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
             COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
@@ -136,6 +140,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         )
         SELECT 
           cs.total_clicks,
+          cs.unique_clicks,
           cs.unique_countries,
           ts.top_referrer,
           ts.most_used_browser,
@@ -150,6 +155,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
     const { rows } = await query;
     return rows[0] || {
       total_clicks: 0,
+      unique_clicks: 0,
       unique_countries: 0,
       top_referrer: null,
       most_used_browser: null,
@@ -162,6 +168,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
     console.error("Failed to fetch filtered click analytics:", error);
     return {
       total_clicks: 0,
+      unique_clicks: 0,
       unique_countries: 0,
       top_referrer: null,
       most_used_browser: null,

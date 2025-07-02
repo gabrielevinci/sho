@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { UAParser } from 'ua-parser-js';
+import { createHash } from 'crypto';
 
 // Tipo per il risultato della query al DB
 type LinkFromDb = {
@@ -8,7 +9,34 @@ type LinkFromDb = {
   original_url: string;
 }
 
-// Funzione helper per registrare il click (corretta)
+// Funzione helper per generare un fingerprint unico dell'utente
+function generateUserFingerprint(request: NextRequest, browserName: string, osName: string, deviceType: string): string {
+  const acceptLanguage = request.headers.get('accept-language') || '';
+  const acceptEncoding = request.headers.get('accept-encoding') || '';
+  
+  // Ottieni l'IP dall'header appropriato (Vercel usa x-forwarded-for)
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const realIp = request.headers.get('x-real-ip');
+  const ip = forwardedFor?.split(',')[0] || realIp || 'unknown';
+  
+  // Crea un hash dell'IP per privacy (non salviamo l'IP diretto)
+  const ipHash = createHash('sha256').update(ip).digest('hex').substring(0, 8);
+  
+  // Combina diversi elementi per creare un fingerprint unico ma rispettoso della privacy
+  const fingerprintData = [
+    ipHash,
+    browserName,
+    osName, 
+    deviceType,
+    acceptLanguage?.substring(0, 10) || '', // Primi caratteri della lingua
+    acceptEncoding?.substring(0, 20) || ''  // Primi caratteri dell'encoding
+  ].join('|');
+  
+  // Genera il fingerprint finale
+  return createHash('md5').update(fingerprintData).digest('hex').substring(0, 16);
+}
+
+// Funzione helper per registrare il click (aggiornata con fingerprint)
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const referrer = request.headers.get('referer') || 'Direct';
@@ -20,10 +48,13 @@ async function recordClick(linkId: number, request: NextRequest) {
   const osName = result.os.name || 'Unknown';
   const deviceType = result.device.type || 'desktop';
 
+  // Genera il fingerprint unico per questo utente
+  const userFingerprint = generateUserFingerprint(request, browserName, osName, deviceType);
+
   try {
     await sql`
-      INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name)
-      VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName})
+      INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name, user_fingerprint)
+      VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName}, ${userFingerprint})
     `;
     await sql`
       UPDATE links SET click_count = click_count + 1 WHERE id = ${linkId}
