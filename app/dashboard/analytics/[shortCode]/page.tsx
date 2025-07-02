@@ -47,7 +47,8 @@ type ReferrerData = {
 
 type TimeSeriesData = {
   date: string;
-  clicks: number;
+  total_clicks: number;
+  unique_clicks: number;
 };
 
 // Funzione per ottenere i dati del link
@@ -221,7 +222,8 @@ async function getTimeSeriesData(userId: string, workspaceId: string, shortCode:
       daily_clicks AS (
         SELECT 
           clicked_at::date as date,
-          COUNT(*) as clicks
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT user_fingerprint) as unique_clicks
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} 
@@ -232,7 +234,8 @@ async function getTimeSeriesData(userId: string, workspaceId: string, shortCode:
       )
       SELECT 
         ds.date::text as date,
-        COALESCE(dc.clicks, 0) as clicks
+        COALESCE(dc.total_clicks, 0) as total_clicks,
+        COALESCE(dc.unique_clicks, 0) as unique_clicks
       FROM date_series ds
       LEFT JOIN daily_clicks dc ON ds.date = dc.date
       ORDER BY ds.date

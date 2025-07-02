@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
-import ClicksTrendChart from './clicks-trend-chart';
+import ClicksTrendChartDual from './clicks-trend-chart-dual';
 import AnalyticsFilters, { DateFilter, DateRange } from './analytics-filters';
 
 // Tipi per i dati delle statistiche
@@ -50,7 +50,8 @@ type ReferrerData = {
 
 type TimeSeriesData = {
   date: string;
-  clicks: number;
+  total_clicks: number;
+  unique_clicks: number;
 };
 
 interface AnalyticsData {
@@ -119,7 +120,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     try {
       const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
       
-      const response = await fetch(`/api/analytics/${shortCode}?startDate=${startDate}&endDate=${endDate}`);
+      const response = await fetch(`/api/analytics/${shortCode}?startDate=${startDate}&endDate=${endDate}&filterType=${filter}`);
       if (response.ok) {
         const filteredData = await response.json();
         setData(filteredData);
@@ -215,19 +216,12 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
-        {/* Grafico andamento temporale - usa sempre i dati originali, non filtrati */}
-        <ClicksTrendChart 
-          data={initialData.timeSeriesData} 
+        {/* Grafico andamento temporale - usa sempre i dati filtrati */}
+        <ClicksTrendChartDual 
+          data={data.timeSeriesData} 
           filterType={currentFilter}
-          dateRange={dateRange.startDate && dateRange.endDate ? {
-            startDate: dateRange.startDate.toISOString().split('T')[0],
-            endDate: dateRange.endDate.toISOString().split('T')[0]
-          } : undefined}
-          totalClicks={initialData.clickAnalytics.total_clicks}
-          uniqueClicks={initialData.clickAnalytics.unique_clicks} // Ora usa i click univoci reali
-          totalReferrers={initialData.referrerData.length}
-          totalDevices={initialData.deviceData.length}
-          totalCountries={initialData.geographicData.length}
+          totalClicks={data.clickAnalytics.total_clicks}
+          uniqueClicks={data.clickAnalytics.unique_clicks}
         />
 
         {/* Grafici e tabelle dettagliate */}

@@ -46,7 +46,8 @@ type ReferrerData = {
 
 type TimeSeriesData = {
   date: string;
-  clicks: number;
+  total_clicks: number;
+  unique_clicks: number;
 };
 
 // Funzioni per ottenere i dati filtrati
@@ -310,41 +311,89 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
   }
 }
 
-async function getFilteredTimeSeriesData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string): Promise<TimeSeriesData[]> {
+async function getFilteredTimeSeriesData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<TimeSeriesData[]> {
   try {
-    // Se non ci sono date specifiche, usa gli ultimi 30 giorni
+    // Gestione del filtro "all" (sempre)
+    if (filterType === 'all' || (!startDate && !endDate)) {
+      // Per "sempre", ottieni tutti i dati giornalieri
+      const { rows } = await sql<TimeSeriesData>`
+        WITH first_click AS (
+          SELECT MIN(clicked_at::date) as min_date
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} 
+            AND l.workspace_id = ${workspaceId} 
+            AND l.short_code = ${shortCode}
+        ),
+        date_series AS (
+          SELECT generate_series(
+            COALESCE((SELECT min_date FROM first_click), CURRENT_DATE),
+            CURRENT_DATE,
+            INTERVAL '1 day'
+          )::date AS date
+        ),
+        daily_clicks AS (
+          SELECT 
+            clicked_at::date as date,
+            COUNT(*) as total_clicks,
+            COUNT(DISTINCT user_fingerprint) as unique_clicks
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} 
+            AND l.workspace_id = ${workspaceId} 
+            AND l.short_code = ${shortCode}
+          GROUP BY clicked_at::date
+        )
+        SELECT 
+          ds.date::text as date,
+          COALESCE(dc.total_clicks, 0) as total_clicks,
+          COALESCE(dc.unique_clicks, 0) as unique_clicks
+        FROM date_series ds
+        LEFT JOIN daily_clicks dc ON ds.date = dc.date
+        ORDER BY ds.date
+      `;
+      return rows;
+    }
+
+    // Se non ci sono date specifiche ma non è "all", usa gli ultimi 30 giorni
     const actualStartDate = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const actualEndDate = endDate || new Date().toISOString().split('T')[0];
 
-    // Se è oggi (stessa data di inizio e fine), usa dati orari
-    const isToday = actualStartDate === actualEndDate && actualStartDate === new Date().toISOString().split('T')[0];
+    // Determina se usare dati orari basandosi sul filtro o sulla differenza di date
+    const startDateObj = new Date(actualStartDate);
+    const endDateObj = new Date(actualEndDate);
+    const daysDiff = Math.floor((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Usa dati orari se è "today" o se è lo stesso giorno
+    const useHourlyData = filterType === 'today' || daysDiff === 0;
 
-    if (isToday) {
-      // Dati orari per oggi
+    if (useHourlyData) {
+      // Dati orari per oggi (ultime 24 ore)
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
           SELECT generate_series(
-            ${actualStartDate}::date,
-            ${actualStartDate}::date + INTERVAL '23 hours',
+            CURRENT_TIMESTAMP - INTERVAL '23 hours',
+            CURRENT_TIMESTAMP,
             INTERVAL '1 hour'
           ) AS date
         ),
         hourly_clicks AS (
           SELECT 
             date_trunc('hour', clicked_at) as date,
-            COUNT(*) as clicks
+            COUNT(*) as total_clicks,
+            COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
           JOIN links l ON c.link_id = l.id
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at >= ${actualStartDate}::date
-            AND clicked_at < ${actualStartDate}::date + INTERVAL '1 day'
+            AND clicked_at >= CURRENT_TIMESTAMP - INTERVAL '23 hours'
           GROUP BY date_trunc('hour', clicked_at)
         )
         SELECT 
           hs.date::text as date,
-          COALESCE(hc.clicks, 0) as clicks
+          COALESCE(hc.total_clicks, 0) as total_clicks,
+          COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
         LEFT JOIN hourly_clicks hc ON hs.date = hc.date
         ORDER BY hs.date
@@ -363,7 +412,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         daily_clicks AS (
           SELECT 
             clicked_at::date as date,
-            COUNT(*) as clicks
+            COUNT(*) as total_clicks,
+            COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
           JOIN links l ON c.link_id = l.id
           WHERE l.user_id = ${userId} 
@@ -375,7 +425,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         )
         SELECT 
           ds.date::text as date,
-          COALESCE(dc.clicks, 0) as clicks
+          COALESCE(dc.total_clicks, 0) as total_clicks,
+          COALESCE(dc.unique_clicks, 0) as unique_clicks
         FROM date_series ds
         LEFT JOIN daily_clicks dc ON ds.date = dc.date
         ORDER BY ds.date
@@ -403,6 +454,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
+    const filterType = searchParams.get('filterType') || undefined;
 
     // Otteniamo tutti i dati filtrati in parallelo
     const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData] = await Promise.all([
@@ -412,7 +464,7 @@ export async function GET(
       getFilteredDeviceData(session.userId, session.workspaceId, shortCode, startDate, endDate),
       getFilteredBrowserData(session.userId, session.workspaceId, shortCode, startDate, endDate),
       getFilteredReferrerData(session.userId, session.workspaceId, shortCode, startDate, endDate),
-      getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate)
+      getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType)
     ]);
 
     if (!linkData) {
