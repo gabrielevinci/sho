@@ -152,8 +152,10 @@ export default function ClicksTrendChart({
     const getAverageForFilter = () => {
       switch (filterType) {
         case 'today':
-          // Media oraria per oggi
-          const todayClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          // Media oraria per oggi: click del giorno corrente / 24 ore
+          const todayStr = new Date().toISOString().split('T')[0];
+          const todayData = data.filter(d => d.date === todayStr);
+          const todayClicks = todayData.reduce((sum, d) => sum + d.clicks, 0);
           return Math.round((todayClicks / 24) * 100) / 100;
           
         case 'week':
@@ -187,8 +189,8 @@ export default function ClicksTrendChart({
           // Click totali / (data di oggi - data di creazione del primo link)
           const totalClicks = data.reduce((sum, d) => sum + d.clicks, 0);
           const firstDate = new Date(data[0]?.date || new Date());
-          const today = new Date();
-          const daysDiff = Math.max(1, Math.ceil((today.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)));
+          const currentDate = new Date();
+          const daysDiff = Math.max(1, Math.ceil((currentDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)));
           return Math.round((totalClicks / daysDiff) * 100) / 100;
       }
     };
