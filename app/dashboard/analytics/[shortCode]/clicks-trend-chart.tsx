@@ -15,6 +15,12 @@ interface ClicksTrendChartProps {
   clicksToday: number;
   clicksThisWeek: number;
   clicksThisMonth: number;
+  // Dati aggiuntivi per le statistiche generali
+  totalClicks: number;
+  uniqueClicks: number;
+  totalReferrers: number;
+  totalDevices: number;
+  totalCountries: number;
 }
 
 // Componente personalizzato per il tooltip
@@ -61,7 +67,12 @@ export default function ClicksTrendChart({
   dateRange,
   clicksToday,
   clicksThisWeek,
-  clicksThisMonth
+  clicksThisMonth,
+  totalClicks = 0,
+  uniqueClicks = 0,
+  totalReferrers = 0,
+  totalDevices = 0,
+  totalCountries = 0
 }: ClicksTrendChartProps) {
   
   // Funzione per generare il titolo dinamico basato sul filtro attuale
@@ -406,7 +417,47 @@ export default function ClicksTrendChart({
   });
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="space-y-6">
+      {/* Blocco statistiche generali */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          📊 Panoramica Generale
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
+            <div className="text-2xl mb-2">🎯</div>
+            <div className="text-2xl font-bold text-blue-600">{totalClicks.toLocaleString()}</div>
+            <div className="text-sm text-gray-600 font-medium">Click Totali</div>
+          </div>
+          
+          <div className="text-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
+            <div className="text-2xl mb-2">👥</div>
+            <div className="text-2xl font-bold text-green-600">{uniqueClicks.toLocaleString()}</div>
+            <div className="text-sm text-gray-600 font-medium">Click Univoci</div>
+          </div>
+          
+          <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg">
+            <div className="text-2xl mb-2">🔗</div>
+            <div className="text-2xl font-bold text-orange-600">{totalReferrers}</div>
+            <div className="text-sm text-gray-600 font-medium">Sorgenti Traffico</div>
+          </div>
+          
+          <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg">
+            <div className="text-2xl mb-2">📱</div>
+            <div className="text-2xl font-bold text-purple-600">{totalDevices}</div>
+            <div className="text-sm text-gray-600 font-medium">Dispositivi</div>
+          </div>
+          
+          <div className="text-center p-4 bg-gradient-to-r from-teal-50 to-teal-100 rounded-lg">
+            <div className="text-2xl mb-2">🌍</div>
+            <div className="text-2xl font-bold text-teal-600">{totalCountries}</div>
+            <div className="text-sm text-gray-600 font-medium">Paesi</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grafico andamento temporale */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Header della sezione */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
@@ -511,6 +562,7 @@ export default function ClicksTrendChart({
         )}
       </div>
 
+    </div>
     </div>
   );
 }
