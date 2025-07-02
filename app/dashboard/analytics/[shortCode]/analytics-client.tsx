@@ -222,9 +222,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             startDate: dateRange.startDate.toISOString().split('T')[0],
             endDate: dateRange.endDate.toISOString().split('T')[0]
           } : undefined}
-          clicksToday={initialData.clickAnalytics.clicks_today}
-          clicksThisWeek={initialData.clickAnalytics.clicks_this_week}
-          clicksThisMonth={initialData.clickAnalytics.clicks_this_month}
           totalClicks={initialData.clickAnalytics.total_clicks}
           uniqueClicks={initialData.clickAnalytics.unique_countries} // Placeholder - dovrebbe essere unique clicks
           totalReferrers={initialData.referrerData.length}

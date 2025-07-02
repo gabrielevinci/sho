@@ -12,9 +12,6 @@ interface ClicksTrendChartProps {
   data: TimeSeriesData[];
   filterType?: string;
   dateRange?: { startDate: string; endDate: string };
-  clicksToday: number;
-  clicksThisWeek: number;
-  clicksThisMonth: number;
   // Dati aggiuntivi per le statistiche generali
   totalClicks: number;
   uniqueClicks: number;
@@ -65,9 +62,6 @@ export default function ClicksTrendChart({
   data, 
   filterType = 'all', 
   dateRange,
-  clicksToday,
-  clicksThisWeek,
-  clicksThisMonth,
   totalClicks = 0,
   uniqueClicks = 0,
   totalReferrers = 0,
@@ -370,12 +364,7 @@ export default function ClicksTrendChart({
       month: 'short'
     });
   };
-  // Statistiche fisse indipendenti dai filtri
-  const statistics = {
-    today: clicksToday,
-    week: clicksThisWeek, 
-    month: clicksThisMonth
-  };
+
 
   // Formattiamo i dati per far visualizzare solo alcune etichette sull'asse X
   const formattedData = data.map((item, index) => {
@@ -491,21 +480,7 @@ export default function ClicksTrendChart({
               Tendenza
             </div>
           </div>
-          {/* Statistiche periodo fisse */}
-          <div className="border-l border-gray-200 pl-6 flex items-center space-x-4">
-            <div className="text-center">
-              <div className="text-lg font-bold text-gray-900">{statistics.today}</div>
-              <div className="text-gray-500">Oggi</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold text-gray-900">{statistics.week}</div>
-              <div className="text-gray-500">Ultimi 7 giorni</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold text-gray-900">{statistics.month}</div>
-              <div className="text-gray-500">Ultimi 30 giorni</div>
-            </div>
-          </div>
+
         </div>
       </div>
 
