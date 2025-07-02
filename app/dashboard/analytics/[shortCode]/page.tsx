@@ -17,6 +17,8 @@ type ClickAnalytics = {
   total_clicks: number;
   unique_clicks: number;
   unique_countries: number;
+  unique_referrers: number;
+  unique_devices: number;
   top_referrer: string | null;
   most_used_browser: string | null;
   most_used_device: string | null;
@@ -80,6 +82,8 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
           COUNT(*) as total_clicks,
           COUNT(DISTINCT user_fingerprint) as unique_clicks,
           COUNT(DISTINCT country) as unique_countries,
+          COUNT(DISTINCT referrer) as unique_referrers,
+          COUNT(DISTINCT device_type) as unique_devices,
           COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
           COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
           COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month
@@ -99,6 +103,8 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
         cs.total_clicks,
         cs.unique_clicks,
         cs.unique_countries,
+        cs.unique_referrers,
+        cs.unique_devices,
         ts.top_referrer,
         ts.most_used_browser,
         ts.most_used_device,
@@ -109,7 +115,10 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
     `;
     return rows[0] || {
       total_clicks: 0,
+      unique_clicks: 0,
       unique_countries: 0,
+      unique_referrers: 0,
+      unique_devices: 0,
       top_referrer: null,
       most_used_browser: null,
       most_used_device: null,
@@ -123,6 +132,8 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
       total_clicks: 0,
       unique_clicks: 0,
       unique_countries: 0,
+      unique_referrers: 0,
+      unique_devices: 0,
       top_referrer: null,
       most_used_browser: null,
       most_used_device: null,

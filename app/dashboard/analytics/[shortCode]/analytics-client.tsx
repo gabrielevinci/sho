@@ -20,6 +20,8 @@ type ClickAnalytics = {
   total_clicks: number;
   unique_clicks: number;
   unique_countries: number;
+  unique_referrers: number;
+  unique_devices: number;
   top_referrer: string | null;
   most_used_browser: string | null;
   most_used_device: string | null;
@@ -167,6 +169,76 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           dateRange={dateRange}
           onFilterChange={handleFilterChange}
         />
+
+        {/* Statistiche di base */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2 text-indigo-600" />
+            Statistiche Generali
+          </h2>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Click totali */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-blue-600 text-2xl">🚀</div>
+                <div className="text-xs text-blue-600 font-medium uppercase tracking-wide">Totali</div>
+              </div>
+              <div className="text-2xl font-bold text-blue-900 mb-1">
+                {data.clickAnalytics.total_clicks.toLocaleString('it-IT')}
+              </div>
+              <div className="text-sm text-blue-700">Click totali</div>
+            </div>
+
+            {/* Click univoci */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-green-600 text-2xl">👥</div>
+                <div className="text-xs text-green-600 font-medium uppercase tracking-wide">Univoci</div>
+              </div>
+              <div className="text-2xl font-bold text-green-900 mb-1">
+                {data.clickAnalytics.unique_clicks.toLocaleString('it-IT')}
+              </div>
+              <div className="text-sm text-green-700">Click univoci</div>
+            </div>
+
+            {/* Origini/Referrer */}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-purple-600 text-2xl">🌐</div>
+                <div className="text-xs text-purple-600 font-medium uppercase tracking-wide">Origini</div>
+              </div>
+              <div className="text-2xl font-bold text-purple-900 mb-1">
+                {data.clickAnalytics.unique_referrers}
+              </div>
+              <div className="text-sm text-purple-700">Sorgenti dati</div>
+            </div>
+
+            {/* Dispositivi */}
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-orange-600 text-2xl">📱</div>
+                <div className="text-xs text-orange-600 font-medium uppercase tracking-wide">Device</div>
+              </div>
+              <div className="text-2xl font-bold text-orange-900 mb-1">
+                {data.clickAnalytics.unique_devices}
+              </div>
+              <div className="text-sm text-orange-700">Dispositivi</div>
+            </div>
+
+            {/* Paesi */}
+            <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-4 border border-teal-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-teal-600 text-2xl">🗺️</div>
+                <div className="text-xs text-teal-600 font-medium uppercase tracking-wide">Global</div>
+              </div>
+              <div className="text-2xl font-bold text-teal-900 mb-1">
+                {data.clickAnalytics.unique_countries}
+              </div>
+              <div className="text-sm text-teal-700">Paesi</div>
+            </div>
+          </div>
+        </div>
 
         {/* Intestazione del link */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
