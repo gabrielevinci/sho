@@ -294,8 +294,9 @@ export default function ClicksTrendChart({
           // Usa tutti i dati disponibili con validazione
           result = data.filter(d => d?.date && typeof d.clicks === 'number');
           break;
-      }    } catch {
-      console.error('Error in filteredData');
+      }
+    } catch (e) {
+      console.error('Error in filteredData:', e);
       // Fallback: ritorna i dati validi se possibile
       return data.filter(d => d?.date && typeof d.clicks === 'number');
     }
@@ -339,8 +340,8 @@ export default function ClicksTrendChart({
       }
       
       return last24Hours;
-    } catch {
-      console.error('Error in hourlyData');
+    } catch (e) {
+      console.error('Error in hourlyData:', e);
       return [];
     }
   }, [data]);
@@ -594,10 +595,12 @@ export default function ClicksTrendChart({
               });
               break;
           }
-        }    } catch {
-      // Fallback formattazione
-      formattedLabel = date.toLocaleDateString('it-IT');
-    }
+        }
+      } catch (e) {
+        console.error('Error formatting date for tooltip:', e);
+        // Fallback formattazione
+        formattedLabel = date.toLocaleDateString('it-IT');
+      }
 
       return (
         <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
@@ -678,11 +681,11 @@ export default function ClicksTrendChart({
             });
         }
       }
-    } catch {
-      console.error('Error in formatAxisLabel');
+    } catch (e) {
+      console.error('Error in formatAxisLabel:', e);
       return dateString;
     }
-  }, [filterType, chartData]);
+  }, [filterType, dateRange, chartData?.length]);
 
   // Formattiamo i dati per l'asse X con logica adattiva e tipo sicuro
   const formattedData = useMemo(() => {
@@ -826,6 +829,7 @@ export default function ClicksTrendChart({
               Tendenza
             </div>
           </div>
+
         </div>
       </div>
 

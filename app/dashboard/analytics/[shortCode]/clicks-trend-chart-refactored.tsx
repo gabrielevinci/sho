@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -294,8 +294,9 @@ export default function ClicksTrendChart({
           // Usa tutti i dati disponibili con validazione
           result = data.filter(d => d?.date && typeof d.clicks === 'number');
           break;
-      }    } catch {
-      console.error('Error in filteredData');
+      }
+    } catch (e) {
+      console.error('Error in filteredData:', e);
       // Fallback: ritorna i dati validi se possibile
       return data.filter(d => d?.date && typeof d.clicks === 'number');
     }
@@ -307,7 +308,7 @@ export default function ClicksTrendChart({
   const hourlyData = useMemo(() => {
     try {
       const now = new Date();
-      const last24Hours: HourlyData[] = [];
+      const last24Hours = [];
       
       // Genera le 24 ore precedenti con gestione robusta
       for (let i = 23; i >= 0; i--) {
@@ -339,8 +340,8 @@ export default function ClicksTrendChart({
       }
       
       return last24Hours;
-    } catch {
-      console.error('Error in hourlyData');
+    } catch (e) {
+      console.error('Error in hourlyData:', e);
       return [];
     }
   }, [data]);
@@ -477,7 +478,7 @@ export default function ClicksTrendChart({
   }, [chartData, filterType]);
 
   // Funzione per generare il titolo del grafico dinamico
-  const getChartTitle = () => {
+  const getChartTitle = useMemo(() => {
     switch (filterType) {
       case 'today':
         return 'Andamento Temporale (Ultime 24 Ore)';
@@ -504,10 +505,10 @@ export default function ClicksTrendChart({
       default:
         return 'Andamento Temporale (Tutti i Dati)';
     }
-  };
+  }, [filterType, dateRange]);
 
   // Tooltip dinamico per la tendenza con validazione
-  const getTrendTooltip = () => {
+  const getTrendTooltip = useMemo(() => {
     try {
       const baseText = `Previsione basata su analisi statistica (${stats.confidence}% affidabilità)`;
       
@@ -531,158 +532,160 @@ export default function ClicksTrendChart({
     } catch {
       return 'Previsione basata su analisi statistica';
     }
-  };
+  }, [filterType, stats.confidence]);
   
   // Componente personalizzato per il tooltip con gestione date robusta
-  const CustomTooltip = ({ active, payload, label }: {
-    active?: boolean;
-    payload?: Array<{ value: number }>;
-    label?: string;
-  }) => {
-    if (!(active && payload && payload.length && label)) {
-      return null;
-    }
-    
-    try {
-      // Trova il dato originale per ottenere la data completa con gestione errori
-      const originalItem = chartData.find((item: ChartDataItem) => item.date === label);
-      if (!originalItem) return null;
-
-      // Formatta la label in base al filtro attivo usando DateUtils per robustezza
-      const date = DateUtils.parseDate(originalItem.date);
-      let formattedLabel = '';
+  const CustomTooltip = useMemo(() => {
+    return ({ active, payload, label }: {active?: boolean, payload?: Array<{value: number, name: string, dataKey: string, payload: Record<string, unknown>}>, label?: string | number}) => {
+      if (!(active && payload && payload.length && label)) {
+        return null;
+      }
       
       try {
-        if (filterType === 'today') {
-          formattedLabel = date.toLocaleString('it-IT', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            day: '2-digit',
-            month: 'short',
-            weekday: 'short'
-          });
-        } else {
-          switch (filterType) {
-            case 'week':
-              formattedLabel = date.toLocaleDateString('it-IT', { 
-                weekday: 'long',
-                day: '2-digit', 
-                month: 'long'
-              });
-              break;
-            case 'month':
-            case '3months':
-              formattedLabel = date.toLocaleDateString('it-IT', { 
-                day: '2-digit', 
-                month: 'long',
-                year: 'numeric'
-              });
-              break;
-            case 'year':
-              formattedLabel = date.toLocaleDateString('it-IT', { 
-                month: 'long',
-                year: 'numeric'
-              });
-              break;
-            case 'custom':
-            case 'all':
-            default:
-              formattedLabel = date.toLocaleDateString('it-IT', { 
-                day: '2-digit', 
-                month: 'long',
-                year: 'numeric'
-              });
-              break;
-          }
-        }    } catch {
-      // Fallback formattazione
-      formattedLabel = date.toLocaleDateString('it-IT');
-    }
+        // Trova il dato originale per ottenere la data completa con gestione errori
+        const originalItem = chartData.find((item: ChartDataItem) => item.date === label);
+        if (!originalItem) return null;
 
-      return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800 mb-2">
-            {formattedLabel}
-          </p>
-          <p className="text-blue-600">
-            <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-            Click: <span className="font-semibold">{payload[0].value}</span>
-          </p>
-        </div>
-      );
-    } catch (e) {
-      console.error('Error in CustomTooltip:', e);
-      return null;
-    }
-  };
+        // Formatta la label in base al filtro attivo usando DateUtils per robustezza
+        const date = DateUtils.parseDate(originalItem.date);
+        let formattedLabel = '';
+        
+        try {
+          if (filterType === 'today') {
+            formattedLabel = date.toLocaleString('it-IT', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              day: '2-digit',
+              month: 'short',
+              weekday: 'short'
+            });
+          } else {
+            switch (filterType) {
+              case 'week':
+                formattedLabel = date.toLocaleDateString('it-IT', { 
+                  weekday: 'long',
+                  day: '2-digit', 
+                  month: 'long'
+                });
+                break;
+              case 'month':
+              case '3months':
+                formattedLabel = date.toLocaleDateString('it-IT', { 
+                  day: '2-digit', 
+                  month: 'long',
+                  year: 'numeric'
+                });
+                break;
+              case 'year':
+                formattedLabel = date.toLocaleDateString('it-IT', { 
+                  month: 'long',
+                  year: 'numeric'
+                });
+                break;
+              case 'custom':
+              case 'all':
+              default:
+                formattedLabel = date.toLocaleDateString('it-IT', { 
+                  day: '2-digit', 
+                  month: 'long',
+                  year: 'numeric'
+                });
+                break;
+            }
+          }
+        } catch (e) {
+          console.error('Error formatting date for tooltip:', e);
+          // Fallback formattazione
+          formattedLabel = date.toLocaleDateString('it-IT');
+        }
+
+        return (
+          <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+            <p className="font-semibold text-gray-800 mb-2">
+              {formattedLabel}
+            </p>
+            <p className="text-blue-600">
+              <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+              Click: <span className="font-semibold">{payload[0].value}</span>
+            </p>
+          </div>
+        );
+      } catch (e) {
+        console.error('Error in CustomTooltip:', e);
+        return null;
+      }
+    };
+  }, [chartData, filterType]);
 
   // Formatta le etichette dell'asse X in base al tipo di dato
-  const formatAxisLabel = useCallback((dateString: string, itemData?: ChartDataItem) => {
-    try {
-      const date = DateUtils.parseDate(dateString);
-      
-      if (filterType === 'today') {
-        // Per "oggi", usa le ore dal campo displayHour se disponibile
-        const hourlyData = itemData as HourlyData;
-        return hourlyData?.displayHour || date.toLocaleTimeString('it-IT', { 
-          hour: '2-digit', 
-          minute: '2-digit'
-        });
-      } else {
-        // Per tutti gli altri filtri, usa i giorni con formattazione appropriata
-        switch (filterType) {
-          case 'week':
-            return date.toLocaleDateString('it-IT', { 
-              weekday: 'short',
-              day: '2-digit'
-            });
-          case 'month':
-            return date.toLocaleDateString('it-IT', { 
-              day: '2-digit', 
-              month: 'short'
-            });
-          case '3months':
-            return date.toLocaleDateString('it-IT', { 
-              day: '2-digit', 
-              month: 'short'
-            });
-          case 'year':
-            return date.toLocaleDateString('it-IT', { 
-              month: 'short',
-              year: '2-digit'
-            });
-          case 'custom': {
-            const customDataLength = chartData.length;
-            if (customDataLength <= 7) {
+  const formatAxisLabel = useMemo(() => {
+    return (dateString: string, itemData?: ChartDataItem) => {
+      try {
+        const date = DateUtils.parseDate(dateString);
+        
+        if (filterType === 'today') {
+          // Per "oggi", usa le ore dal campo displayHour se disponibile
+          const hourlyData = itemData as HourlyData;
+          return hourlyData?.displayHour || date.toLocaleTimeString('it-IT', { 
+            hour: '2-digit', 
+            minute: '2-digit'
+          });
+        } else {
+          // Per tutti gli altri filtri, usa i giorni con formattazione appropriata
+          switch (filterType) {
+            case 'week':
               return date.toLocaleDateString('it-IT', { 
                 weekday: 'short',
                 day: '2-digit'
               });
-            } else if (customDataLength <= 31) {
+            case 'month':
               return date.toLocaleDateString('it-IT', { 
                 day: '2-digit', 
                 month: 'short'
               });
-            } else {
+            case '3months':
+              return date.toLocaleDateString('it-IT', { 
+                day: '2-digit', 
+                month: 'short'
+              });
+            case 'year':
               return date.toLocaleDateString('it-IT', { 
                 month: 'short',
                 year: '2-digit'
               });
+            case 'custom': {
+              const customDataLength = chartData.length;
+              if (customDataLength <= 7) {
+                return date.toLocaleDateString('it-IT', { 
+                  weekday: 'short',
+                  day: '2-digit'
+                });
+              } else if (customDataLength <= 31) {
+                return date.toLocaleDateString('it-IT', { 
+                  day: '2-digit', 
+                  month: 'short'
+                });
+              } else {
+                return date.toLocaleDateString('it-IT', { 
+                  month: 'short',
+                  year: '2-digit'
+                });
+              }
             }
+            case 'all':
+            default:
+              return date.toLocaleDateString('it-IT', { 
+                day: '2-digit', 
+                month: 'short'
+              });
           }
-          case 'all':
-          default:
-            return date.toLocaleDateString('it-IT', { 
-              day: '2-digit', 
-              month: 'short'
-            });
         }
+      } catch (e) {
+        console.error('Error in formatAxisLabel:', e);
+        return dateString;
       }
-    } catch {
-      console.error('Error in formatAxisLabel');
-      return dateString;
-    }
-  }, [filterType, chartData]);
+    };
+  }, [filterType, chartData.length]);
 
   // Formattiamo i dati per l'asse X con logica adattiva e tipo sicuro
   const formattedData = useMemo(() => {
@@ -798,7 +801,7 @@ export default function ClicksTrendChart({
         <div className="flex items-center space-x-3">
           <Calendar className="h-6 w-6 text-blue-600" />
           <h3 className="text-lg font-semibold text-gray-900">
-            {getChartTitle()}
+            {getChartTitle}
           </h3>
         </div>
         <div className="flex items-center space-x-6 text-sm">
@@ -822,10 +825,11 @@ export default function ClicksTrendChart({
                <Minus className="h-4 w-4" />}
               <span>{stats.prediction}</span>
             </div>
-            <div className="text-gray-500" title={getTrendTooltip()}>
+            <div className="text-gray-500" title={getTrendTooltip}>
               Tendenza
             </div>
           </div>
+
         </div>
       </div>
 
@@ -862,7 +866,7 @@ export default function ClicksTrendChart({
                 allowDecimals={false}
                 width={40}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={CustomTooltip} />
               <Line 
                 type="monotone" 
                 dataKey="clicks" 
