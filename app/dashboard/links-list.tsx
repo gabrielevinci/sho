@@ -2,6 +2,8 @@
 
 import { SITE_URL } from '@/app/lib/config';
 import { useState } from 'react';
+import Link from 'next/link';
+import { BarChart3 } from 'lucide-react';
 
 // Aggiorniamo il tipo per includere il contatore di click
 export type LinkFromDB = {
@@ -64,13 +66,26 @@ export default function LinksList({ links }: LinksListProps) {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-bold text-center">{link.click_count}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(link.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onClick={() => handleCopy(link.short_code)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    {copiedCode === link.short_code ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
-                    )}
-                  </button>
+                  <div className="flex items-center justify-end space-x-2">
+                    <Link
+                      href={`/dashboard/analytics/${link.short_code}`}
+                      className="text-gray-400 hover:text-blue-600 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                      title="Visualizza statistiche"
+                    >
+                      <BarChart3 className="h-5 w-5" />
+                    </Link>
+                    <button 
+                      onClick={() => handleCopy(link.short_code)} 
+                      className="text-gray-400 hover:text-gray-600 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                      title="Copia link"
+                    >
+                      {copiedCode === link.short_code ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
+                      )}
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
