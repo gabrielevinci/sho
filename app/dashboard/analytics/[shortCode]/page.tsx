@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import { sql } from '@vercel/postgres';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Calendar, MousePointer, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
+import ClicksTrendChart from './clicks-trend-chart';
 
 // Tipi per i dati delle statistiche
 type LinkAnalytics = {
@@ -42,6 +43,11 @@ type BrowserData = {
 
 type ReferrerData = {
   referrer: string;
+  clicks: number;
+};
+
+type TimeSeriesData = {
+  date: string;
   clicks: number;
 };
 
@@ -199,6 +205,43 @@ async function getReferrerData(userId: string, workspaceId: string, shortCode: s
   }
 }
 
+// Funzione per ottenere i dati temporali degli ultimi 30 giorni
+async function getTimeSeriesData(userId: string, workspaceId: string, shortCode: string): Promise<TimeSeriesData[]> {
+  try {
+    const { rows } = await sql<TimeSeriesData>`
+      WITH date_series AS (
+        SELECT generate_series(
+          CURRENT_DATE - INTERVAL '29 days',
+          CURRENT_DATE,
+          INTERVAL '1 day'
+        )::date AS date
+      ),
+      daily_clicks AS (
+        SELECT 
+          clicked_at::date as date,
+          COUNT(*) as clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = ${userId} 
+          AND l.workspace_id = ${workspaceId} 
+          AND l.short_code = ${shortCode}
+          AND clicked_at >= CURRENT_DATE - INTERVAL '29 days'
+        GROUP BY clicked_at::date
+      )
+      SELECT 
+        ds.date::text as date,
+        COALESCE(dc.clicks, 0) as clicks
+      FROM date_series ds
+      LEFT JOIN daily_clicks dc ON ds.date = dc.date
+      ORDER BY ds.date
+    `;
+    return rows;
+  } catch (error) {
+    console.error("Failed to fetch time series data:", error);
+    return [];
+  }
+}
+
 export default async function AnalyticsPage({ 
   params 
 }: { 
@@ -213,13 +256,14 @@ export default async function AnalyticsPage({
   const { shortCode } = await params;
   
   // Otteniamo tutti i dati in parallelo per ottimizzare le performance
-  const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData] = await Promise.all([
+  const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData] = await Promise.all([
     getLinkData(session.userId, session.workspaceId, shortCode),
     getClickAnalytics(session.userId, session.workspaceId, shortCode),
     getGeographicData(session.userId, session.workspaceId, shortCode),
     getDeviceData(session.userId, session.workspaceId, shortCode),
     getBrowserData(session.userId, session.workspaceId, shortCode),
-    getReferrerData(session.userId, session.workspaceId, shortCode)
+    getReferrerData(session.userId, session.workspaceId, shortCode),
+    getTimeSeriesData(session.userId, session.workspaceId, shortCode)
   ]);
 
   if (!linkData) {
@@ -333,6 +377,12 @@ export default async function AnalyticsPage({
             </div>
           </div>
         </div>
+
+        {/* Grafico andamento temporale */}
+        <ClicksTrendChart 
+          data={timeSeriesData} 
+          totalClicks={clickAnalytics.total_clicks}
+        />
 
         {/* Grafici e tabelle dettagliate */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
