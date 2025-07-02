@@ -382,18 +382,18 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     const useHourlyData = filterType === 'today' || daysDiff === 0;
 
     if (useHourlyData) {
-      // Dati orari per oggi (ultime 24 ore)
+      // Dati orari per oggi con fuso orario italiano
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
           SELECT generate_series(
-            ${actualStartDate}::date,
-            ${actualStartDate}::date + INTERVAL '23 hours',
+            (${actualStartDate}::date AT TIME ZONE 'Europe/Rome'),
+            (${actualStartDate}::date AT TIME ZONE 'Europe/Rome') + INTERVAL '23 hours',
             INTERVAL '1 hour'
           ) AS date
         ),
         hourly_clicks AS (
           SELECT 
-            date_trunc('hour', clicked_at) as date,
+            date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome') as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -401,12 +401,11 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at >= ${actualStartDate}::date
-            AND clicked_at < ${actualStartDate}::date + INTERVAL '1 day'
-          GROUP BY date_trunc('hour', clicked_at)
+            AND (clicked_at AT TIME ZONE 'Europe/Rome')::date = ${actualStartDate}::date
+          GROUP BY date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome')
         )
         SELECT 
-          hs.date::text as date,
+          TO_CHAR(hs.date, 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs

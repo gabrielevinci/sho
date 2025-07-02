@@ -30,15 +30,14 @@ interface ClicksTrendChartDualProps {
 
 // Funzione utility per formattare le date
 const formatDate = (dateString: string, filterType: DateFilter = 'all'): string => {
+  if (filterType === 'today') {
+    // Per "oggi", la stringa è già in formato HH:MM dal database
+    return dateString;
+  }
+  
   const date = new Date(dateString);
   
-  if (filterType === 'today') {
-    // Per "oggi", mostra solo l'ora
-    return date.toLocaleTimeString('it-IT', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  } else if (filterType === 'week') {
+  if (filterType === 'week') {
     // Per settimana, mostra giorno e mese
     return date.toLocaleDateString('it-IT', { 
       weekday: 'short',
@@ -120,7 +119,10 @@ const CustomTooltip = ({ active, payload, label, filterType }: {
     return (
       <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-[200px]">
         <p className="font-semibold text-gray-800 mb-2">
-          {label && formatDate(label, filterType)}
+          {filterType === 'today' 
+            ? `Ore ${label}` 
+            : label && formatDate(label, filterType)
+          }
         </p>
         {payload.map((entry, index: number) => (
           <div key={index} className="flex items-center justify-between mb-1">

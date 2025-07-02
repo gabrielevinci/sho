@@ -73,23 +73,25 @@ interface AnalyticsClientProps {
 
 // Funzione helper per calcolare l'intervallo di date in base al filtro
 const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { startDate: string; endDate: string } => {
+  // Usa il fuso orario italiano per il calcolo delle date
   const now = new Date();
-  const endDate = now.toISOString().split('T')[0];
+  const italianNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+  const endDate = italianNow.toISOString().split('T')[0];
   
   switch (filter) {
     case 'today':
       return { startDate: endDate, endDate };
     case 'week':
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const weekAgo = new Date(italianNow.getTime() - 7 * 24 * 60 * 60 * 1000);
       return { startDate: weekAgo.toISOString().split('T')[0], endDate };
     case 'month':
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(italianNow.getTime() - 30 * 24 * 60 * 60 * 1000);
       return { startDate: monthAgo.toISOString().split('T')[0], endDate };
     case '3months':
-      const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      const threeMonthsAgo = new Date(italianNow.getTime() - 90 * 24 * 60 * 60 * 1000);
       return { startDate: threeMonthsAgo.toISOString().split('T')[0], endDate };
     case 'year':
-      const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const yearAgo = new Date(italianNow.getTime() - 365 * 24 * 60 * 60 * 1000);
       return { startDate: yearAgo.toISOString().split('T')[0], endDate };
     case 'custom':
       if (customRange?.startDate && customRange?.endDate) {
