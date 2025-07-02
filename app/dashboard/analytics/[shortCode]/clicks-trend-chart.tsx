@@ -1,7 +1,7 @@
 'use client';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Calendar } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 type TimeSeriesData = {
   date: string;
@@ -64,31 +64,131 @@ export default function ClicksTrendChart({
   clicksThisMonth
 }: ClicksTrendChartProps) {
   
-  // Funzione per generare il titolo dinamico
+  // Funzione per generare il titolo dinamico basato sul filtro attuale
   const getChartTitle = () => {
     switch (filterType) {
       case 'today':
-        return 'Andamento Click (Oggi)';
+        return 'Andamento Temporale (Oggi)';
       case 'week':
-        return 'Andamento Click (Ultima Settimana)';
+        return 'Andamento Temporale (Ultima Settimana)';
       case 'month':
-        return 'Andamento Click (Ultimo Mese)';
+        return 'Andamento Temporale (Ultimo Mese)';
       case '3months':
-        return 'Andamento Click (Ultimi 3 Mesi)';
+        return 'Andamento Temporale (Ultimi 3 Mesi)';
       case 'year':
-        return 'Andamento Click (Ultimo Anno)';
+        return 'Andamento Temporale (Ultimo Anno)';
       case 'custom':
         if (dateRange?.startDate && dateRange?.endDate) {
           const start = new Date(dateRange.startDate).toLocaleDateString('it-IT');
           const end = new Date(dateRange.endDate).toLocaleDateString('it-IT');
-          return `Andamento Click (${start} - ${end})`;
+          return `Andamento Temporale (${start} - ${end})`;
         }
-        return 'Andamento Click (Periodo Personalizzato)';
+        return 'Andamento Temporale (Periodo Personalizzato)';
       case 'all':
       default:
         return 'Andamento Temporale (Ultimi 30 giorni)';
     }
   };
+
+  // Funzioni per calcolare le statistiche avanzate con algoritmi professionali
+  const calculateAdvancedStats = () => {
+    if (data.length === 0) {
+      return { peak: 0, average: 0, trend: 'stabile', prediction: 0, confidence: 0 };
+    }
+
+    const clicks = data.map(d => d.clicks);
+    
+    // Calcola il picco (massimo numero di click)
+    const peak = Math.max(...clicks);
+
+    // Calcola la media dei click
+    const totalClicks = clicks.reduce((sum, c) => sum + c, 0);
+    const average = Math.round((totalClicks / clicks.length) * 100) / 100;
+
+    // Algoritmo di regressione lineare con analisi della tendenza avanzata
+    const n = clicks.length;
+    if (n < 3) {
+      return { peak, average, trend: 'stabile', prediction: Math.round(average), confidence: 0 };
+    }
+
+    // Prepara i dati per la regressione lineare (x = indice temporale, y = clicks)
+    const xValues = Array.from({ length: n }, (_, i) => i);
+    const yValues = clicks;
+
+    // Calcola medie
+    const xMean = xValues.reduce((sum, x) => sum + x, 0) / n;
+    const yMean = yValues.reduce((sum, y) => sum + y, 0) / n;
+
+    // Calcola coefficienti della regressione lineare (y = a + bx)
+    let numerator = 0;
+    let denominator = 0;
+    let ssRes = 0; // Somma dei quadrati dei residui
+    let ssTot = 0; // Somma totale dei quadrati
+
+    for (let i = 0; i < n; i++) {
+      numerator += (xValues[i] - xMean) * (yValues[i] - yMean);
+      denominator += (xValues[i] - xMean) ** 2;
+    }
+
+    const slope = denominator !== 0 ? numerator / denominator : 0;
+    const intercept = yMean - slope * xMean;
+
+    // Calcola R² (coefficiente di determinazione) per misurare la qualità del fit
+    for (let i = 0; i < n; i++) {
+      const predicted = intercept + slope * xValues[i];
+      ssRes += (yValues[i] - predicted) ** 2;
+      ssTot += (yValues[i] - yMean) ** 2;
+    }
+
+    const rSquared = ssTot !== 0 ? 1 - (ssRes / ssTot) : 0;
+    const confidence = Math.max(0, Math.min(100, Math.round(rSquared * 100)));
+
+    // Media mobile esponenziale per smoother trend detection
+    const alpha = 0.3; // Fattore di smoothing
+    let ema = yValues[0];
+    const emaValues = [ema];
+    
+    for (let i = 1; i < yValues.length; i++) {
+      ema = alpha * yValues[i] + (1 - alpha) * ema;
+      emaValues.push(ema);
+    }
+
+    // Calcola la tendenza basata su più fattori
+    const recentPeriod = Math.min(7, Math.floor(n / 3)); // Ultimi 7 giorni o 1/3 del periodo
+    const recentAvg = yValues.slice(-recentPeriod).reduce((sum, c) => sum + c, 0) / recentPeriod;
+    const earlierAvg = yValues.slice(0, recentPeriod).reduce((sum, c) => sum + c, 0) / recentPeriod;
+    const percentChange = earlierAvg !== 0 ? ((recentAvg - earlierAvg) / earlierAvg) * 100 : 0;
+
+    // Determina la tendenza usando multiple metriche
+    let trend = 'stabile';
+    const slopeThreshold = Math.max(0.1, average * 0.05); // Soglia dinamica basata sulla media
+    
+    if (slope > slopeThreshold && percentChange > 10) {
+      trend = 'crescente';
+    } else if (slope < -slopeThreshold && percentChange < -10) {
+      trend = 'decrescente';
+    }
+
+    // Previsione usando combinazione di regressione lineare e media mobile
+    const linearPrediction = intercept + slope * n;
+    const emaPrediction = emaValues[emaValues.length - 1];
+    const weightedPrediction = (linearPrediction * 0.7) + (emaPrediction * 0.3);
+    
+    // Applica limiti realistici alla previsione
+    const prediction = Math.max(0, Math.round(weightedPrediction));
+
+    return { 
+      peak, 
+      average, 
+      trend, 
+      prediction,
+      confidence,
+      slope: Math.round(slope * 100) / 100,
+      percentChange: Math.round(percentChange * 10) / 10
+    };
+  };
+
+  const stats = calculateAdvancedStats();
 
   // Formattatore per l'asse X basato sul tipo di filtro
   const formatXAxisDate = (dateString: string) => {
@@ -162,18 +262,45 @@ export default function ClicksTrendChart({
             {getChartTitle()}
           </h3>
         </div>
-        <div className="flex items-center space-x-4 text-sm">
+        <div className="flex items-center space-x-6 text-sm">
+          {/* Statistiche avanzate */}
           <div className="text-center">
-            <div className="text-lg font-bold text-gray-900">{statistics.today}</div>
-            <div className="text-gray-500">Oggi</div>
+            <div className="text-lg font-bold text-red-600">{stats.peak}</div>
+            <div className="text-gray-500">Picco</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-gray-900">{statistics.week}</div>
-            <div className="text-gray-500">Ultimi 7 giorni</div>
+            <div className="text-lg font-bold text-blue-600">{stats.average}</div>
+            <div className="text-gray-500">Media</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-gray-900">{statistics.month}</div>
-            <div className="text-gray-500">Ultimi 30 giorni</div>
+            <div className={`text-lg font-bold flex items-center justify-center space-x-1 ${
+              stats.trend === 'crescente' ? 'text-green-600' : 
+              stats.trend === 'decrescente' ? 'text-red-600' : 
+              'text-gray-600'
+            }`}>
+              {stats.trend === 'crescente' ? <TrendingUp className="h-4 w-4" /> : 
+               stats.trend === 'decrescente' ? <TrendingDown className="h-4 w-4" /> : 
+               <Minus className="h-4 w-4" />}
+              <span>{stats.prediction}</span>
+            </div>
+            <div className="text-gray-500" title={`Previsione basata su analisi statistica (${stats.confidence}% affidabilità)`}>
+              Tendenza
+            </div>
+          </div>
+          {/* Statistiche periodo fisse */}
+          <div className="border-l border-gray-200 pl-6 flex items-center space-x-4">
+            <div className="text-center">
+              <div className="text-lg font-bold text-gray-900">{statistics.today}</div>
+              <div className="text-gray-500">Oggi</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-gray-900">{statistics.week}</div>
+              <div className="text-gray-500">Ultimi 7 giorni</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-gray-900">{statistics.month}</div>
+              <div className="text-gray-500">Ultimi 30 giorni</div>
+            </div>
           </div>
         </div>
       </div>

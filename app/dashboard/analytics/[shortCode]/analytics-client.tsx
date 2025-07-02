@@ -217,8 +217,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
         {/* Grafico andamento temporale - usa sempre i dati originali, non filtrati */}
         <ClicksTrendChart 
           data={initialData.timeSeriesData} 
-          filterType="all"
-          dateRange={undefined}
+          filterType={currentFilter}
+          dateRange={dateRange.startDate && dateRange.endDate ? {
+            startDate: dateRange.startDate.toISOString().split('T')[0],
+            endDate: dateRange.endDate.toISOString().split('T')[0]
+          } : undefined}
           clicksToday={initialData.clickAnalytics.clicks_today}
           clicksThisWeek={initialData.clickAnalytics.clicks_this_week}
           clicksThisMonth={initialData.clickAnalytics.clicks_this_month}
