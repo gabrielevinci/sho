@@ -148,9 +148,52 @@ export default function ClicksTrendChart({
     // Calcola il picco (massimo numero di click nel periodo filtrato)
     const peak = Math.max(...clicks);
 
-    // Calcola la media dei click nel periodo filtrato
-    const totalClicks = clicks.reduce((sum, c) => sum + c, 0);
-    const average = Math.round((totalClicks / clicks.length) * 100) / 100;
+    // Calcola la media dei click in base al filtro selezionato
+    const getAverageForFilter = () => {
+      switch (filterType) {
+        case 'today':
+          // Media oraria per oggi
+          const todayClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          return Math.round((todayClicks / 24) * 100) / 100;
+          
+        case 'week':
+          // Click totali nell'ultima settimana / 7 giorni
+          const weekClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          return Math.round((weekClicks / 7) * 100) / 100;
+          
+        case 'month':
+          // Click degli ultimi 30 giorni / 30 giorni
+          const monthClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          return Math.round((monthClicks / 30) * 100) / 100;
+          
+        case '3months':
+          // Click degli ultimi 3 mesi / 90 giorni
+          const quarterClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          return Math.round((quarterClicks / 90) * 100) / 100;
+          
+        case 'year':
+          // Click dell'ultimo anno / 365 giorni
+          const yearClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          return Math.round((yearClicks / 365) * 100) / 100;
+          
+        case 'custom':
+          // Click del periodo personalizzato / numero di giorni nel periodo
+          const customClicks = filteredData.reduce((sum, d) => sum + d.clicks, 0);
+          const customDays = filteredData.length;
+          return customDays > 0 ? Math.round((customClicks / customDays) * 100) / 100 : 0;
+          
+        case 'all':
+        default:
+          // Click totali / (data di oggi - data di creazione del primo link)
+          const totalClicks = data.reduce((sum, d) => sum + d.clicks, 0);
+          const firstDate = new Date(data[0]?.date || new Date());
+          const today = new Date();
+          const daysDiff = Math.max(1, Math.ceil((today.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)));
+          return Math.round((totalClicks / daysDiff) * 100) / 100;
+      }
+    };
+
+    const average = getAverageForFilter();
 
     // Algoritmo di regressione lineare con analisi della tendenza avanzata
     const n = clicks.length;
