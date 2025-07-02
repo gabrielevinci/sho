@@ -214,14 +214,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
-        {/* Grafico andamento temporale */}
+        {/* Grafico andamento temporale - usa sempre i dati originali, non filtrati */}
         <ClicksTrendChart 
-          data={data.timeSeriesData} 
-          filterType={currentFilter}
-          dateRange={dateRange.startDate && dateRange.endDate ? {
-            startDate: dateRange.startDate.toISOString().split('T')[0],
-            endDate: dateRange.endDate.toISOString().split('T')[0]
-          } : undefined}
+          data={initialData.timeSeriesData} 
+          filterType="all"
+          dateRange={undefined}
           clicksToday={initialData.clickAnalytics.clicks_today}
           clicksThisWeek={initialData.clickAnalytics.clicks_this_week}
           clicksThisMonth={initialData.clickAnalytics.clicks_this_month}
@@ -377,7 +374,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
-        {/* Statistiche temporali */}
+        {/* Statistiche temporali - usa sempre i dati originali, non filtrati */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
             <Calendar className="h-5 w-5 mr-2 text-blue-600" />
@@ -385,15 +382,15 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{data.clickAnalytics.clicks_today}</div>
+              <div className="text-3xl font-bold text-gray-900">{initialData.clickAnalytics.clicks_today}</div>
               <div className="text-sm text-gray-500 mt-1">Oggi</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{data.clickAnalytics.clicks_this_week}</div>
+              <div className="text-3xl font-bold text-gray-900">{initialData.clickAnalytics.clicks_this_week}</div>
               <div className="text-sm text-gray-500 mt-1">Ultimi 7 giorni</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{data.clickAnalytics.clicks_this_month}</div>
+              <div className="text-3xl font-bold text-gray-900">{initialData.clickAnalytics.clicks_this_month}</div>
               <div className="text-sm text-gray-500 mt-1">Ultimi 30 giorni</div>
             </div>
           </div>

@@ -86,7 +86,7 @@ export default function ClicksTrendChart({
         return 'Andamento Click (Periodo Personalizzato)';
       case 'all':
       default:
-        return 'Andamento Click (Tutti i Dati)';
+        return 'Andamento Temporale (Ultimi 30 giorni)';
     }
   };
 
