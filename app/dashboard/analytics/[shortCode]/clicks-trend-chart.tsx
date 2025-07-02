@@ -193,14 +193,6 @@ export default function ClicksTrendChart({ data, totalClicks, filterType = 'all'
         )}
       </div>
 
-      {/* Note aggiuntive */}
-      <div className="mt-4 text-xs text-gray-500 border-t pt-4">
-        <p>
-          • Il grafico mostra i click giornalieri degli ultimi 30 giorni
-          • La tendenza settimanale confronta gli ultimi 7 giorni con i 7 precedenti
-          • Passa il mouse sui punti per vedere i dettagli
-        </p>
-      </div>
     </div>
   );
 }
