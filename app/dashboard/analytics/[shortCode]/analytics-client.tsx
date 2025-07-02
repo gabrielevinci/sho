@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, ExternalLink, Calendar, MousePointer, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import ClicksTrendChart from './clicks-trend-chart';
