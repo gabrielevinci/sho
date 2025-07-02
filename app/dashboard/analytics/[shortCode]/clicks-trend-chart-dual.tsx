@@ -117,26 +117,51 @@ const CustomTooltip = ({ active, payload, label, filterType }: {
 }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 min-w-[200px]">
-        <p className="font-semibold text-gray-800 mb-2">
-          {filterType === 'today' 
-            ? `Ore ${label}` 
-            : label && formatDate(label, filterType)
-          }
-        </p>
-        {payload.map((entry, index: number) => (
-          <div key={index} className="flex items-center justify-between mb-1">
-            <span 
-              className="text-sm font-medium"
-              style={{ color: entry.color }}
-            >
-              {entry.name === 'total_clicks' ? 'Click Totali:' : 'Click Unici:'}
-            </span>
-            <span className="text-sm font-bold ml-2">
-              {entry.value.toLocaleString()}
-            </span>
+      <div className="bg-white border-2 border-gray-300 rounded-xl shadow-2xl p-4 min-w-[220px] backdrop-blur-sm">
+        {/* Header del tooltip */}
+        <div className="mb-3 pb-2 border-b border-gray-200">
+          <p className="font-bold text-gray-900 text-base">
+            {filterType === 'today' 
+              ? `🕐 Ore ${label}` 
+              : `📅 ${label && formatDate(label, filterType)}`
+            }
+          </p>
+        </div>
+        
+        {/* Dati */}
+        <div className="space-y-2">
+          {payload.map((entry, index: number) => (
+            <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+              <div className="flex items-center space-x-2">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="text-sm font-semibold text-gray-700">
+                  {entry.name === 'total_clicks' ? 'Click Totali' : 'Click Unici'}
+                </span>
+              </div>
+              <span className="text-lg font-bold text-gray-900">
+                {entry.value.toLocaleString('it-IT')}
+              </span>
+            </div>
+          ))}
+        </div>
+        
+        {/* Footer con totale se ci sono entrambi i valori */}
+        {payload.length === 2 && (
+          <div className="mt-3 pt-2 border-t border-gray-200">
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>Tasso conversione:</span>
+              <span className="font-medium">
+                {payload[0].value > 0 
+                  ? `${Math.round((payload[1].value / payload[0].value) * 100)}%`
+                  : '0%'
+                }
+              </span>
+            </div>
           </div>
-        ))}
+        )}
       </div>
     );
   }
