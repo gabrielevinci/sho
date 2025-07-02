@@ -8,6 +8,14 @@ type TimeSeriesData = {
   clicks: number;
 };
 
+type HourlyData = {
+  date: string;
+  clicks: number;
+  displayHour: string;
+};
+
+type ChartDataItem = TimeSeriesData | HourlyData;
+
 interface ClicksTrendChartProps {
   data: TimeSeriesData[];
   filterType?: string;
@@ -39,18 +47,55 @@ export default function ClicksTrendChart({
   }) => {
     if (active && payload && payload.length && label) {
       // Trova il dato originale per ottenere la data completa
-      const originalItem = chartData.find((item: { date: string; clicks: number; displayHour: string }) => item.date === label);
+      const originalItem = chartData.find((item: ChartDataItem) => item.date === label);
       if (!originalItem) return null;
 
-      // Formatta sempre come ora per le ultime 24 ore
+      // Formatta la label in base al filtro attivo
       const date = new Date(originalItem.date);
-      const formattedLabel = date.toLocaleString('it-IT', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        day: '2-digit',
-        month: 'short',
-        weekday: 'short'
-      });
+      let formattedLabel = '';
+      
+      if (filterType === 'today') {
+        formattedLabel = date.toLocaleString('it-IT', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          day: '2-digit',
+          month: 'short',
+          weekday: 'short'
+        });
+      } else {
+        switch (filterType) {
+          case 'week':
+            formattedLabel = date.toLocaleDateString('it-IT', { 
+              weekday: 'long',
+              day: '2-digit', 
+              month: 'long'
+            });
+            break;
+          case 'month':
+          case '3months':
+            formattedLabel = date.toLocaleDateString('it-IT', { 
+              day: '2-digit', 
+              month: 'long',
+              year: 'numeric'
+            });
+            break;
+          case 'year':
+            formattedLabel = date.toLocaleDateString('it-IT', { 
+              month: 'long',
+              year: 'numeric'
+            });
+            break;
+          case 'custom':
+          case 'all':
+          default:
+            formattedLabel = date.toLocaleDateString('it-IT', { 
+              day: '2-digit', 
+              month: 'long',
+              year: 'numeric'
+            });
+            break;
+        }
+      }
 
       return (
         <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
@@ -67,9 +112,30 @@ export default function ClicksTrendChart({
     return null;
   };
   
-  // Funzione per generare il titolo del grafico (sempre ultime 24 ore)
+  // Funzione per generare il titolo del grafico dinamico
   const getChartTitle = () => {
-    return 'Andamento Temporale (Ultime 24 Ore)';
+    switch (filterType) {
+      case 'today':
+        return 'Andamento Temporale (Ultime 24 Ore)';
+      case 'week':
+        return 'Andamento Temporale (Ultima Settimana)';
+      case 'month':
+        return 'Andamento Temporale (Ultimo Mese)';
+      case '3months':
+        return 'Andamento Temporale (Ultimi 3 Mesi)';
+      case 'year':
+        return 'Andamento Temporale (Ultimo Anno)';
+      case 'custom':
+        if (dateRange?.startDate && dateRange?.endDate) {
+          const start = new Date(dateRange.startDate).toLocaleDateString('it-IT');
+          const end = new Date(dateRange.endDate).toLocaleDateString('it-IT');
+          return `Andamento Temporale (${start} - ${end})`;
+        }
+        return 'Andamento Temporale (Periodo Personalizzato)';
+      case 'all':
+      default:
+        return 'Andamento Temporale (Tutti i Dati)';
+    }
   };
 
   // Funzioni per calcolare le statistiche avanzate con algoritmi professionali
@@ -325,7 +391,7 @@ export default function ClicksTrendChart({
 
   const stats = calculateAdvancedStats();
 
-  // Funzione per ottenere sempre gli ultimi 24 ore di dati per il grafico
+  // Funzione per ottenere sempre gli ultimi 24 ore di dati per il grafico (solo per filtro "oggi")
   const getLast24HoursData = () => {
     const now = new Date();
     const last24Hours = [];
@@ -358,25 +424,171 @@ export default function ClicksTrendChart({
     return last24Hours;
   };
 
-  // Ottieni sempre i dati delle ultime 24 ore per il grafico
-  const chartData = getLast24HoursData();
+  // Funzione per ottenere i dati filtrati in base al filtro selezionato (per tutti gli altri filtri)
+  const getFilteredDataByFilter = () => {
+    const now = new Date();
+    let filteredData = [...data];
 
-  // Formattiamo i dati per l'asse X del grafico (ultime 24 ore)
+    switch (filterType) {
+      case 'week':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const weekAgoStr = weekAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= weekAgoStr);
+        break;
+      case 'month':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const monthAgoStr = monthAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= monthAgoStr);
+        break;
+      case '3months':
+        const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= threeMonthsAgoStr);
+        break;
+      case 'year':
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        const yearAgoStr = yearAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= yearAgoStr);
+        break;
+      case 'custom':
+        if (dateRange?.startDate && dateRange?.endDate) {
+          filteredData = data.filter(d => 
+            d.date >= dateRange.startDate && d.date <= dateRange.endDate
+          );
+        }
+        break;
+      case 'all':
+      default:
+        // Usa tutti i dati disponibili
+        break;
+    }
+
+    return filteredData.length > 0 ? filteredData : data;
+  };
+
+  // Ottieni i dati corretti in base al filtro
+  const chartData = filterType === 'today' ? getLast24HoursData() : getFilteredDataByFilter();
+
+  // Funzione per formattare le etichette dell'asse X
+  const formatAxisLabel = (dateString: string, itemData?: ChartDataItem) => {
+    const date = new Date(dateString);
+    
+    if (filterType === 'today') {
+      // Per "oggi", usa le ore dal campo displayHour se disponibile
+      const hourlyData = itemData as HourlyData;
+      return hourlyData?.displayHour || date.toLocaleTimeString('it-IT', { 
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+    } else {
+      // Per tutti gli altri filtri, usa i giorni
+      switch (filterType) {
+        case 'week':
+          return date.toLocaleDateString('it-IT', { 
+            weekday: 'short',
+            day: '2-digit'
+          });
+        case 'month':
+          return date.toLocaleDateString('it-IT', { 
+            day: '2-digit', 
+            month: 'short'
+          });
+        case '3months':
+          return date.toLocaleDateString('it-IT', { 
+            day: '2-digit', 
+            month: 'short'
+          });
+        case 'year':
+          return date.toLocaleDateString('it-IT', { 
+            month: 'short',
+            year: '2-digit'
+          });
+        case 'custom':
+          const customDataLength = chartData.length;
+          if (customDataLength <= 7) {
+            return date.toLocaleDateString('it-IT', { 
+              weekday: 'short',
+              day: '2-digit'
+            });
+          } else if (customDataLength <= 31) {
+            return date.toLocaleDateString('it-IT', { 
+              day: '2-digit', 
+              month: 'short'
+            });
+          } else {
+            return date.toLocaleDateString('it-IT', { 
+              month: 'short',
+              year: '2-digit'
+            });
+          }
+        case 'all':
+        default:
+          return date.toLocaleDateString('it-IT', { 
+            day: '2-digit', 
+            month: 'short'
+          });
+      }
+    }
+  };
+
+  // Formattiamo i dati per l'asse X con logica adattiva
   const formattedData = chartData.map((item, index) => {
     let shouldShowLabel = false;
+    const dataLength = chartData.length;
     
-    // Per le 24 ore, mostra un'etichetta ogni 3-4 ore
-    const hourInterval = 4; // Mostra ogni 4 ore
-    shouldShowLabel = index % hourInterval === 0;
+    if (filterType === 'today') {
+      // Per "oggi", mostra etichette ogni 4 ore
+      const hourInterval = 4;
+      shouldShowLabel = index % hourInterval === 0;
+    } else {
+      // Per altri filtri, adatta in base alla lunghezza dei dati
+      switch (filterType) {
+        case 'week':
+          // Per settimana, mostra tutti i giorni se <= 7, altrimenti ogni 2
+          shouldShowLabel = dataLength <= 7 ? true : index % 2 === 0;
+          break;
+        case 'month':
+          // Per mese, mostra ogni 3-5 giorni
+          const dayInterval = Math.max(1, Math.floor(dataLength / 8));
+          shouldShowLabel = index % dayInterval === 0;
+          break;
+        case '3months':
+          // Per 3 mesi, mostra ogni settimana circa
+          const weekInterval = Math.max(1, Math.floor(dataLength / 12));
+          shouldShowLabel = index % weekInterval === 0;
+          break;
+        case 'year':
+          // Per anno, mostra ogni mese circa
+          const monthInterval = Math.max(1, Math.floor(dataLength / 12));
+          shouldShowLabel = index % monthInterval === 0;
+          break;
+        case 'custom':
+          // Per custom, adatta in base alla lunghezza
+          if (dataLength <= 7) {
+            shouldShowLabel = true;
+          } else if (dataLength <= 31) {
+            shouldShowLabel = index % Math.max(1, Math.floor(dataLength / 6)) === 0;
+          } else {
+            shouldShowLabel = index % Math.max(1, Math.floor(dataLength / 10)) === 0;
+          }
+          break;
+        case 'all':
+        default:
+          // Default: mostra 6-8 etichette
+          const defaultInterval = Math.max(1, Math.floor(dataLength / 7));
+          shouldShowLabel = index % defaultInterval === 0;
+          break;
+      }
+    }
     
     // Assicurati sempre di mostrare la prima e l'ultima etichetta
-    if (index === 0 || index === chartData.length - 1) {
+    if (index === 0 || index === dataLength - 1) {
       shouldShowLabel = true;
     }
     
     return {
       ...item,
-      displayDate: shouldShowLabel ? item.displayHour : ''
+      displayDate: shouldShowLabel ? formatAxisLabel(item.date, item) : ''
     };
   });
 
@@ -480,9 +692,9 @@ export default function ClicksTrendChart({
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
-                angle={0}
-                textAnchor="middle"
-                height={30}
+                angle={filterType === 'today' ? 0 : -45}
+                textAnchor={filterType === 'today' ? 'middle' : 'end'}
+                height={filterType === 'today' ? 30 : 50}
               />
               <YAxis 
                 stroke="#6b7280"
