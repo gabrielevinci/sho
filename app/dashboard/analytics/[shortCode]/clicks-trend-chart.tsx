@@ -20,44 +20,6 @@ interface ClicksTrendChartProps {
   totalCountries: number;
 }
 
-// Componente personalizzato per il tooltip
-const CustomTooltip = ({ active, payload, label }: {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: string;
-}) => {
-  if (active && payload && payload.length && label) {
-    // Formatta la label in base al contesto
-    const date = new Date(label);
-    const isHour = label.includes('T') || label.includes(':');
-    const formattedLabel = isHour 
-      ? date.toLocaleString('it-IT', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          day: '2-digit',
-          month: 'short'
-        })
-      : date.toLocaleDateString('it-IT', { 
-          day: '2-digit', 
-          month: 'short',
-          weekday: 'short'
-        });
-
-    return (
-      <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-        <p className="font-semibold text-gray-800 mb-2">
-          {formattedLabel}
-        </p>
-        <p className="text-blue-600">
-          <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-          Click: <span className="font-semibold">{payload[0].value}</span>
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
-
 export default function ClicksTrendChart({ 
   data, 
   filterType = 'all', 
@@ -68,6 +30,77 @@ export default function ClicksTrendChart({
   totalDevices = 0,
   totalCountries = 0
 }: ClicksTrendChartProps) {
+  
+  // Componente personalizzato per il tooltip interno al componente
+  const CustomTooltip = ({ active, payload, label }: {
+    active?: boolean;
+    payload?: Array<{ value: number }>;
+    label?: string;
+  }) => {
+    if (active && payload && payload.length && label) {
+      // Trova il dato originale per ottenere la data completa
+      const originalItem = data.find((item: TimeSeriesData) => item.date === label);
+      if (!originalItem) return null;
+
+      // Formatta la label in base al filtro attivo
+      const date = new Date(originalItem.date);
+      let formattedLabel = '';
+      
+      switch (filterType) {
+        case 'today':
+          formattedLabel = date.toLocaleString('it-IT', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            day: '2-digit',
+            month: 'short'
+          });
+          break;
+        case 'week':
+          formattedLabel = date.toLocaleDateString('it-IT', { 
+            weekday: 'long',
+            day: '2-digit', 
+            month: 'long'
+          });
+          break;
+        case 'month':
+        case '3months':
+          formattedLabel = date.toLocaleDateString('it-IT', { 
+            day: '2-digit', 
+            month: 'long',
+            year: 'numeric'
+          });
+          break;
+        case 'year':
+          formattedLabel = date.toLocaleDateString('it-IT', { 
+            month: 'long',
+            year: 'numeric'
+          });
+          break;
+        case 'custom':
+        case 'all':
+        default:
+          formattedLabel = date.toLocaleDateString('it-IT', { 
+            day: '2-digit', 
+            month: 'long',
+            year: 'numeric'
+          });
+          break;
+      }
+
+      return (
+        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800 mb-2">
+            {formattedLabel}
+          </p>
+          <p className="text-blue-600">
+            <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+            Click: <span className="font-semibold">{payload[0].value}</span>
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
   
   // Funzione per generare il titolo dinamico basato sul filtro attuale
   const getChartTitle = () => {
@@ -348,54 +381,177 @@ export default function ClicksTrendChart({
 
   const stats = calculateAdvancedStats();
 
-  // Formattatore per l'asse X basato sul tipo di filtro
+  // Funzione per ottenere i dati filtrati basati sul filtro selezionato
+  const getFilteredDataForChart = () => {
+    const now = new Date();
+    let filteredData = [...data];
+
+    switch (filterType) {
+      case 'today':
+        const today = now.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date === today);
+        break;
+      case 'week':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const weekAgoStr = weekAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= weekAgoStr);
+        break;
+      case 'month':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const monthAgoStr = monthAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= monthAgoStr);
+        break;
+      case '3months':
+        const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= threeMonthsAgoStr);
+        break;
+      case 'year':
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        const yearAgoStr = yearAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= yearAgoStr);
+        break;
+      case 'custom':
+        if (dateRange?.startDate && dateRange?.endDate) {
+          filteredData = data.filter(d => 
+            d.date >= dateRange.startDate && d.date <= dateRange.endDate
+          );
+        }
+        break;
+      case 'all':
+      default:
+        // Mostra gli ultimi 30 giorni per default
+        const defaultAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const defaultAgoStr = defaultAgo.toISOString().split('T')[0];
+        filteredData = data.filter(d => d.date >= defaultAgoStr);
+        break;
+    }
+
+    return filteredData.length > 0 ? filteredData : data.slice(-30); // Fallback agli ultimi 30 punti
+  };
+
+  // Formattatore intelligente per l'asse X basato sul tipo di filtro e periodo
   const formatXAxisDate = (dateString: string) => {
     const date = new Date(dateString);
     
-    if (filterType === 'today') {
-      return date.toLocaleTimeString('it-IT', { 
-        hour: '2-digit', 
-        minute: '2-digit'
-      });
-    }
-    
-    return date.toLocaleDateString('it-IT', { 
-      day: '2-digit', 
-      month: 'short'
-    });
-  };
-
-
-  // Formattiamo i dati per far visualizzare solo alcune etichette sull'asse X
-  const formattedData = data.map((item, index) => {
-    let shouldShowLabel = false;
-    
-    // Logica più intelligente per mostrare le etichette
     switch (filterType) {
       case 'today':
-        // Per oggi, mostra ogni 3 ore (se ci sono 24 punti)
-        shouldShowLabel = index % Math.max(1, Math.floor(data.length / 8)) === 0;
+        // Per oggi, mostra ora:minuti
+        return date.toLocaleTimeString('it-IT', { 
+          hour: '2-digit', 
+          minute: '2-digit'
+        });
+      case 'week':
+        // Per settimana, mostra giorno della settimana e giorno
+        return date.toLocaleDateString('it-IT', { 
+          weekday: 'short',
+          day: '2-digit'
+        });
+      case 'month':
+        // Per mese, mostra giorno e mese
+        return date.toLocaleDateString('it-IT', { 
+          day: '2-digit', 
+          month: 'short'
+        });
+      case '3months':
+        // Per 3 mesi, mostra giorno e mese
+        return date.toLocaleDateString('it-IT', { 
+          day: '2-digit', 
+          month: 'short'
+        });
+      case 'year':
+        // Per anno, mostra mese e anno
+        return date.toLocaleDateString('it-IT', { 
+          month: 'short',
+          year: '2-digit'
+        });
+      case 'custom':
+        // Per periodo custom, adatta in base alla lunghezza
+        const customData = getFilteredDataForChart();
+        if (customData.length <= 7) {
+          // Periodo breve: mostra giorno della settimana
+          return date.toLocaleDateString('it-IT', { 
+            weekday: 'short',
+            day: '2-digit'
+          });
+        } else if (customData.length <= 31) {
+          // Periodo medio: mostra giorno e mese
+          return date.toLocaleDateString('it-IT', { 
+            day: '2-digit', 
+            month: 'short'
+          });
+        } else {
+          // Periodo lungo: mostra mese e anno
+          return date.toLocaleDateString('it-IT', { 
+            month: 'short',
+            year: '2-digit'
+          });
+        }
+      case 'all':
+      default:
+        // Default: mostra giorno e mese
+        return date.toLocaleDateString('it-IT', { 
+          day: '2-digit', 
+          month: 'short'
+        });
+    }
+  };
+
+  // Ottieni i dati filtrati effettivi per il grafico
+  const chartData = getFilteredDataForChart();
+
+  // Formattiamo i dati per l'asse X con logica intelligente per le etichette
+  const formattedData = chartData.map((item, index) => {
+    let shouldShowLabel = false;
+    
+    // Logica più intelligente per mostrare le etichette basata sui dati effettivi
+    const dataLength = chartData.length;
+    
+    switch (filterType) {
+      case 'today':
+        // Per oggi, mostra ogni 2-4 ore a seconda dei dati disponibili
+        const hourInterval = Math.max(1, Math.floor(dataLength / 6));
+        shouldShowLabel = index % hourInterval === 0;
         break;
       case 'week':
-        // Per settimana, mostra tutti i giorni
-        shouldShowLabel = true;
+        // Per settimana, mostra tutti i giorni se <= 7, altrimenti ogni 2
+        shouldShowLabel = dataLength <= 7 ? true : index % 2 === 0;
         break;
       case 'month':
-        // Per mese, mostra ogni 5 giorni circa
-        shouldShowLabel = index % Math.max(1, Math.floor(data.length / 6)) === 0;
+        // Per mese, mostra ogni 3-5 giorni a seconda della lunghezza
+        const dayInterval = Math.max(1, Math.floor(dataLength / 8));
+        shouldShowLabel = index % dayInterval === 0;
         break;
       case '3months':
-      case 'year':
-        // Per periodi lunghi, mostra meno etichette
-        shouldShowLabel = index % Math.max(1, Math.floor(data.length / 8)) === 0;
+        // Per 3 mesi, mostra ogni settimana circa
+        const weekInterval = Math.max(1, Math.floor(dataLength / 12));
+        shouldShowLabel = index % weekInterval === 0;
         break;
+      case 'year':
+        // Per anno, mostra ogni mese circa
+        const monthInterval = Math.max(1, Math.floor(dataLength / 12));
+        shouldShowLabel = index % monthInterval === 0;
+        break;
+      case 'custom':
+        // Per custom, adatta in base alla lunghezza
+        if (dataLength <= 7) {
+          shouldShowLabel = true;
+        } else if (dataLength <= 31) {
+          shouldShowLabel = index % Math.max(1, Math.floor(dataLength / 6)) === 0;
+        } else {
+          shouldShowLabel = index % Math.max(1, Math.floor(dataLength / 10)) === 0;
+        }
+        break;
+      case 'all':
       default:
-        // Default: mostra ogni 5° elemento
-        shouldShowLabel = index % 5 === 0;
+        // Default: mostra 6-8 etichette
+        const defaultInterval = Math.max(1, Math.floor(dataLength / 7));
+        shouldShowLabel = index % defaultInterval === 0;
+        break;
     }
     
     // Assicurati sempre di mostrare la prima e l'ultima etichetta
-    if (index === 0 || index === data.length - 1) {
+    if (index === 0 || index === dataLength - 1) {
       shouldShowLabel = true;
     }
     
@@ -486,7 +642,7 @@ export default function ClicksTrendChart({
 
       {/* Grafico */}
       <div className="h-80">
-        {data.length > 0 ? (
+        {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={formattedData}
@@ -505,6 +661,9 @@ export default function ClicksTrendChart({
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
+                angle={filterType === 'today' ? 0 : -45}
+                textAnchor={filterType === 'today' ? 'middle' : 'end'}
+                height={filterType === 'today' ? 30 : 50}
               />
               <YAxis 
                 stroke="#6b7280"
