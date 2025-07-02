@@ -1,0 +1,72 @@
+[33m77e0b4d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m new
+[33m5f87de2[m new
+[33m4418fff[m new
+[33ma128cb0[m new
+[33mf59d015[m new
+[33m0bd0859[m ripristino totale
+[33mf5aa505[m fix(links)!: implement robust form data parsing in createAdvancedLink
+[33ma297f23[m refactor: remove obsolete create-link-form component
+[33mfb5d632[m refactor(actions): remove dead code and duplicate types
+[33mb4d4f6e[m fix(ui): correct HTML structure to resolve hydration error
+[33mbb3e541[m fix(lint): restore full logic to actions and remove dead code
+[33m5d5918f[m fix(links): correct state handling in create link form
+[33mda5e617[m fix(route)!: implement final, robust redirection and tracking logic
+[33m39e53dc[m fix(clicks): ensure click recording completes before redirect
+[33m9b9480f[m refactor(route)!: use URL parsing to derive params and fix build
+[33ma776fbf[m fix(route): implement exact GET handler signature for dynamic routes
+[33md597ae0[m fix(route): correct GET handler signature for dynamic routes
+[33m8b76b35[m refactor(redirect): use Route Handler for link redirection
+[33m0f7a77f[m fix(clicks): correct dependency, transaction logic, and async headers
+[33m85b364a[m feat: implement click tracking and enhance links list
+[33ma069f8a[m refactor(route)!: bypass params argument by parsing request URL
+[33m214d1cf[m fix(route)!: implement named interface for route context to fix build
+[33m19683f1[m fix(route)!: apply explicit signature to GET handler to fix build
+[33mc28dfae[m fix(db)!: use correct tx.query syntax in transaction
+[33m8341b77[m refactor(redirect)!: replace dynamic page with Route Handler
+[33m3333a1d[m fix(types)!: apply definitive fix for dynamic page props and rendering
+[33md6a4d40[m fix(types)!: definitively correct dynamic page props typing
+[33m3d146d0[m fix(lint): use referrer variable in click recording
+[33m5bbd12d[m fix(types): correct ua-parser import and fix dynamic page props
+[33mcc3fd5c[m aggiunta funzionalita di statistiche
+[33m2ca127c[m fix(lint): restore full logic to workspace actions
+[33m19a7873[m nuove funzioni
+[33m9395dd9[m feat: display user links in dashboard with canonical URL
+[33ma08a533[m feat: display user links in dashboard with canonical URL
+[33m2a02c99[m refactor(config): use canonical NEXT_PUBLIC_SITE_URL
+[33m45d0afd[m fix(links): include workspaceId in link creation
+[33mfb7f3ec[m refactor(actions): remove unused imports
+[33md6a1e56[m fix(lint): remove unused variable in createShortLink action
+[33mbdb70d6[m fix(types): align all actions and UI components
+[33m0d3d5d1[m refactor(session): add workspaceId to session data and fix types
+[33m5d40a54[m fix(types): align CreateLinkState with return object
+[33m4f5d9a3[m feat: use canonical domain for generated links
+[33m6ab4442[m feat(workspaces): allow editing workspace names
+[33ma0c8bcc[m feat(workspaces): allow editing workspace names
+[33m293410f[m feat(workspaces): implement and finalize workspace creation UI
+[33m077b4c8[m fix(lint): resolve unescaped entities error in dashboard
+[33m6dc119c[m feat(workspaces): implement UI for workspace management
+[33m61fcb03[m fix(lint): remove unused 'sql' import in register action
+[33mc81abe7[m feat(workspaces): add workspace data model and logic
+[33mff6cc65[m feat: display user links list in dashboard with copy functionality
+[33m449aa34[m fix(redirect): correctly handle NEXT_REDIRECT exception
+[33m80ef53c[m feat: use dynamic domain for generated short URLs
+[33mb87a92c[m feat: implement professional and complete landing page
+[33m82038de[m fix(build): disable ESLint rule for page props to fix build
+[33m0e52300[m fix!(build): use 'any' type for page props as a workaround for persistent build error
+[33mdd007be[m fix(types): use inline typing for dynamic page props to resolve build error
+[33m0fa2c6a[m fix(types): correct page props typing for dynamic route
+[33m33c97a5[m feat: add collision handling to link creation
+[33m332cfbd[m fix(middleware): use unsealData to handle session check
+[33m5ac94a5[m refactor(db)!: remove centralized db client and rely on env var
+[33m6c54eb2[m fix!(session): correctly await cookies() before passing to getIronSession
+[33m5b78f79[m fix(session): correctly pass resolved cookie store to getIronSession
+[33m3048446[m refactor(session)!: revert to simple iron-session implementation to fix build
+[33mba3e4d3[m fix(session): fully implement IronSession type contract
+[33m6f79207[m fix(session)!: correctly await cookie store and apply type assertion
+[33m1054bbb[m fix(session): implement fully type-safe session handling
+[33ma27e207[m refactor(session)!: implement custom session handling for App Router compatibility
+[33m2af15d5[m fix(session): correctly pass cookie store to getIronSession
+[33mc2edf49[m fix: resolve ESLint errors for build
+[33m2f20a2a[m refactor: centralize database connection logic
+[33me7026e7[m Initial commit: Next.js project setup with dependencies
+[33m7f2b363[m Initial commit from Create Next App
