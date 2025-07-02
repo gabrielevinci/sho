@@ -372,8 +372,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
           SELECT generate_series(
-            CURRENT_TIMESTAMP - INTERVAL '23 hours',
-            CURRENT_TIMESTAMP,
+            ${actualStartDate}::date,
+            ${actualStartDate}::date + INTERVAL '23 hours',
             INTERVAL '1 hour'
           ) AS date
         ),
@@ -387,7 +387,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at >= CURRENT_TIMESTAMP - INTERVAL '23 hours'
+            AND clicked_at >= ${actualStartDate}::date
+            AND clicked_at < ${actualStartDate}::date + INTERVAL '1 day'
           GROUP BY date_trunc('hour', clicked_at)
         )
         SELECT 
