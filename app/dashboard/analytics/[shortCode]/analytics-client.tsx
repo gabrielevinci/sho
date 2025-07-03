@@ -76,23 +76,36 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
   // Usa il fuso orario italiano per il calcolo delle date
   const now = new Date();
   const italianNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-  const endDate = italianNow.toISOString().split('T')[0];
   
   switch (filter) {
     case 'today':
-      return { startDate: endDate, endDate };
+      // Per "oggi", usiamo l'ora corrente italiana come punto finale
+      // e le precedenti 23 ore come punto iniziale
+      const currentHour = new Date(italianNow);
+      currentHour.setMinutes(0, 0, 0); // Resetta minuti, secondi e millisecondi
+      
+      const startHour = new Date(currentHour.getTime() - 23 * 60 * 60 * 1000);
+      
+      return { 
+        startDate: startHour.toISOString().slice(0, 19), // Include ora, minuti, secondi
+        endDate: currentHour.toISOString().slice(0, 19)
+      };
     case 'week':
+      const endDate = italianNow.toISOString().split('T')[0];
       const weekAgo = new Date(italianNow.getTime() - 7 * 24 * 60 * 60 * 1000);
       return { startDate: weekAgo.toISOString().split('T')[0], endDate };
     case 'month':
+      const endDateMonth = italianNow.toISOString().split('T')[0];
       const monthAgo = new Date(italianNow.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return { startDate: monthAgo.toISOString().split('T')[0], endDate };
+      return { startDate: monthAgo.toISOString().split('T')[0], endDate: endDateMonth };
     case '3months':
+      const endDate3M = italianNow.toISOString().split('T')[0];
       const threeMonthsAgo = new Date(italianNow.getTime() - 90 * 24 * 60 * 60 * 1000);
-      return { startDate: threeMonthsAgo.toISOString().split('T')[0], endDate };
+      return { startDate: threeMonthsAgo.toISOString().split('T')[0], endDate: endDate3M };
     case 'year':
+      const endDateYear = italianNow.toISOString().split('T')[0];
       const yearAgo = new Date(italianNow.getTime() - 365 * 24 * 60 * 60 * 1000);
-      return { startDate: yearAgo.toISOString().split('T')[0], endDate };
+      return { startDate: yearAgo.toISOString().split('T')[0], endDate: endDateYear };
     case 'custom':
       if (customRange?.startDate && customRange?.endDate) {
         return {
@@ -124,7 +137,14 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     try {
       const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
       
-      const response = await fetch(`/api/analytics/${shortCode}?startDate=${startDate}&endDate=${endDate}&filterType=${filter}`);
+      // Per il filtro "today", passiamo anche l'informazione dell'ora
+      const params = new URLSearchParams({
+        filterType: filter,
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate })
+      });
+      
+      const response = await fetch(`/api/analytics/${shortCode}?${params.toString()}`);
       if (response.ok) {
         const filteredData = await response.json();
         setData(filteredData);

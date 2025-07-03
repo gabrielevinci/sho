@@ -32,7 +32,8 @@ interface ClicksTrendChartDualProps {
 const formatDate = (dateString: string, filterType: DateFilter = 'all'): string => {
   if (filterType === 'today') {
     // Per "oggi", la stringa è già in formato HH:MM dal database
-    return dateString;
+    // Aggiungiamo "h" per renderla più leggibile
+    return `${dateString}h`;
   }
   
   const date = new Date(dateString);
@@ -122,7 +123,7 @@ const CustomTooltip = ({ active, payload, label, filterType }: {
         <div className="mb-3 pb-2 border-b border-gray-200">
           <p className="font-bold text-gray-900 text-base">
             {filterType === 'today' 
-              ? `🕐 Ore ${label}` 
+              ? `🕐 ${label}` 
               : `📅 ${label && formatDate(label, filterType)}`
             }
           </p>
@@ -271,9 +272,10 @@ export default function ClicksTrendChartDual({
               dataKey="displayDate"
               tick={{ fontSize: 12 }}
               stroke="#666"
-              angle={filterType === 'today' ? 0 : -45}
-              textAnchor={filterType === 'today' ? 'middle' : 'end'}
-              height={filterType === 'today' ? 30 : 60}
+              angle={filterType === 'today' ? -45 : -45}
+              textAnchor="end"
+              height={60}
+              interval={filterType === 'today' ? 1 : 'preserveStartEnd'} // Mostra ogni 2 ore per "today"
             />
             <YAxis 
               tick={{ fontSize: 12 }}
@@ -316,10 +318,13 @@ export default function ClicksTrendChartDual({
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>
-              Periodo: {formatDate(data[0].date, filterType)} - {formatDate(data[data.length - 1].date, filterType)}
+              {filterType === 'today' 
+                ? `Periodo: Ultime 24 ore (${data[0].date} - ${data[data.length - 1].date})`
+                : `Periodo: ${formatDate(data[0].date, filterType)} - ${formatDate(data[data.length - 1].date, filterType)}`
+              }
             </span>
             <span>
-              {data.length} punti dati
+              {data.length} {filterType === 'today' ? 'ore' : 'punti dati'}
             </span>
           </div>
         </div>

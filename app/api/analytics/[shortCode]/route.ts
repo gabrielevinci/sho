@@ -382,12 +382,20 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     const useHourlyData = filterType === 'today' || daysDiff === 0;
 
     if (useHourlyData) {
-      // Dati orari per oggi con fuso orario italiano
+      // Per il filtro "today", usa l'ora corrente italiana come punto finale
+      // e le precedenti 23 ore come intervallo
+      const currentTimeItalian = new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"});
+      const currentHourItalian = new Date(currentTimeItalian);
+      currentHourItalian.setMinutes(0, 0, 0); // Arrotonda all'ora
+      
+      const startHourItalian = new Date(currentHourItalian.getTime() - 23 * 60 * 60 * 1000);
+      
+      // Dati orari per le ultime 24h con fuso orario italiano
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
           SELECT generate_series(
-            (${actualStartDate}::date AT TIME ZONE 'Europe/Rome'),
-            (${actualStartDate}::date AT TIME ZONE 'Europe/Rome') + INTERVAL '23 hours',
+            ${startHourItalian.toISOString()}::timestamp,
+            ${currentHourItalian.toISOString()}::timestamp,
             INTERVAL '1 hour'
           ) AS date
         ),
@@ -401,7 +409,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND (clicked_at AT TIME ZONE 'Europe/Rome')::date = ${actualStartDate}::date
+            AND clicked_at AT TIME ZONE 'Europe/Rome' >= ${startHourItalian.toISOString()}::timestamp
+            AND clicked_at AT TIME ZONE 'Europe/Rome' <= ${currentHourItalian.toISOString()}::timestamp
           GROUP BY date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome')
         )
         SELECT 
@@ -410,6 +419,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
         LEFT JOIN hourly_clicks hc ON hs.date = hc.date
+        ORDER BY hs.date
         ORDER BY hs.date
       `;
       return rows;
