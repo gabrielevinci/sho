@@ -448,7 +448,7 @@ export default function ClicksTrendChartDual({
           </div>
           {isPercentageView && (
             <div className="mt-2 text-xs text-gray-500 bg-blue-50 rounded-lg p-2">
-              <span className="font-medium">Modalità Relativa:</span> I valori sono espressi come percentuale del valore massimo registrato in un singolo punto temporale nel periodo selezionato. Questo permette di confrontare l'intensità relativa dei click nel tempo.
+              <span className="font-medium">Modalità Relativa:</span> I valori sono espressi come percentuale del valore massimo registrato in un singolo punto temporale nel periodo selezionato. Questo permette di confrontare l&apos;intensità relativa dei click nel tempo.
             </div>
           )}
         </div>
