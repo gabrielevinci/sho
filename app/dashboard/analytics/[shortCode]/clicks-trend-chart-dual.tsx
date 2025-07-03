@@ -94,6 +94,7 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
     color: string;
     name: string;
     value: number;
+    payload: TimeSeriesData; // Aggiungiamo il payload completo
   }>;
   label?: string;
   filterType?: DateFilter;
@@ -105,7 +106,11 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
     
     if (filterType === 'today') {
       // Per "oggi", il label è già in formato HH:MM
-      formattedLabel = `🕐 ${label}`;
+      // Troviamo il dato corrispondente per ottenere la data completa
+      const dataPoint = payload[0].payload;
+      const date = new Date(dataPoint.date);
+      const dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
+      formattedLabel = `📅 ${dateString} - 🕐 ${label}`;
     } else {
       // Per tutti gli altri filtri, formattiamo la data
       try {
