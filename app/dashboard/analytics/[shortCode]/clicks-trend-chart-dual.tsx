@@ -106,57 +106,54 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
     let formattedLabel: string;
     
     if (filterType === 'today') {
-      // Per "oggi", usiamo sempre full_datetime che è già in orario italiano
+      // Per "oggi", usiamo SEMPRE full_datetime per garantire coerenza con l'asse X
       const dataPoint = payload[0].payload;
       let dateString = "";
-      let timeString = label;
+      let timeString = "";
       
       try {
         if (dataPoint && dataPoint.full_datetime) {
+          // full_datetime è già convertito in orario italiano dal backend
           const date = new Date(dataPoint.full_datetime);
           if (!isNaN(date.getTime())) {
-            // Data: giorno della settimana, giorno e mese
+            // Data: giorno della settimana, giorno e mese (orario italiano)
             dateString = date.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
               month: 'short'
             });
-            // Ora: sempre da full_datetime
-            timeString = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false });
+            // Ora: estratta da full_datetime (già in orario italiano)
+            timeString = date.toLocaleTimeString('it-IT', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              hour12: false 
+            });
           }
-        } else if (dataPoint && dataPoint.date) {
-          // Fallback legacy
-          let date: Date | null = null;
-          if (dataPoint.date.includes('T')) {
-            date = new Date(dataPoint.date);
-          } else if (dataPoint.date.includes('-')) {
-            const parts = dataPoint.date.split('-');
-            if (parts.length === 3) {
-              date = parts[0].length === 4
-                ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}T${timeString}:00`)
-                : new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeString}:00`);
-            }
-          } else if (dataPoint.date.includes('/')) {
-            const parts = dataPoint.date.split('/');
-            if (parts.length === 3) {
-              date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeString}:00`);
-            }
-          }
-          if (date && !isNaN(date.getTime())) {
-            dateString = date.toLocaleDateString('it-IT', {
+        } else {
+          // Se full_datetime non è disponibile, usa il label come fallback
+          // ma avvisa che potrebbe non essere coerente
+          console.warn("full_datetime non disponibile, usando label come fallback");
+          timeString = label;
+          // Prova a costruire una data da oggi con l'ora del label
+          const today = new Date();
+          const [hours, minutes] = label.split(':');
+          if (hours && minutes) {
+            today.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            dateString = today.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
               month: 'short'
             });
-            timeString = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', hour12: false });
           }
         }
       } catch (e) {
         console.error("Errore nella formattazione della data:", e);
+        timeString = label; // Fallback finale
       }
-      formattedLabel = dateString
+      
+      formattedLabel = dateString && timeString
         ? `📅 ${dateString} alle ${timeString}`
-        : `🕐 Ore ${label}`;
+        : `🕐 Ore ${timeString || label}`;
     } else {
       // Per tutti gli altri filtri, formattiamo la data
       try {
