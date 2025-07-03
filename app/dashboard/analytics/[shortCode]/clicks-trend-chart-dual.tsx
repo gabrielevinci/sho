@@ -108,9 +108,49 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
       // Per "oggi", il label è già in formato HH:MM
       // Troviamo il dato corrispondente per ottenere la data completa
       const dataPoint = payload[0].payload;
-      const date = new Date(dataPoint.date);
-      const dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
-      formattedLabel = `📅 ${dateString} - 🕐 ${label}`;
+      
+      // Gestione sicura della data per evitare "Invalid Date"
+      let dateString = "";
+      try {
+        // Verifichiamo che la data sia in un formato valido
+        if (dataPoint && dataPoint.date) {
+          // Per le date in formato ISO standard
+          if (dataPoint.date.includes('T')) {
+            const date = new Date(dataPoint.date);
+            if (!isNaN(date.getTime())) {
+              dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
+            }
+          } else if (dataPoint.date.includes('-')) {
+            // Per date in formato YYYY-MM-DD o DD-MM-YYYY
+            const parts = dataPoint.date.split('-');
+            if (parts.length === 3) {
+              // Verifichiamo la formattazione e aggiustiamo se necessario
+              const date = parts[0].length === 4 
+                ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}`) // YYYY-MM-DD
+                : new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); // DD-MM-YYYY
+              
+              if (!isNaN(date.getTime())) {
+                dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
+              }
+            }
+          } else if (dataPoint.date.includes('/')) {
+            // Per date in formato DD/MM/YYYY
+            const parts = dataPoint.date.split('/');
+            if (parts.length === 3) {
+              const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+              if (!isNaN(date.getTime())) {
+                dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Errore nella formattazione della data:", e);
+      }
+
+      formattedLabel = dateString 
+        ? `📅 ${dateString} - 🕐 ${label}` 
+        : `🕐 ${label}`;
     } else {
       // Per tutti gli altri filtri, formattiamo la data
       try {
