@@ -79,14 +79,14 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
   
   switch (filter) {
     case 'today':
-      // Per "oggi", usiamo l'ora corrente italiana come punto finale
-      // e le precedenti 24 ore come punto iniziale
-      const currentTime = new Date(italianNow); // Manteniamo l'ora corrente esatta
+      // Per "oggi", calcoliamo l'intervallo di 24 ore
+      // L'ora corrente italiana sarà il punto finale nell'asse X
+      const currentTime = new Date(italianNow);
       const start24HoursAgo = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
       
       return { 
-        startDate: start24HoursAgo.toISOString(), // ISO completo con timezone
-        endDate: currentTime.toISOString() // ISO completo con timezone
+        startDate: start24HoursAgo.toISOString(),
+        endDate: currentTime.toISOString()
       };
     case 'week':
       const endDate = italianNow.toISOString().split('T')[0];

@@ -383,22 +383,21 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
 
     if (useHourlyData) {
       // Per il filtro "today", usa i parametri startDate e endDate dal frontend
-      // che sono già calcolati correttamente per il fuso orario italiano
       const startTime = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const endTime = endDate || new Date().toISOString();
       
-      // Dati orari per le ultime 24h con fuso orario italiano
+      // Dati orari per le ultime 24h
       const { rows } = await sql<TimeSeriesData>`
-        WITH hour_series AS (
-          SELECT generate_series(
-            ${startTime}::timestamp,
-            ${endTime}::timestamp,
-            INTERVAL '1 hour'
-          ) AS date
+        WITH RECURSIVE hour_series AS (
+          SELECT ${startTime}::timestamp + (interval '2 hours') as hour_start
+          UNION ALL
+          SELECT hour_start + interval '1 hour'
+          FROM hour_series 
+          WHERE hour_start < ${endTime}::timestamp + (interval '2 hours')
         ),
         hourly_clicks AS (
           SELECT 
-            date_trunc('hour', clicked_at) as date,
+            date_trunc('hour', clicked_at + interval '2 hours') as hour_start,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -408,15 +407,15 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             AND l.short_code = ${shortCode}
             AND clicked_at >= ${startTime}::timestamp
             AND clicked_at <= ${endTime}::timestamp
-          GROUP BY date_trunc('hour', clicked_at)
+          GROUP BY date_trunc('hour', clicked_at + interval '2 hours')
         )
         SELECT 
-          TO_CHAR(hs.date AT TIME ZONE 'Europe/Rome', 'HH24:MI') as date,
+          TO_CHAR(hs.hour_start, 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
-        LEFT JOIN hourly_clicks hc ON hs.date = hc.date
-        ORDER BY hs.date
+        LEFT JOIN hourly_clicks hc ON hs.hour_start = hc.hour_start
+        ORDER BY hs.hour_start
       `;
       return rows;
     } else {
