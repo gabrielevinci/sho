@@ -53,6 +53,7 @@ type TimeSeriesData = {
   date: string;
   total_clicks: number;
   unique_clicks: number;
+  full_datetime?: string | Date; // Campo opzionale per i dati orari
 };
 
 // Funzioni per ottenere i dati filtrati
@@ -443,7 +444,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           GROUP BY date_trunc('hour', clicked_at)
         )
         SELECT 
-          -- Converte l'ora UTC in italiana solo per la visualizzazione nell'asse X
+          -- Converte l'ora UTC in italiana e include sia data che ora per il tooltip
+          hs.hour_utc AT TIME ZONE 'Europe/Rome' as full_datetime,
           TO_CHAR(hs.hour_utc AT TIME ZONE 'Europe/Rome', 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks

@@ -54,6 +54,7 @@ type TimeSeriesData = {
   date: string;
   total_clicks: number;
   unique_clicks: number;
+  full_datetime?: string | Date; // Campo opzionale per i dati orari
 };
 
 // Funzione per ottenere i dati del link

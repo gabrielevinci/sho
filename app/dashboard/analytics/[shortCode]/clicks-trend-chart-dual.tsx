@@ -9,6 +9,7 @@ type TimeSeriesData = {
   date: string;
   total_clicks: number;
   unique_clicks: number;
+  full_datetime?: string | Date; // Campo opzionale per i dati orari
 };
 
 type DateFilter = 
@@ -109,48 +110,64 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
       // Troviamo il dato corrispondente per ottenere la data completa
       const dataPoint = payload[0].payload;
       
-      // Gestione sicura della data per evitare "Invalid Date"
+      // Gestione migliorata della data usando il campo full_datetime quando disponibile
       let dateString = "";
+      const timeString = label; // L'ora dal label
+      
       try {
-        // Verifichiamo che la data sia in un formato valido
-        if (dataPoint && dataPoint.date) {
-          // Per le date in formato ISO standard
+        // Prima proviamo ad usare il campo full_datetime se disponibile
+        if (dataPoint && dataPoint.full_datetime) {
+          const date = new Date(dataPoint.full_datetime);
+          if (!isNaN(date.getTime())) {
+            // Mostra il giorno della settimana, giorno e mese per chiarezza
+            dateString = date.toLocaleDateString('it-IT', { 
+              weekday: 'short',
+              day: '2-digit', 
+              month: 'short' 
+            });
+          }
+        } else if (dataPoint && dataPoint.date) {
+          // Fallback al metodo precedente se full_datetime non è disponibile
+          let date: Date | null = null;
+          
+          // Per le date in formato ISO standard (più comune)
           if (dataPoint.date.includes('T')) {
-            const date = new Date(dataPoint.date);
-            if (!isNaN(date.getTime())) {
-              dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
-            }
+            date = new Date(dataPoint.date);
           } else if (dataPoint.date.includes('-')) {
             // Per date in formato YYYY-MM-DD o DD-MM-YYYY
             const parts = dataPoint.date.split('-');
             if (parts.length === 3) {
               // Verifichiamo la formattazione e aggiustiamo se necessario
-              const date = parts[0].length === 4 
-                ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}`) // YYYY-MM-DD
-                : new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); // DD-MM-YYYY
-              
-              if (!isNaN(date.getTime())) {
-                dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
-              }
+              date = parts[0].length === 4 
+                ? new Date(`${parts[0]}-${parts[1]}-${parts[2]}T${timeString}:00`) // YYYY-MM-DD
+                : new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeString}:00`); // DD-MM-YYYY
             }
           } else if (dataPoint.date.includes('/')) {
             // Per date in formato DD/MM/YYYY
             const parts = dataPoint.date.split('/');
             if (parts.length === 3) {
-              const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-              if (!isNaN(date.getTime())) {
-                dateString = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long' });
-              }
+              date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${timeString}:00`);
             }
+          }
+          
+          // Se abbiamo una data valida, formattiamola
+          if (date && !isNaN(date.getTime())) {
+            // Mostra il giorno della settimana, giorno e mese per chiarezza
+            dateString = date.toLocaleDateString('it-IT', { 
+              weekday: 'short',
+              day: '2-digit', 
+              month: 'short' 
+            });
           }
         }
       } catch (e) {
         console.error("Errore nella formattazione della data:", e);
       }
 
+      // Formato migliorato che mostra sempre la data quando si attraversano più giorni
       formattedLabel = dateString 
-        ? `📅 ${dateString} - 🕐 ${label}` 
-        : `🕐 ${label}`;
+        ? `📅 ${dateString} alle ${label}` 
+        : `🕐 Ore ${label}`;
     } else {
       // Per tutti gli altri filtri, formattiamo la data
       try {
