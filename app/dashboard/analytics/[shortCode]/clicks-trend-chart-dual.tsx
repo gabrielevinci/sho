@@ -32,11 +32,20 @@ interface ClicksTrendChartDualProps {
 const formatDate = (dateString: string, filterType: DateFilter = 'all'): string => {
   if (filterType === 'today') {
     // Per "oggi", la stringa è già in formato HH:MM dal database
-    // Rimuoviamo la "h" per una visualizzazione più pulita
     return dateString;
   }
   
+  // Controllo di sicurezza: verifica che dateString sia valido
+  if (!dateString) {
+    return 'Data non disponibile';
+  }
+  
   const date = new Date(dateString);
+  
+  // Verifica che la data sia valida
+  if (isNaN(date.getTime())) {
+    return 'Data non valida';
+  }
   
   if (filterType === 'week') {
     // Per settimana, mostra giorno e mese
@@ -116,16 +125,30 @@ const CustomTooltip = ({ active, payload, label, filterType }: {
   label?: string;
   filterType?: DateFilter;
 }) => {
-  if (active && payload && payload.length) {
+  if (active && payload && payload.length && label) {
+    // Formato del label in base al tipo di filtro
+    let formattedLabel: string;
+    
+    if (filterType === 'today') {
+      // Per "oggi", il label è già in formato HH:MM
+      formattedLabel = `🕐 ${label}`;
+    } else {
+      // Per tutti gli altri filtri, formattiamo la data
+      try {
+        const formattedDate = formatDate(label, filterType);
+        formattedLabel = `📅 ${formattedDate}`;
+      } catch {
+        // Fallback in caso di errore nella formattazione
+        formattedLabel = `📅 ${label}`;
+      }
+    }
+
     return (
       <div className="bg-white border-2 border-gray-300 rounded-xl shadow-2xl p-4 min-w-[220px] backdrop-blur-sm">
         {/* Header del tooltip */}
         <div className="mb-3 pb-2 border-b border-gray-200">
           <p className="font-bold text-gray-900 text-base">
-            {filterType === 'today' 
-              ? `🕐 ${label}` 
-              : `📅 ${label && formatDate(label, filterType)}`
-            }
+            {formattedLabel}
           </p>
         </div>
         
