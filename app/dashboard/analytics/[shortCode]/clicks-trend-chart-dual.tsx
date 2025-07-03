@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, BarChart3, Percent } from 'lucide-react';
 
 // Tipi di dati per il grafico
 type TimeSeriesData = {
@@ -124,7 +124,7 @@ const calculateTrend = (data: TimeSeriesData[]): {
 };
 
 // Tooltip personalizzato
-const CustomTooltip = ({ active, payload, label, filterType }: {
+const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }: {
   active?: boolean;
   payload?: Array<{
     color: string;
@@ -133,6 +133,7 @@ const CustomTooltip = ({ active, payload, label, filterType }: {
   }>;
   label?: string;
   filterType?: DateFilter;
+  isPercentageView?: boolean;
 }) => {
   if (active && payload && payload.length && label) {
     // Formato del label in base al tipo di filtro
@@ -175,14 +176,17 @@ const CustomTooltip = ({ active, payload, label, filterType }: {
                 </span>
               </div>
               <span className="text-lg font-bold text-gray-900">
-                {entry.value.toLocaleString('it-IT')}
+                {isPercentageView 
+                  ? `${entry.value.toFixed(1)}%`
+                  : entry.value.toLocaleString('it-IT')
+                }
               </span>
             </div>
           ))}
         </div>
         
         {/* Footer con totale se ci sono entrambi i valori */}
-        {payload.length === 2 && (
+        {payload.length === 2 && !isPercentageView && (
           <div className="mt-3 pt-2 border-t border-gray-200">
             <div className="flex items-center justify-between text-xs text-gray-600">
               <span>Tasso conversione:</span>
@@ -208,25 +212,45 @@ export default function ClicksTrendChartDual({
   uniqueClicks = 0
 }: ClicksTrendChartDualProps) {
 
+  // State per la visualizzazione percentuale
+  const [isPercentageView, setIsPercentageView] = useState(false);
+
   // Prepara i dati per il grafico
   const chartData = useMemo(() => {
-    return data.map(item => ({
-      ...item,
-      displayDate: formatDate(item.date, filterType)
-    }));
-  }, [data, filterType]);
+    if (isPercentageView && data.length > 0) {
+      // Trova i valori massimi per calcolare le percentuali
+      const maxTotal = Math.max(...data.map(d => d.total_clicks));
+      const maxUnique = Math.max(...data.map(d => d.unique_clicks));
+      
+      return data.map(item => ({
+        ...item,
+        displayDate: formatDate(item.date, filterType),
+        total_clicks: maxTotal > 0 ? (item.total_clicks / maxTotal) * 100 : 0,
+        unique_clicks: maxUnique > 0 ? (item.unique_clicks / maxUnique) * 100 : 0
+      }));
+    } else {
+      return data.map(item => ({
+        ...item,
+        displayDate: formatDate(item.date, filterType)
+      }));
+    }
+  }, [data, filterType, isPercentageView]);
 
   // Calcola il trend
   const trend = useMemo(() => calculateTrend(data), [data]);
 
   // Calcola il massimo per l'asse Y
   const maxValue = useMemo(() => {
-    const maxTotal = Math.max(...data.map(d => d.total_clicks));
-    const maxUnique = Math.max(...data.map(d => d.unique_clicks));
-    const rawMax = Math.max(maxTotal, maxUnique);
-    // Arrotonda per eccesso e aggiungi padding intero per avere solo numeri interi
-    return Math.ceil(rawMax * 1.1);
-  }, [data]);
+    if (isPercentageView) {
+      return 100; // Per la vista percentuale, il massimo è sempre 100%
+    } else {
+      const maxTotal = Math.max(...data.map(d => d.total_clicks));
+      const maxUnique = Math.max(...data.map(d => d.unique_clicks));
+      const rawMax = Math.max(maxTotal, maxUnique);
+      // Arrotonda per eccesso e aggiungi padding intero per avere solo numeri interi
+      return Math.ceil(rawMax * 1.1);
+    }
+  }, [data, isPercentageView]);
 
   if (!data || data.length === 0) {
     return (
@@ -246,9 +270,39 @@ export default function ClicksTrendChartDual({
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Header del grafico */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Andamento Click</h3>
-          <p className="text-sm text-gray-600">Click totali e unici nel tempo</p>
+        <div className="flex items-center space-x-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Andamento Click</h3>
+            <p className="text-sm text-gray-600">
+              Click totali e unici nel tempo {isPercentageView ? '(% relativa)' : '(valori assoluti)'}
+            </p>
+          </div>
+          
+          {/* Toggle per vista percentuale */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setIsPercentageView(false)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                !isPercentageView 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Assoluti</span>
+            </button>
+            <button
+              onClick={() => setIsPercentageView(true)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                isPercentageView 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Percent className="h-4 w-4" />
+              <span>Relativi</span>
+            </button>
+          </div>
         </div>
         
         {/* Statistiche trend */}
@@ -261,10 +315,12 @@ export default function ClicksTrendChartDual({
                 <TrendingDown className="h-4 w-4 text-red-600" />
               ) : null}
               <span className="text-sm font-semibold text-gray-900">
-                {totalClicks.toLocaleString()}
+                {isPercentageView ? '100.0%' : totalClicks.toLocaleString()}
               </span>
             </div>
-            <p className="text-xs text-gray-500">Click Totali</p>
+            <p className="text-xs text-gray-500">
+              Click Totali {isPercentageView ? '(max)' : ''}
+            </p>
             {Math.abs(trend.totalChange) >= 5 && (
               <span className={`text-xs font-medium ${
                 trend.totalTrend === 'up' ? 'text-green-600' : 'text-red-600'
@@ -282,10 +338,15 @@ export default function ClicksTrendChartDual({
                 <TrendingDown className="h-4 w-4 text-red-600" />
               ) : null}
               <span className="text-sm font-semibold text-gray-900">
-                {uniqueClicks.toLocaleString()}
+                {isPercentageView 
+                  ? `${totalClicks > 0 ? ((uniqueClicks / totalClicks) * 100).toFixed(1) : '0.0'}%`
+                  : uniqueClicks.toLocaleString()
+                }
               </span>
             </div>
-            <p className="text-xs text-gray-500">Click Unici</p>
+            <p className="text-xs text-gray-500">
+              Click Unici {isPercentageView ? '(% vs totali)' : ''}
+            </p>
             {Math.abs(trend.uniqueChange) >= 5 && (
               <span className={`text-xs font-medium ${
                 trend.uniqueTrend === 'up' ? 'text-blue-600' : 'text-red-600'
@@ -322,12 +383,13 @@ export default function ClicksTrendChartDual({
               tick={{ fontSize: 12 }}
               stroke="#666"
               domain={[0, maxValue]}
-              allowDecimals={false}
+              allowDecimals={isPercentageView}
               tickCount={6}
               type="number"
+              tickFormatter={isPercentageView ? (value: number) => `${value.toFixed(1)}%` : undefined}
             />
             <Tooltip 
-              content={<CustomTooltip filterType={filterType} />}
+              content={<CustomTooltip filterType={filterType} isPercentageView={isPercentageView} />}
             />
             <Legend 
               wrapperStyle={{ paddingTop: '20px' }}
@@ -371,6 +433,11 @@ export default function ClicksTrendChartDual({
               {data.length} {filterType === 'today' ? 'ore' : 'punti dati'}
             </span>
           </div>
+          {isPercentageView && (
+            <div className="mt-2 text-xs text-gray-500 bg-blue-50 rounded-lg p-2">
+              <span className="font-medium">Modalità Relativa:</span> I valori sono espressi come percentuale del valore massimo nel periodo selezionato.
+            </div>
+          )}
         </div>
       )}
     </div>
