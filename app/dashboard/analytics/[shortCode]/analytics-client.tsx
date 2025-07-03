@@ -360,11 +360,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.geographicData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (country.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Calcola i click unici proporzionalmente ai click unici totali reali
+                      // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = country.unique_clicks !== undefined 
                         ? country.unique_clicks 
-                        : totalCategoryClicks > 0 
-                          ? Math.round((country.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                        : data.clickAnalytics.total_clicks > 0 
+                          ? Math.round((country.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
                       return (
@@ -420,11 +420,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.deviceData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (device.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Calcola i click unici proporzionalmente ai click unici totali reali
+                      // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = device.unique_clicks !== undefined 
                         ? device.unique_clicks 
-                        : totalCategoryClicks > 0 
-                          ? Math.round((device.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                        : data.clickAnalytics.total_clicks > 0 
+                          ? Math.round((device.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
                       return (
@@ -484,11 +484,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.browserData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (browser.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Calcola i click unici proporzionalmente ai click unici totali reali
+                      // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = browser.unique_clicks !== undefined 
                         ? browser.unique_clicks 
-                        : totalCategoryClicks > 0 
-                          ? Math.round((browser.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                        : data.clickAnalytics.total_clicks > 0 
+                          ? Math.round((browser.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
                       return (
@@ -544,11 +544,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.referrerData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (referrer.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Calcola i click unici proporzionalmente ai click unici totali reali
+                      // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = referrer.unique_clicks !== undefined 
                         ? referrer.unique_clicks 
-                        : totalCategoryClicks > 0 
-                          ? Math.round((referrer.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                        : data.clickAnalytics.total_clicks > 0 
+                          ? Math.round((referrer.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
                       return (
