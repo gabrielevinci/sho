@@ -320,6 +320,7 @@ export default function ClicksTrendChartDual({
               tick={{ fontSize: 12 }}
               stroke="#666"
               domain={[0, maxValue]}
+              allowDecimals={false}
             />
             <Tooltip 
               content={<CustomTooltip filterType={filterType} />}
