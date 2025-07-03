@@ -392,17 +392,17 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
-          -- Genera serie oraria in orario italiano (quello che l'utente vede)
+          -- Genera serie oraria partendo dall'ora UTC e convertendo a italiano per la visualizzazione
           SELECT generate_series(
-            ${startTime}::timestamptz,
-            ${endTime}::timestamptz,
+            ${startTimeUTC}::timestamptz,
+            ${endTimeUTC}::timestamptz,
             interval '1 hour'
-          ) AS hour_italian
+          ) AS hour_utc
         ),
         hourly_clicks AS (
           SELECT 
-            -- Converte i click UTC in orario italiano e li raggruppa per ora
-            date_trunc('hour', clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') as hour_italian,
+            -- Raggruppa i click per ora UTC (così come sono memorizzati nel database)
+            date_trunc('hour', clicked_at) as hour_utc,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -413,15 +413,16 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             -- Filtra usando i timestamp UTC convertiti
             AND clicked_at >= ${startTimeUTC}::timestamptz
             AND clicked_at <= ${endTimeUTC}::timestamptz + interval '1 hour'
-          GROUP BY date_trunc('hour', clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')
+          GROUP BY date_trunc('hour', clicked_at)
         )
         SELECT 
-          TO_CHAR(hs.hour_italian, 'HH24:MI') as date,
+          -- Converte l'ora UTC in italiana solo per la visualizzazione nell'asse X
+          TO_CHAR(hs.hour_utc AT TIME ZONE 'Europe/Rome', 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
-        LEFT JOIN hourly_clicks hc ON hs.hour_italian = hc.hour_italian
-        ORDER BY hs.hour_italian
+        LEFT JOIN hourly_clicks hc ON hs.hour_utc = hc.hour_utc
+        ORDER BY hs.hour_utc
       `;
       
       return rows;
