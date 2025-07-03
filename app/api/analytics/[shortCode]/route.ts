@@ -382,26 +382,23 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     const useHourlyData = filterType === 'today' || daysDiff === 0;
 
     if (useHourlyData) {
-      // Per il filtro "today", usa l'ora corrente italiana come punto finale
-      // e le precedenti 23 ore come intervallo
-      const currentTimeItalian = new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"});
-      const currentHourItalian = new Date(currentTimeItalian);
-      currentHourItalian.setMinutes(0, 0, 0); // Arrotonda all'ora
-      
-      const startHourItalian = new Date(currentHourItalian.getTime() - 23 * 60 * 60 * 1000);
+      // Per il filtro "today", usa i parametri startDate e endDate dal frontend
+      // che sono già calcolati correttamente per il fuso orario italiano
+      const startTime = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const endTime = endDate || new Date().toISOString();
       
       // Dati orari per le ultime 24h con fuso orario italiano
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
           SELECT generate_series(
-            ${startHourItalian.toISOString()}::timestamp,
-            ${currentHourItalian.toISOString()}::timestamp,
+            ${startTime}::timestamp,
+            ${endTime}::timestamp,
             INTERVAL '1 hour'
           ) AS date
         ),
         hourly_clicks AS (
           SELECT 
-            date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome') as date,
+            date_trunc('hour', clicked_at) as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -409,12 +406,12 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at AT TIME ZONE 'Europe/Rome' >= ${startHourItalian.toISOString()}::timestamp
-            AND clicked_at AT TIME ZONE 'Europe/Rome' <= ${currentHourItalian.toISOString()}::timestamp
-          GROUP BY date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome')
+            AND clicked_at >= ${startTime}::timestamp
+            AND clicked_at <= ${endTime}::timestamp
+          GROUP BY date_trunc('hour', clicked_at)
         )
         SELECT 
-          TO_CHAR(hs.date, 'HH24:MI') as date,
+          TO_CHAR(hs.date AT TIME ZONE 'Europe/Rome', 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs

@@ -32,8 +32,8 @@ interface ClicksTrendChartDualProps {
 const formatDate = (dateString: string, filterType: DateFilter = 'all'): string => {
   if (filterType === 'today') {
     // Per "oggi", la stringa è già in formato HH:MM dal database
-    // Aggiungiamo "h" per renderla più leggibile
-    return `${dateString}h`;
+    // Rimuoviamo la "h" per una visualizzazione più pulita
+    return dateString;
   }
   
   const date = new Date(dateString);
