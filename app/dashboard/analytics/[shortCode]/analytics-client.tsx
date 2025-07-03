@@ -28,6 +28,9 @@ type ClickAnalytics = {
   clicks_today: number;
   clicks_this_week: number;
   clicks_this_month: number;
+  unique_clicks_today: number;
+  unique_clicks_this_week: number;
+  unique_clicks_this_month: number;
 };
 
 type GeographicData = {
@@ -516,17 +519,34 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             Andamento Temporale
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="text-center">
+            {/* Oggi */}
+            <div className="text-center space-y-3">
               <div className="text-3xl font-bold text-gray-900">{initialData.clickAnalytics.clicks_today}</div>
-              <div className="text-sm text-gray-500 mt-1">Oggi</div>
+              <div className="text-lg font-semibold text-blue-600">{initialData.clickAnalytics.unique_clicks_today}</div>
+              <div className="space-y-1">
+                <div className="text-sm text-gray-500">Click Totali Oggi</div>
+                <div className="text-xs text-blue-500">Click Unici Oggi</div>
+              </div>
             </div>
-            <div className="text-center">
+            
+            {/* Ultimi 7 giorni */}
+            <div className="text-center space-y-3">
               <div className="text-3xl font-bold text-gray-900">{initialData.clickAnalytics.clicks_this_week}</div>
-              <div className="text-sm text-gray-500 mt-1">Ultimi 7 giorni</div>
+              <div className="text-lg font-semibold text-blue-600">{initialData.clickAnalytics.unique_clicks_this_week}</div>
+              <div className="space-y-1">
+                <div className="text-sm text-gray-500">Click Totali 7gg</div>
+                <div className="text-xs text-blue-500">Click Unici 7gg</div>
+              </div>
             </div>
-            <div className="text-center">
+            
+            {/* Ultimi 30 giorni */}
+            <div className="text-center space-y-3">
               <div className="text-3xl font-bold text-gray-900">{initialData.clickAnalytics.clicks_this_month}</div>
-              <div className="text-sm text-gray-500 mt-1">Ultimi 30 giorni</div>
+              <div className="text-lg font-semibold text-blue-600">{initialData.clickAnalytics.unique_clicks_this_month}</div>
+              <div className="space-y-1">
+                <div className="text-sm text-gray-500">Click Totali 30gg</div>
+                <div className="text-xs text-blue-500">Click Unici 30gg</div>
+              </div>
             </div>
           </div>
         </div>

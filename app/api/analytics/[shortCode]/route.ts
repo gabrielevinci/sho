@@ -24,6 +24,9 @@ type ClickAnalytics = {
   clicks_today: number;
   clicks_this_week: number;
   clicks_this_month: number;
+  unique_clicks_today: number;
+  unique_clicks_this_week: number;
+  unique_clicks_this_month: number;
 };
 
 type GeographicData = {
@@ -92,7 +95,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT device_type) as unique_devices,
             COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
             COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month
+            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
           FROM filtered_clicks
         ),
         top_stats AS (
@@ -116,7 +122,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           ts.most_used_device,
           cs.clicks_today,
           cs.clicks_this_week,
-          cs.clicks_this_month
+          cs.clicks_this_month,
+          cs.unique_clicks_today,
+          cs.unique_clicks_this_week,
+          cs.unique_clicks_this_month
         FROM click_stats cs, top_stats ts
       `;
     } else {
@@ -134,7 +143,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT device_type) as unique_devices,
             COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
             COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month
+            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
           FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
         ),
@@ -145,8 +157,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             (SELECT browser_name FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
              GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
             (SELECT device_type FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
-        )
+             GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device        )
         SELECT 
           cs.total_clicks,
           cs.unique_clicks,
@@ -158,11 +169,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           ts.most_used_device,
           cs.clicks_today,
           cs.clicks_this_week,
-          cs.clicks_this_month
+          cs.clicks_this_month,
+          cs.unique_clicks_today,
+          cs.unique_clicks_this_week,
+          cs.unique_clicks_this_month
         FROM click_stats cs, top_stats ts
       `;
     }
-
     const { rows } = await query;
     return rows[0] || {
       total_clicks: 0,
@@ -175,7 +188,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       most_used_device: null,
       clicks_today: 0,
       clicks_this_week: 0,
-      clicks_this_month: 0
+      clicks_this_month: 0,
+      unique_clicks_today: 0,
+      unique_clicks_this_week: 0,
+      unique_clicks_this_month: 0
     };
   } catch (error) {
     console.error("Failed to fetch filtered click analytics:", error);
@@ -190,7 +206,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       most_used_device: null,
       clicks_today: 0,
       clicks_this_week: 0,
-      clicks_this_month: 0
+      clicks_this_month: 0,
+      unique_clicks_today: 0,
+      unique_clicks_this_week: 0,
+      unique_clicks_this_month: 0
     };
   }
 }

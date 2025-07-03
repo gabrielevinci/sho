@@ -25,6 +25,9 @@ type ClickAnalytics = {
   clicks_today: number;
   clicks_this_week: number;
   clicks_this_month: number;
+  unique_clicks_today: number;
+  unique_clicks_this_week: number;
+  unique_clicks_this_month: number;
 };
 
 type GeographicData = {
@@ -86,7 +89,10 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
           COUNT(DISTINCT device_type) as unique_devices,
           COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
           COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month
+          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+          COUNT(DISTINCT CASE WHEN clicked_at::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
+          COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
+          COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
         FROM clicks c
         JOIN link_data ld ON c.link_id = ld.id
       ),
@@ -110,7 +116,10 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
         ts.most_used_device,
         cs.clicks_today,
         cs.clicks_this_week,
-        cs.clicks_this_month
+        cs.clicks_this_month,
+        cs.unique_clicks_today,
+        cs.unique_clicks_this_week,
+        cs.unique_clicks_this_month
       FROM click_stats cs, top_stats ts
     `;
     return rows[0] || {
@@ -124,7 +133,10 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
       most_used_device: null,
       clicks_today: 0,
       clicks_this_week: 0,
-      clicks_this_month: 0
+      clicks_this_month: 0,
+      unique_clicks_today: 0,
+      unique_clicks_this_week: 0,
+      unique_clicks_this_month: 0
     };
   } catch (error) {
     console.error("Failed to fetch click analytics:", error);
@@ -139,7 +151,10 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
       most_used_device: null,
       clicks_today: 0,
       clicks_this_week: 0,
-      clicks_this_month: 0
+      clicks_this_month: 0,
+      unique_clicks_today: 0,
+      unique_clicks_this_week: 0,
+      unique_clicks_this_month: 0
     };
   }
 }
