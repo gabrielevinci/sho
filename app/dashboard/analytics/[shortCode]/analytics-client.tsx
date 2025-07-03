@@ -235,7 +235,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
               <div className="text-sm text-blue-700">Click totali</div>
             </div>
 
-            {/* Click univoci */}
+            {/* Click unici */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-green-600 text-2xl">👥</div>
@@ -244,7 +244,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
               <div className="text-2xl font-bold text-green-900 mb-1">
                 {data.clickAnalytics.unique_clicks.toLocaleString('it-IT')}
               </div>
-              <div className="text-sm text-green-700">Click univoci</div>
+              <div className="text-sm text-green-700">Click unici</div>
             </div>
 
             {/* Origini/Referrer */}
@@ -337,8 +337,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
         <ClicksTrendChartDual 
           data={data.timeSeriesData} 
           filterType={currentFilter}
-          totalClicks={data.clickAnalytics.total_clicks}
-          uniqueClicks={data.clickAnalytics.unique_clicks}
         />
 
         {/* Grafici e tabelle dettagliate */}

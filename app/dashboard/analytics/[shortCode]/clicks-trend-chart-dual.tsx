@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 // Tipi di dati per il grafico
 type TimeSeriesData = {
@@ -24,8 +24,6 @@ type DateFilter =
 interface ClicksTrendChartDualProps {
   data: TimeSeriesData[];
   filterType?: DateFilter;
-  totalClicks: number;
-  uniqueClicks: number;
 }
 
 // Funzione utility per formattare le date
@@ -87,40 +85,6 @@ const formatDate = (dateString: string, filterType: DateFilter = 'all'): string 
       month: 'short'
     });
   }
-};
-
-// Funzione per calcolare il trend
-const calculateTrend = (data: TimeSeriesData[]): { 
-  totalTrend: 'up' | 'down' | 'stable';
-  uniqueTrend: 'up' | 'down' | 'stable';
-  totalChange: number;
-  uniqueChange: number;
-} => {
-  if (data.length < 2) {
-    return { 
-      totalTrend: 'stable', 
-      uniqueTrend: 'stable', 
-      totalChange: 0, 
-      uniqueChange: 0 
-    };
-  }
-
-  const firstHalf = data.slice(0, Math.floor(data.length / 2));
-  const secondHalf = data.slice(Math.floor(data.length / 2));
-
-  const firstHalfTotalAvg = firstHalf.reduce((sum, item) => sum + item.total_clicks, 0) / firstHalf.length;
-  const secondHalfTotalAvg = secondHalf.reduce((sum, item) => sum + item.total_clicks, 0) / secondHalf.length;
-  
-  const firstHalfUniqueAvg = firstHalf.reduce((sum, item) => sum + item.unique_clicks, 0) / firstHalf.length;
-  const secondHalfUniqueAvg = secondHalf.reduce((sum, item) => sum + item.unique_clicks, 0) / secondHalf.length;
-
-  const totalChange = firstHalfTotalAvg > 0 ? ((secondHalfTotalAvg - firstHalfTotalAvg) / firstHalfTotalAvg) * 100 : 0;
-  const uniqueChange = firstHalfUniqueAvg > 0 ? ((secondHalfUniqueAvg - firstHalfUniqueAvg) / firstHalfUniqueAvg) * 100 : 0;
-
-  const totalTrend = Math.abs(totalChange) < 5 ? 'stable' : totalChange > 0 ? 'up' : 'down';
-  const uniqueTrend = Math.abs(uniqueChange) < 5 ? 'stable' : uniqueChange > 0 ? 'up' : 'down';
-
-  return { totalTrend, uniqueTrend, totalChange, uniqueChange };
 };
 
 // Tooltip personalizzato
@@ -208,8 +172,6 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
 export default function ClicksTrendChartDual({ 
   data, 
   filterType = 'all',
-  totalClicks = 0,
-  uniqueClicks = 0
 }: ClicksTrendChartDualProps) {
 
   // Prepara i dati per il grafico - sempre valori assoluti
@@ -219,9 +181,6 @@ export default function ClicksTrendChartDual({
       displayDate: formatDate(item.date, filterType)
     }));
   }, [data, filterType]);
-
-  // Calcola il trend
-  const trend = useMemo(() => calculateTrend(data), [data]);
 
   // Calcola il massimo per l'asse Y - sempre valori assoluti
   const maxValue = useMemo(() => {
@@ -254,57 +213,8 @@ export default function ClicksTrendChartDual({
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Andamento Click</h3>
             <p className="text-sm text-gray-600">
-              Click totali e unici nel tempo (valori assoluti)
+              Click totali e unici nel tempo
             </p>
-          </div>
-        </div>
-        
-        {/* Statistiche trend */}
-        <div className="flex items-center space-x-6">
-          <div className="text-center">
-            <div className="flex items-center space-x-1">
-              {trend.totalTrend === 'up' ? (
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              ) : trend.totalTrend === 'down' ? (
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              ) : null}
-              <span className="text-sm font-semibold text-gray-900">
-                {totalClicks.toLocaleString()}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500">
-              Click Totali (totale periodo)
-            </p>
-            {Math.abs(trend.totalChange) >= 5 && (
-              <span className={`text-xs font-medium ${
-                trend.totalTrend === 'up' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {trend.totalTrend === 'up' ? '+' : ''}{trend.totalChange.toFixed(1)}%
-              </span>
-            )}
-          </div>
-          
-          <div className="text-center">
-            <div className="flex items-center space-x-1">
-              {trend.uniqueTrend === 'up' ? (
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-              ) : trend.uniqueTrend === 'down' ? (
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              ) : null}
-              <span className="text-sm font-semibold text-gray-900">
-                {uniqueClicks.toLocaleString()}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500">
-              Click Unici (totale periodo)
-            </p>
-            {Math.abs(trend.uniqueChange) >= 5 && (
-              <span className={`text-xs font-medium ${
-                trend.uniqueTrend === 'up' ? 'text-blue-600' : 'text-red-600'
-              }`}>
-                {trend.uniqueTrend === 'up' ? '+' : ''}{trend.uniqueChange.toFixed(1)}%
-              </span>
-            )}
           </div>
         </div>
       </div>
