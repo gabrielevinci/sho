@@ -382,23 +382,27 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     const useHourlyData = filterType === 'today' || daysDiff === 0;
 
     if (useHourlyData) {
-      // Per il filtro "today", usa i parametri startDate e endDate dal frontend
+      // Per il filtro "today", il frontend passa timestamp italiani con timezone +02:00
       const startTime = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const endTime = endDate || new Date().toISOString();
       
-      // Dati orari per le ultime 24h con corretta gestione del fuso orario italiano
+      // Convertiamo i timestamp italiani in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(startTime.replace('+02:00', 'Z')).toISOString();
+      const endTimeUTC = new Date(endTime.replace('+02:00', 'Z')).toISOString();
+      
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
-          -- Genera 24 ore consecutive partendo dall'ora di inizio UTC+2
+          -- Genera serie oraria in orario italiano (quello che l'utente vede)
           SELECT generate_series(
-            (${startTime}::timestamp + interval '2 hours')::timestamp,
-            (${endTime}::timestamp + interval '2 hours')::timestamp,
+            ${startTime}::timestamptz,
+            ${endTime}::timestamptz,
             interval '1 hour'
           ) AS hour_italian
         ),
         hourly_clicks AS (
           SELECT 
-            date_trunc('hour', clicked_at + interval '2 hours') as hour_italian,
+            -- Converte i click UTC in orario italiano e li raggruppa per ora
+            date_trunc('hour', clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') as hour_italian,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -406,9 +410,10 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at >= ${startTime}::timestamp
-            AND clicked_at < ${endTime}::timestamp + interval '1 hour'
-          GROUP BY date_trunc('hour', clicked_at + interval '2 hours')
+            -- Filtra usando i timestamp UTC convertiti
+            AND clicked_at >= ${startTimeUTC}::timestamptz
+            AND clicked_at <= ${endTimeUTC}::timestamptz + interval '1 hour'
+          GROUP BY date_trunc('hour', clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')
         )
         SELECT 
           TO_CHAR(hs.hour_italian, 'HH24:MI') as date,
