@@ -386,18 +386,21 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       const startTime = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const endTime = endDate || new Date().toISOString();
       
-      // Dati orari per le ultime 24h
+      console.log('DEBUG - useHourlyData with:', { startTime, endTime, filterType });
+      
+      // Dati orari per le ultime 24h con corretta gestione del fuso orario italiano
       const { rows } = await sql<TimeSeriesData>`
-        WITH RECURSIVE hour_series AS (
-          SELECT ${startTime}::timestamp + (interval '2 hours') as hour_start
-          UNION ALL
-          SELECT hour_start + interval '1 hour'
-          FROM hour_series 
-          WHERE hour_start < ${endTime}::timestamp + (interval '2 hours')
+        WITH hour_series AS (
+          -- Genera 24 ore consecutive partendo dall'ora di inizio UTC+2
+          SELECT generate_series(
+            (${startTime}::timestamp + interval '2 hours')::timestamp,
+            (${endTime}::timestamp + interval '2 hours')::timestamp,
+            interval '1 hour'
+          ) AS hour_italian
         ),
         hourly_clicks AS (
           SELECT 
-            date_trunc('hour', clicked_at + interval '2 hours') as hour_start,
+            date_trunc('hour', clicked_at + interval '2 hours') as hour_italian,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -410,13 +413,17 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           GROUP BY date_trunc('hour', clicked_at + interval '2 hours')
         )
         SELECT 
-          TO_CHAR(hs.hour_start, 'HH24:MI') as date,
+          TO_CHAR(hs.hour_italian, 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
-        LEFT JOIN hourly_clicks hc ON hs.hour_start = hc.hour_start
-        ORDER BY hs.hour_start
+        LEFT JOIN hourly_clicks hc ON hs.hour_italian = hc.hour_italian
+        ORDER BY hs.hour_italian
       `;
+      
+      console.log('DEBUG - hourly query result:', rows.length, 'rows');
+      console.log('DEBUG - first few rows:', rows.slice(0, 3));
+      console.log('DEBUG - last few rows:', rows.slice(-3));
       return rows;
     } else {
       // Dati giornalieri per altri periodi
