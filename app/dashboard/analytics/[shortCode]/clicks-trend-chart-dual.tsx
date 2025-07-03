@@ -222,6 +222,16 @@ export default function ClicksTrendChartDual({
       const maxTotal = Math.max(...data.map(d => d.total_clicks));
       const maxUnique = Math.max(...data.map(d => d.unique_clicks));
       
+      // Evita divisione per zero
+      if (maxTotal === 0 && maxUnique === 0) {
+        return data.map(item => ({
+          ...item,
+          displayDate: formatDate(item.date, filterType),
+          total_clicks: 0,
+          unique_clicks: 0
+        }));
+      }
+      
       return data.map(item => ({
         ...item,
         displayDate: formatDate(item.date, filterType),
@@ -315,11 +325,14 @@ export default function ClicksTrendChartDual({
                 <TrendingDown className="h-4 w-4 text-red-600" />
               ) : null}
               <span className="text-sm font-semibold text-gray-900">
-                {isPercentageView ? '100.0%' : totalClicks.toLocaleString()}
+                {isPercentageView 
+                  ? `${data.length > 0 ? Math.max(...data.map(d => d.total_clicks)).toLocaleString() : '0'}`
+                  : totalClicks.toLocaleString()
+                }
               </span>
             </div>
             <p className="text-xs text-gray-500">
-              Click Totali {isPercentageView ? '(max)' : ''}
+              Click Totali {isPercentageView ? '(max singolo)' : '(totale periodo)'}
             </p>
             {Math.abs(trend.totalChange) >= 5 && (
               <span className={`text-xs font-medium ${
@@ -339,13 +352,13 @@ export default function ClicksTrendChartDual({
               ) : null}
               <span className="text-sm font-semibold text-gray-900">
                 {isPercentageView 
-                  ? `${totalClicks > 0 ? ((uniqueClicks / totalClicks) * 100).toFixed(1) : '0.0'}%`
+                  ? `${data.length > 0 ? Math.max(...data.map(d => d.unique_clicks)).toLocaleString() : '0'}`
                   : uniqueClicks.toLocaleString()
                 }
               </span>
             </div>
             <p className="text-xs text-gray-500">
-              Click Unici {isPercentageView ? '(% vs totali)' : ''}
+              Click Unici {isPercentageView ? '(max singolo)' : '(totale periodo)'}
             </p>
             {Math.abs(trend.uniqueChange) >= 5 && (
               <span className={`text-xs font-medium ${
@@ -435,7 +448,7 @@ export default function ClicksTrendChartDual({
           </div>
           {isPercentageView && (
             <div className="mt-2 text-xs text-gray-500 bg-blue-50 rounded-lg p-2">
-              <span className="font-medium">Modalità Relativa:</span> I valori sono espressi come percentuale del valore massimo nel periodo selezionato.
+              <span className="font-medium">Modalità Relativa:</span> I valori sono espressi come percentuale del valore massimo registrato in un singolo punto temporale nel periodo selezionato. Questo permette di confrontare l'intensità relativa dei click nel tempo.
             </div>
           )}
         </div>

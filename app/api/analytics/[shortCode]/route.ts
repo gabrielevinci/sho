@@ -90,9 +90,9 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT country) as unique_countries,
             COUNT(DISTINCT referrer) as unique_referrers,
             COUNT(DISTINCT device_type) as unique_devices,
-            COUNT(*) as clicks_today,
-            COUNT(*) as clicks_this_week,
-            COUNT(*) as clicks_this_month
+            COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month
           FROM filtered_clicks
         ),
         top_stats AS (
