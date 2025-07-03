@@ -80,13 +80,13 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
   switch (filter) {
     case 'today':
       // Per "oggi", calcoliamo esattamente 24 ore in orario italiano
-      // Prendiamo l'ora corrente italiana e le precedenti 23 ore
+      // L'ultima ora mostrata deve essere l'ora corrente italiana
       
-      // Arrotondiamo all'ora corrente (es: se sono le 15:45, diventa 15:00)
+      // Arrotondiamo all'ora corrente (es: se sono le 04:30, diventa 04:00)
       const currentHourItalian = new Date(italianNow);
       currentHourItalian.setMinutes(0, 0, 0);
       
-      // Prendiamo le precedenti 23 ore (24 intervalli orari in totale)
+      // Le precedenti 23 ore + l'ora corrente = 24 ore totali
       const startHourItalian = new Date(currentHourItalian.getTime() - 23 * 60 * 60 * 1000);
       
       // Convertiamo gli orari italiani in UTC per inviarli al backend

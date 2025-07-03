@@ -386,8 +386,6 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       const startTime = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const endTime = endDate || new Date().toISOString();
       
-      console.log('DEBUG - useHourlyData with:', { startTime, endTime, filterType });
-      
       // Dati orari per le ultime 24h con corretta gestione del fuso orario italiano
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
@@ -409,7 +407,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
             AND clicked_at >= ${startTime}::timestamp
-            AND clicked_at <= ${endTime}::timestamp
+            AND clicked_at < ${endTime}::timestamp + interval '1 hour'
           GROUP BY date_trunc('hour', clicked_at + interval '2 hours')
         )
         SELECT 
@@ -421,9 +419,6 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         ORDER BY hs.hour_italian
       `;
       
-      console.log('DEBUG - hourly query result:', rows.length, 'rows');
-      console.log('DEBUG - first few rows:', rows.slice(0, 3));
-      console.log('DEBUG - last few rows:', rows.slice(-3));
       return rows;
     } else {
       // Dati giornalieri per altri periodi
