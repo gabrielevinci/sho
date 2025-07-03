@@ -36,19 +36,23 @@ const formatDate = (dateString: string, filterType: DateFilter = 'all'): string 
   }
   
   // Controllo di sicurezza: verifica che dateString sia valido
-  if (!dateString) {
-    return 'Data non disponibile';
+  if (!dateString || dateString.trim() === '') {
+    return '';
   }
   
-  const date = new Date(dateString);
+  // Per altri filtri, il backend restituisce date in formato YYYY-MM-DD
+  // Aggiungiamo 'T00:00:00' per creare un timestamp valido
+  const dateToFormat = dateString.includes('T') ? dateString : `${dateString}T00:00:00`;
+  const date = new Date(dateToFormat);
   
   // Verifica che la data sia valida
   if (isNaN(date.getTime())) {
-    return 'Data non valida';
+    console.warn(`Data non valida ricevuta: ${dateString}`);
+    return dateString; // Fallback al valore originale
   }
   
   if (filterType === 'week') {
-    // Per settimana, mostra giorno e mese
+    // Per settimana, mostra giorno della settimana e giorno del mese
     return date.toLocaleDateString('it-IT', { 
       weekday: 'short',
       day: '2-digit' 
@@ -59,15 +63,20 @@ const formatDate = (dateString: string, filterType: DateFilter = 'all'): string 
       day: '2-digit', 
       month: 'short' 
     });
-  } else if (filterType === 'year' || filterType === 'all') {
-    // Per periodi più lunghi, mostra data completa
+  } else if (filterType === 'year') {
+    // Per anno, mostra mese e anno per evitare sovraffollamento
     return date.toLocaleDateString('it-IT', { 
-      day: '2-digit', 
       month: 'short',
       year: '2-digit'
     });
+  } else if (filterType === 'all') {
+    // Per "sempre", format dipende dalla lunghezza del periodo
+    return date.toLocaleDateString('it-IT', { 
+      day: '2-digit', 
+      month: 'short'
+    });
   } else if (filterType === 'custom') {
-    // Per filtro personalizzato, formato dipende dalla lunghezza del periodo
+    // Per filtro personalizzato
     return date.toLocaleDateString('it-IT', { 
       day: '2-digit', 
       month: 'short'
@@ -298,7 +307,14 @@ export default function ClicksTrendChartDual({
               angle={filterType === 'today' ? -45 : -45}
               textAnchor="end"
               height={60}
-              interval={filterType === 'today' ? 1 : 'preserveStartEnd'} // Mostra ogni 2 ore per "today"
+              interval={
+                filterType === 'today' ? 1 : // Per ore, mostra ogni 2 ore
+                filterType === 'week' ? 0 : // Per settimana, mostra tutti i giorni
+                filterType === 'month' ? Math.max(0, Math.floor(data.length / 8)) : // Per mese, mostra circa 8 date
+                filterType === '3months' ? Math.max(0, Math.floor(data.length / 10)) : // Per 3 mesi, mostra circa 10 date
+                filterType === 'year' ? Math.max(0, Math.floor(data.length / 12)) : // Per anno, mostra circa 12 date
+                'preserveStartEnd' // Per altri filtri, mostra inizio e fine
+              }
             />
             <YAxis 
               tick={{ fontSize: 12 }}
