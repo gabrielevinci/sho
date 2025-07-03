@@ -86,20 +86,28 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           JOIN link_data ld ON c.link_id = ld.id
           WHERE clicked_at >= ${startDate}::timestamp AND clicked_at <= ${endDate}::timestamp
         ),
+        all_clicks AS (
+          SELECT * FROM clicks c
+          JOIN link_data ld ON c.link_id = ld.id
+        ),
         click_stats AS (
           SELECT 
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks,
             COUNT(DISTINCT country) as unique_countries,
             COUNT(DISTINCT referrer) as unique_referrers,
-            COUNT(DISTINCT device_type) as unique_devices,
+            COUNT(DISTINCT device_type) as unique_devices
+          FROM filtered_clicks
+        ),
+        time_stats AS (
+          SELECT
             COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
             COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
             COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
             COUNT(DISTINCT CASE WHEN clicked_at::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
             COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
             COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
-          FROM filtered_clicks
+          FROM all_clicks
         ),
         top_stats AS (
           SELECT 
@@ -120,13 +128,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           ts.top_referrer,
           ts.most_used_browser,
           ts.most_used_device,
-          cs.clicks_today,
-          cs.clicks_this_week,
-          cs.clicks_this_month,
-          cs.unique_clicks_today,
-          cs.unique_clicks_this_week,
-          cs.unique_clicks_this_month
-        FROM click_stats cs, top_stats ts
+          tms.clicks_today,
+          tms.clicks_this_week,
+          tms.clicks_this_month,
+          tms.unique_clicks_today,
+          tms.unique_clicks_this_week,
+          tms.unique_clicks_this_month
+        FROM click_stats cs, top_stats ts, time_stats tms
       `;
     } else {
       query = sql<ClickAnalytics>`
