@@ -36,21 +36,25 @@ type ClickAnalytics = {
 type GeographicData = {
   country: string;
   clicks: number;
+  unique_clicks?: number;
 };
 
 type DeviceData = {
   device_type: string;
   clicks: number;
+  unique_clicks?: number;
 };
 
 type BrowserData = {
   browser_name: string;
   clicks: number;
+  unique_clicks?: number;
 };
 
 type ReferrerData = {
   referrer: string;
   clicks: number;
+  unique_clicks?: number;
 };
 
 type TimeSeriesData = {
@@ -352,9 +356,15 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.geographicData.map((country, index) => {
-                      const percentage = (country.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
-                      // Assumiamo che circa il 70-80% dei click totali siano unici per i paesi
-                      const estimatedUniqueClicks = Math.round(country.clicks * 0.75);
+                      // Calcola la percentuale basata sui click totali di questa categoria rispetto alla somma dei click delle categorie
+                      const totalCategoryClicks = data.geographicData.reduce((sum, item) => sum + item.clicks, 0);
+                      const percentage = totalCategoryClicks > 0 ? (country.clicks / totalCategoryClicks) * 100 : 0;
+                      
+                      // Usa i click unici reali se disponibili, altrimenti stima conservativa
+                      const uniqueClicks = country.unique_clicks !== undefined 
+                        ? country.unique_clicks 
+                        : Math.round(country.clicks * 0.75);
+                      
                       return (
                         <tr key={country.country} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -367,7 +377,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                             {country.clicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right text-sm text-gray-700">
-                            {estimatedUniqueClicks.toLocaleString('it-IT')}
+                            {uniqueClicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-green-600">
@@ -404,10 +414,15 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.deviceData.map((device) => {
-                      const percentage = (device.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
-                      // Per i dispositivi mobile spesso ci sono più click ripetuti, per desktop meno
-                      const uniqueRate = device.device_type === 'mobile' ? 0.65 : 0.85;
-                      const estimatedUniqueClicks = Math.round(device.clicks * uniqueRate);
+                      // Calcola la percentuale basata sui click totali di questa categoria
+                      const totalCategoryClicks = data.deviceData.reduce((sum, item) => sum + item.clicks, 0);
+                      const percentage = totalCategoryClicks > 0 ? (device.clicks / totalCategoryClicks) * 100 : 0;
+                      
+                      // Usa i click unici reali se disponibili, altrimenti stima basata sul tipo di dispositivo
+                      const uniqueClicks = device.unique_clicks !== undefined 
+                        ? device.unique_clicks 
+                        : Math.round(device.clicks * (device.device_type === 'mobile' ? 0.65 : 0.85));
+                      
                       return (
                         <tr key={device.device_type} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -424,7 +439,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                             {device.clicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right text-sm text-gray-700">
-                            {estimatedUniqueClicks.toLocaleString('it-IT')}
+                            {uniqueClicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-blue-600">
@@ -461,9 +476,15 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.browserData.map((browser, index) => {
-                      const percentage = (browser.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
-                      // Per i browser, assumiamo un tasso di unicità del 70%
-                      const estimatedUniqueClicks = Math.round(browser.clicks * 0.70);
+                      // Calcola la percentuale basata sui click totali di questa categoria
+                      const totalCategoryClicks = data.browserData.reduce((sum, item) => sum + item.clicks, 0);
+                      const percentage = totalCategoryClicks > 0 ? (browser.clicks / totalCategoryClicks) * 100 : 0;
+                      
+                      // Usa i click unici reali se disponibili, altrimenti stima
+                      const uniqueClicks = browser.unique_clicks !== undefined 
+                        ? browser.unique_clicks 
+                        : Math.round(browser.clicks * 0.70);
+                      
                       return (
                         <tr key={browser.browser_name} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -476,7 +497,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                             {browser.clicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right text-sm text-gray-700">
-                            {estimatedUniqueClicks.toLocaleString('it-IT')}
+                            {uniqueClicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-purple-600">
@@ -513,10 +534,15 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.referrerData.map((referrer, index) => {
-                      const percentage = (referrer.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
-                      // Traffico diretto spesso ha più unicità, traffico da social/search meno
-                      const uniqueRate = referrer.referrer === 'Direct' ? 0.85 : 0.60;
-                      const estimatedUniqueClicks = Math.round(referrer.clicks * uniqueRate);
+                      // Calcola la percentuale basata sui click totali di questa categoria
+                      const totalCategoryClicks = data.referrerData.reduce((sum, item) => sum + item.clicks, 0);
+                      const percentage = totalCategoryClicks > 0 ? (referrer.clicks / totalCategoryClicks) * 100 : 0;
+                      
+                      // Usa i click unici reali se disponibili, altrimenti stima basata sul tipo di referrer
+                      const uniqueClicks = referrer.unique_clicks !== undefined 
+                        ? referrer.unique_clicks 
+                        : Math.round(referrer.clicks * (referrer.referrer === 'Direct' ? 0.85 : 0.60));
+                      
                       return (
                         <tr key={referrer.referrer} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -531,7 +557,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                             {referrer.clicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right text-sm text-gray-700">
-                            {estimatedUniqueClicks.toLocaleString('it-IT')}
+                            {uniqueClicks.toLocaleString('it-IT')}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-orange-600">
