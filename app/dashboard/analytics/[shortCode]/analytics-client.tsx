@@ -403,7 +403,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                     </tr>
                   </thead>
                   <tbody>
-                    {data.deviceData.map((device, index) => {
+                    {data.deviceData.map((device) => {
                       const percentage = (device.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
                       // Per i dispositivi mobile spesso ci sono più click ripetuti, per desktop meno
                       const uniqueRate = device.device_type === 'mobile' ? 0.65 : 0.85;

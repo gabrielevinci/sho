@@ -685,7 +685,7 @@ export default function ClicksTrendChart({
       console.error('Error in formatAxisLabel:', e);
       return dateString;
     }
-  }, [filterType, dateRange, chartData?.length]);
+  }, [filterType, chartData?.length]);
 
   // Formattiamo i dati per l'asse X con logica adattiva e tipo sicuro
   const formattedData = useMemo(() => {
