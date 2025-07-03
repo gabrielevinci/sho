@@ -99,26 +99,41 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
         endDate: currentHourItalian.toISOString().replace('Z', '+02:00')   // Indica che è ora italiana
       };
     case 'week':
-      const endDate = italianNow.toISOString().split('T')[0];
-      const weekAgo = new Date(italianNow.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return { startDate: weekAgo.toISOString().split('T')[0], endDate };
+      // Includere il giorno corrente: end date va a fine giornata
+      const endDate = new Date(italianNow);
+      endDate.setHours(23, 59, 59, 999);
+      const weekAgo = new Date(italianNow.getTime() - 6 * 24 * 60 * 60 * 1000); // 6 giorni fa + oggi = 7 giorni
+      weekAgo.setHours(0, 0, 0, 0);
+      return { startDate: weekAgo.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0] };
     case 'month':
-      const endDateMonth = italianNow.toISOString().split('T')[0];
-      const monthAgo = new Date(italianNow.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return { startDate: monthAgo.toISOString().split('T')[0], endDate: endDateMonth };
+      // Includere il giorno corrente: end date va a fine giornata
+      const endDateMonth = new Date(italianNow);
+      endDateMonth.setHours(23, 59, 59, 999);
+      const monthAgo = new Date(italianNow.getTime() - 29 * 24 * 60 * 60 * 1000); // 29 giorni fa + oggi = 30 giorni
+      monthAgo.setHours(0, 0, 0, 0);
+      return { startDate: monthAgo.toISOString().split('T')[0], endDate: endDateMonth.toISOString().split('T')[0] };
     case '3months':
-      const endDate3M = italianNow.toISOString().split('T')[0];
-      const threeMonthsAgo = new Date(italianNow.getTime() - 90 * 24 * 60 * 60 * 1000);
-      return { startDate: threeMonthsAgo.toISOString().split('T')[0], endDate: endDate3M };
+      // Includere il giorno corrente: end date va a fine giornata
+      const endDate3M = new Date(italianNow);
+      endDate3M.setHours(23, 59, 59, 999);
+      const threeMonthsAgo = new Date(italianNow.getTime() - 89 * 24 * 60 * 60 * 1000); // 89 giorni fa + oggi = 90 giorni
+      threeMonthsAgo.setHours(0, 0, 0, 0);
+      return { startDate: threeMonthsAgo.toISOString().split('T')[0], endDate: endDate3M.toISOString().split('T')[0] };
     case 'year':
-      const endDateYear = italianNow.toISOString().split('T')[0];
-      const yearAgo = new Date(italianNow.getTime() - 365 * 24 * 60 * 60 * 1000);
-      return { startDate: yearAgo.toISOString().split('T')[0], endDate: endDateYear };
+      // Includere il giorno corrente: end date va a fine giornata
+      const endDateYear = new Date(italianNow);
+      endDateYear.setHours(23, 59, 59, 999);
+      const yearAgo = new Date(italianNow.getTime() - 364 * 24 * 60 * 60 * 1000); // 364 giorni fa + oggi = 365 giorni
+      yearAgo.setHours(0, 0, 0, 0);
+      return { startDate: yearAgo.toISOString().split('T')[0], endDate: endDateYear.toISOString().split('T')[0] };
     case 'custom':
       if (customRange?.startDate && customRange?.endDate) {
+        // Per le date personalizzate, includere l'intera giornata finale
+        const endDate = new Date(customRange.endDate);
+        endDate.setHours(23, 59, 59, 999);
         return {
           startDate: customRange.startDate.toISOString().split('T')[0],
-          endDate: customRange.endDate.toISOString().split('T')[0]
+          endDate: endDate.toISOString().split('T')[0]
         };
       }
       return { startDate: '', endDate: '' };
