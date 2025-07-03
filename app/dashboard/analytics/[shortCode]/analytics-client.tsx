@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3, Percent } from 'lucide-react';
 import Link from 'next/link';
 import ClicksTrendChartDual from './clicks-trend-chart-dual';
 import AnalyticsFilters, { DateFilter, DateRange } from './analytics-filters';
@@ -126,6 +126,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
   const [loading, setLoading] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
+  const [isPercentageView, setIsPercentageView] = useState(false);
 
   // Funzione per caricare i dati filtrati
   const loadFilteredData = async (filter: DateFilter, customRange?: DateRange) => {
@@ -320,7 +321,41 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
         />
 
         {/* Grafici e tabelle dettagliate */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          {/* Header con toggle per visualizzazione */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Statistiche Dettagliate
+            </h2>
+            
+            {/* Toggle per vista percentuale */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setIsPercentageView(false)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                  !isPercentageView 
+                    ? 'bg-white text-gray-900 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>Assoluti</span>
+              </button>
+              <button
+                onClick={() => setIsPercentageView(true)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                  isPercentageView 
+                    ? 'bg-white text-gray-900 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Percent className="h-4 w-4" />
+                <span>Percentuali</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Statistiche geografiche */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -330,27 +365,28 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             </h3>
             {data.geographicData.length > 0 ? (
               <div className="space-y-3">
-                {data.geographicData.map((country, index) => (
-                  <div key={country.country} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-gray-600 w-4">#{index + 1}</span>
-                      <span className="text-sm text-gray-900">{country.country}</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-green-500 transition-all duration-300"
-                          style={{ 
-                            width: `${(country.clicks / (data.clickAnalytics.total_clicks || 1)) * 100}%` 
-                          }}
-                        />
+                {data.geographicData.map((country, index) => {
+                  const percentage = (country.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
+                  return (
+                    <div key={country.country} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-gray-600 w-4">#{index + 1}</span>
+                        <span className="text-sm text-gray-900">{country.country}</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                        {country.clicks}
-                      </span>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900 w-12 text-right">
+                          {isPercentageView ? `${percentage.toFixed(1)}%` : country.clicks}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-gray-500 text-center py-8">Nessun dato disponibile</p>
@@ -365,31 +401,32 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             </h3>
             {data.deviceData.length > 0 ? (
               <div className="space-y-3">
-                {data.deviceData.map((device) => (
-                  <div key={device.device_type} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      {device.device_type === 'mobile' ? (
-                        <Smartphone className="h-4 w-4 text-blue-600" />
-                      ) : (
-                        <Monitor className="h-4 w-4 text-blue-600" />
-                      )}
-                      <span className="text-sm text-gray-900 capitalize">{device.device_type}</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-500 transition-all duration-300"
-                          style={{ 
-                            width: `${(device.clicks / (data.clickAnalytics.total_clicks || 1)) * 100}%` 
-                          }}
-                        />
+                {data.deviceData.map((device) => {
+                  const percentage = (device.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
+                  return (
+                    <div key={device.device_type} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        {device.device_type === 'mobile' ? (
+                          <Smartphone className="h-4 w-4 text-blue-600" />
+                        ) : (
+                          <Monitor className="h-4 w-4 text-blue-600" />
+                        )}
+                        <span className="text-sm text-gray-900 capitalize">{device.device_type}</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                        {device.clicks}
-                      </span>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900 w-12 text-right">
+                          {isPercentageView ? `${percentage.toFixed(1)}%` : device.clicks}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-gray-500 text-center py-8">Nessun dato disponibile</p>
@@ -404,27 +441,28 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             </h3>
             {data.browserData.length > 0 ? (
               <div className="space-y-3">
-                {data.browserData.map((browser, index) => (
-                  <div key={browser.browser_name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-gray-600 w-4">#{index + 1}</span>
-                      <span className="text-sm text-gray-900">{browser.browser_name}</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-purple-500 transition-all duration-300"
-                          style={{ 
-                            width: `${(browser.clicks / (data.clickAnalytics.total_clicks || 1)) * 100}%` 
-                          }}
-                        />
+                {data.browserData.map((browser, index) => {
+                  const percentage = (browser.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
+                  return (
+                    <div key={browser.browser_name} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-gray-600 w-4">#{index + 1}</span>
+                        <span className="text-sm text-gray-900">{browser.browser_name}</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                        {browser.clicks}
-                      </span>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-purple-500 transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900 w-12 text-right">
+                          {isPercentageView ? `${percentage.toFixed(1)}%` : browser.clicks}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-gray-500 text-center py-8">Nessun dato disponibile</p>
@@ -439,34 +477,36 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             </h3>
             {data.referrerData.length > 0 ? (
               <div className="space-y-3">
-                {data.referrerData.map((referrer, index) => (
-                  <div key={referrer.referrer} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm font-medium text-gray-600 w-4">#{index + 1}</span>
-                      <span className="text-sm text-gray-900 truncate max-w-32">
-                        {referrer.referrer === 'Direct' ? 'Diretto' : referrer.referrer}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-orange-500 transition-all duration-300"
-                          style={{ 
-                            width: `${(referrer.clicks / (data.clickAnalytics.total_clicks || 1)) * 100}%` 
-                          }}
-                        />
+                {data.referrerData.map((referrer, index) => {
+                  const percentage = (referrer.clicks / (data.clickAnalytics.total_clicks || 1)) * 100;
+                  return (
+                    <div key={referrer.referrer} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-gray-600 w-4">#{index + 1}</span>
+                        <span className="text-sm text-gray-900 truncate max-w-32">
+                          {referrer.referrer === 'Direct' ? 'Diretto' : referrer.referrer}
+                        </span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 w-8 text-right">
-                        {referrer.clicks}
-                      </span>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-orange-500 transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900 w-12 text-right">
+                          {isPercentageView ? `${percentage.toFixed(1)}%` : referrer.clicks}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-gray-500 text-center py-8">Nessun dato disponibile</p>
             )}
           </div>
+        </div>
         </div>
 
         {/* Statistiche temporali - usa sempre i dati originali, non filtrati */}
