@@ -81,7 +81,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         filtered_clicks AS (
           SELECT * FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
-          WHERE clicked_at >= ${startDate}::date AND clicked_at <= ${endDate}::date + INTERVAL '1 day'
+          WHERE clicked_at >= ${startDate}::timestamp AND clicked_at <= ${endDate}::timestamp
         ),
         click_stats AS (
           SELECT 
@@ -204,7 +204,7 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::date AND clicked_at < ${endDate}::date + INTERVAL '1 day'
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at <= ${endDate}::timestamp
         GROUP BY country
         ORDER BY clicks DESC
         LIMIT 10
@@ -237,7 +237,7 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::date AND clicked_at < ${endDate}::date + INTERVAL '1 day'
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at <= ${endDate}::timestamp
         GROUP BY device_type
         ORDER BY clicks DESC
       `;
@@ -268,7 +268,7 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::date AND clicked_at < ${endDate}::date + INTERVAL '1 day'
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at <= ${endDate}::timestamp
         GROUP BY browser_name
         ORDER BY clicks DESC
         LIMIT 10
@@ -301,7 +301,7 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::date AND clicked_at < ${endDate}::date + INTERVAL '1 day'
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at <= ${endDate}::timestamp
         GROUP BY referrer
         ORDER BY clicks DESC
         LIMIT 10
@@ -420,7 +420,6 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         FROM hour_series hs
         LEFT JOIN hourly_clicks hc ON hs.date = hc.date
         ORDER BY hs.date
-        ORDER BY hs.date
       `;
       return rows;
     } else {
@@ -443,8 +442,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at >= ${actualStartDate}::date
-            AND clicked_at < ${actualEndDate}::date + INTERVAL '1 day'
+            AND clicked_at >= ${actualStartDate}::timestamp
+            AND clicked_at <= ${actualEndDate}::timestamp
           GROUP BY clicked_at::date
         )
         SELECT 
