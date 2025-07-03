@@ -481,11 +481,104 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             ) : (
               <p className="text-gray-500 text-center py-8">Nessun dato disponibile</p>
             )}
+          </div>        </div>
+        </div>
+
+        {/* Statistiche temporali - usa sempre i dati originali, non filtrati */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+            <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+            Andamento Temporale
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Oggi */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200 relative overflow-hidden">
+              <div className="absolute top-2 right-2 text-blue-200 text-4xl">📅</div>
+              <div className="relative">
+                <div className="flex items-baseline space-x-2 mb-2">
+                  <span className="text-3xl font-bold text-blue-900">
+                    {initialData.clickAnalytics.clicks_today}
+                  </span>
+                  <span className="text-lg font-semibold text-blue-700">
+                    ({initialData.clickAnalytics.unique_clicks_today})
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-blue-800">Oggi</div>
+                  <div className="text-xs text-blue-600">
+                    Totali <span className="font-medium">({initialData.clickAnalytics.clicks_today})</span> • 
+                    Unici <span className="font-medium">({initialData.clickAnalytics.unique_clicks_today})</span>
+                  </div>
+                  {initialData.clickAnalytics.clicks_today > 0 && (
+                    <div className="text-xs text-blue-500 mt-2">
+                      Tasso unicità: {Math.round((initialData.clickAnalytics.unique_clicks_today / initialData.clickAnalytics.clicks_today) * 100)}%
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Ultimi 7 giorni */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200 relative overflow-hidden">
+              <div className="absolute top-2 right-2 text-green-200 text-4xl">📊</div>
+              <div className="relative">
+                <div className="flex items-baseline space-x-2 mb-2">
+                  <span className="text-3xl font-bold text-green-900">
+                    {initialData.clickAnalytics.clicks_this_week}
+                  </span>
+                  <span className="text-lg font-semibold text-green-700">
+                    ({initialData.clickAnalytics.unique_clicks_this_week})
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-green-800">Ultimi 7 giorni</div>
+                  <div className="text-xs text-green-600">
+                    Totali <span className="font-medium">({initialData.clickAnalytics.clicks_this_week})</span> • 
+                    Unici <span className="font-medium">({initialData.clickAnalytics.unique_clicks_this_week})</span>
+                  </div>
+                  {initialData.clickAnalytics.clicks_this_week > 0 && (
+                    <div className="text-xs text-green-500 mt-2">
+                      Tasso unicità: {Math.round((initialData.clickAnalytics.unique_clicks_this_week / initialData.clickAnalytics.clicks_this_week) * 100)}%
+                    </div>
+                  )}
+                  <div className="text-xs text-green-500 mt-1">
+                    Media giornaliera: {Math.round(initialData.clickAnalytics.clicks_this_week / 7)} click
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Ultimi 30 giorni */}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200 relative overflow-hidden">
+              <div className="absolute top-2 right-2 text-purple-200 text-4xl">📈</div>
+              <div className="relative">
+                <div className="flex items-baseline space-x-2 mb-2">
+                  <span className="text-3xl font-bold text-purple-900">
+                    {initialData.clickAnalytics.clicks_this_month}
+                  </span>
+                  <span className="text-lg font-semibold text-purple-700">
+                    ({initialData.clickAnalytics.unique_clicks_this_month})
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-purple-800">Ultimi 30 giorni</div>
+                  <div className="text-xs text-purple-600">
+                    Totali <span className="font-medium">({initialData.clickAnalytics.clicks_this_month})</span> • 
+                    Unici <span className="font-medium">({initialData.clickAnalytics.unique_clicks_this_month})</span>
+                  </div>
+                  {initialData.clickAnalytics.clicks_this_month > 0 && (
+                    <div className="text-xs text-purple-500 mt-2">
+                      Tasso unicità: {Math.round((initialData.clickAnalytics.unique_clicks_this_month / initialData.clickAnalytics.clicks_this_month) * 100)}%
+                    </div>
+                  )}
+                  <div className="text-xs text-purple-500 mt-1">
+                    Media giornaliera: {Math.round(initialData.clickAnalytics.clicks_this_month / 30)} click
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        </div>
-
-
 
       </div>
     </div>
