@@ -116,6 +116,9 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
           // full_datetime dovrebbe essere già convertito in orario italiano dal backend
           const date = new Date(dataPoint.full_datetime);
           if (!isNaN(date.getTime())) {
+            // SOTTRAGGO 2 ORE per essere coerente con l'asse X che mostra UTC+2
+            date.setHours(date.getHours() - 2);
+            
             dateString = date.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
