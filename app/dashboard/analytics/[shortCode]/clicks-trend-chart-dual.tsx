@@ -106,23 +106,21 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
     let formattedLabel: string;
     
     if (filterType === 'today') {
-      // Per "oggi", usiamo SEMPRE full_datetime per garantire coerenza con l'asse X
+      // Per "oggi", dobbiamo convertire manualmente da UTC a orario italiano (UTC+2)
       const dataPoint = payload[0].payload;
       let dateString = "";
       let timeString = "";
       
       try {
         if (dataPoint && dataPoint.full_datetime) {
-          // full_datetime è già convertito in orario italiano dal backend
+          // full_datetime dovrebbe essere già convertito in orario italiano dal backend
           const date = new Date(dataPoint.full_datetime);
           if (!isNaN(date.getTime())) {
-            // Data: giorno della settimana, giorno e mese (orario italiano)
             dateString = date.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
               month: 'short'
             });
-            // Ora: estratta da full_datetime (già in orario italiano)
             timeString = date.toLocaleTimeString('it-IT', { 
               hour: '2-digit', 
               minute: '2-digit', 
@@ -130,16 +128,41 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
             });
           }
         } else {
-          // Se full_datetime non è disponibile, usa il label come fallback
-          // ma avvisa che potrebbe non essere coerente
-          console.warn("full_datetime non disponibile, usando label come fallback");
+          // Fallback: converto manualmente l'ora del label da UTC a orario italiano
+          console.warn("full_datetime non disponibile, convertendo manualmente UTC a Italia");
+          
+          // Il label è l'ora in formato HH:MM dall'asse X (già convertita)
+          // Quindi uso direttamente il label per l'ora
           timeString = label;
-          // Prova a costruire una data da oggi con l'ora del label
-          const today = new Date();
+          
+          // Per la data, devo sapere a quale giorno appartiene questa ora in Italia
+          // Uso la data corrente italiana come base
+          const now = new Date();
+          const italianNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+          
+          // Parsing dell'ora dal label
           const [hours, minutes] = label.split(':');
           if (hours && minutes) {
-            today.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-            dateString = today.toLocaleDateString('it-IT', {
+            const currentHour = italianNow.getHours();
+            const labelHour = parseInt(hours);
+            
+            // Se l'ora del label è molto diversa dall'ora corrente, 
+            // potrebbe essere del giorno precedente o successivo
+            const targetDate = new Date(italianNow);
+            
+            // Se l'ora del grafico è molto più grande di quella corrente,
+            // probabilmente è del giorno precedente
+            if (labelHour > currentHour + 12) {
+              targetDate.setDate(targetDate.getDate() - 1);
+            }
+            // Se l'ora del grafico è molto più piccola di quella corrente,
+            // potrebbe essere del giorno successivo (nelle prime ore)
+            else if (labelHour < currentHour - 12) {
+              targetDate.setDate(targetDate.getDate() + 1);
+            }
+            
+            targetDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            dateString = targetDate.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
               month: 'short'
@@ -149,6 +172,14 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
       } catch (e) {
         console.error("Errore nella formattazione della data:", e);
         timeString = label; // Fallback finale
+        
+        // Fallback per la data: usa oggi
+        const today = new Date();
+        dateString = today.toLocaleDateString('it-IT', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short'
+        });
       }
       
       formattedLabel = dateString && timeString
