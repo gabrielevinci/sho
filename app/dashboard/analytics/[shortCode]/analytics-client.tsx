@@ -360,10 +360,12 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.geographicData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (country.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Usa i click unici reali se disponibili, altrimenti stima conservativa
+                      // Calcola i click unici proporzionalmente ai click unici totali reali
                       const uniqueClicks = country.unique_clicks !== undefined 
                         ? country.unique_clicks 
-                        : Math.round(country.clicks * 0.75);
+                        : totalCategoryClicks > 0 
+                          ? Math.round((country.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                          : 0;
                       
                       return (
                         <tr key={country.country} className="border-b border-gray-100 hover:bg-gray-50">
@@ -418,10 +420,12 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.deviceData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (device.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Usa i click unici reali se disponibili, altrimenti stima basata sul tipo di dispositivo
+                      // Calcola i click unici proporzionalmente ai click unici totali reali
                       const uniqueClicks = device.unique_clicks !== undefined 
                         ? device.unique_clicks 
-                        : Math.round(device.clicks * (device.device_type === 'mobile' ? 0.65 : 0.85));
+                        : totalCategoryClicks > 0 
+                          ? Math.round((device.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                          : 0;
                       
                       return (
                         <tr key={device.device_type} className="border-b border-gray-100 hover:bg-gray-50">
@@ -480,10 +484,12 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.browserData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (browser.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Usa i click unici reali se disponibili, altrimenti stima
+                      // Calcola i click unici proporzionalmente ai click unici totali reali
                       const uniqueClicks = browser.unique_clicks !== undefined 
                         ? browser.unique_clicks 
-                        : Math.round(browser.clicks * 0.70);
+                        : totalCategoryClicks > 0 
+                          ? Math.round((browser.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                          : 0;
                       
                       return (
                         <tr key={browser.browser_name} className="border-b border-gray-100 hover:bg-gray-50">
@@ -538,10 +544,12 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                       const totalCategoryClicks = data.referrerData.reduce((sum, item) => sum + item.clicks, 0);
                       const percentage = totalCategoryClicks > 0 ? (referrer.clicks / totalCategoryClicks) * 100 : 0;
                       
-                      // Usa i click unici reali se disponibili, altrimenti stima basata sul tipo di referrer
+                      // Calcola i click unici proporzionalmente ai click unici totali reali
                       const uniqueClicks = referrer.unique_clicks !== undefined 
                         ? referrer.unique_clicks 
-                        : Math.round(referrer.clicks * (referrer.referrer === 'Direct' ? 0.85 : 0.60));
+                        : totalCategoryClicks > 0 
+                          ? Math.round((referrer.clicks / totalCategoryClicks) * data.clickAnalytics.unique_clicks)
+                          : 0;
                       
                       return (
                         <tr key={referrer.referrer} className="border-b border-gray-100 hover:bg-gray-50">
