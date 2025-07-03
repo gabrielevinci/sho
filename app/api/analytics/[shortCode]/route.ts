@@ -357,7 +357,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
   try {
     // Gestione del filtro "all" (sempre)
     if (filterType === 'all' || (!startDate && !endDate)) {
-      // Per "sempre", ottieni tutti i dati giornalieri
+      // Per "sempre", ottieni tutti i dati giornalieri dal primo click fino al giorno corrente italiano
       const { rows } = await sql<TimeSeriesData>`
         WITH first_click AS (
           SELECT MIN(clicked_at::date) as min_date
@@ -367,10 +367,14 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
         ),
+        -- Calcola il giorno corrente in Italia (UTC+2)
+        current_italian_date AS (
+          SELECT (NOW() AT TIME ZONE 'Europe/Rome')::date as italian_today
+        ),
         date_series AS (
           SELECT generate_series(
-            COALESCE((SELECT min_date FROM first_click), CURRENT_DATE),
-            CURRENT_DATE,
+            COALESCE((SELECT min_date FROM first_click), (SELECT italian_today FROM current_italian_date)),
+            (SELECT italian_today FROM current_italian_date),
             INTERVAL '1 day'
           )::date AS date
         ),

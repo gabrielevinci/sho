@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import ClicksTrendChartDual from './clicks-trend-chart-dual';
@@ -149,19 +149,15 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
   const [loading, setLoading] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Funzione per caricare i dati filtrati
   const loadFilteredData = async (filter: DateFilter, customRange?: DateRange) => {
-    if (filter === 'all') {
-      setData(initialData);
-      return;
-    }
-
     setLoading(true);
     try {
       const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
       
-      // Per il filtro "today", passiamo anche l'informazione dell'ora
+      // Per tutti i filtri, incluso "all", ricarica sempre i dati per avere l'ultima versione
       const params = new URLSearchParams({
         filterType: filter,
         ...(startDate && { startDate }),
@@ -172,6 +168,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
       if (response.ok) {
         const filteredData = await response.json();
         setData(filteredData);
+        setLastUpdated(new Date()); // Aggiorna il timestamp dell'ultimo aggiornamento
       }
     } catch (error) {
       console.error('Error loading filtered data:', error);
@@ -189,6 +186,59 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     loadFilteredData(filter, customRange);
   };
 
+  // Effetto per aggiornare automaticamente i dati alla mezzanotte italiana quando il filtro è "all"
+  useEffect(() => {
+    if (currentFilter !== 'all') {
+      return; // Solo per il filtro "sempre"
+    }
+
+    // Funzione per ottenere l'ora italiana corrente
+    const getItalianTime = () => {
+      return new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+    };
+
+    // Funzione per calcolare i millisecondi fino alla prossima mezzanotte italiana
+    const getMillisecondsUntilItalianMidnight = () => {
+      const now = getItalianTime();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      // Convertiamo back in UTC per il calcolo corretto
+      const tomorrowUTC = new Date(tomorrow.toLocaleString("en-US", {timeZone: "UTC"}));
+      const nowUTC = new Date(now.toLocaleString("en-US", {timeZone: "UTC"}));
+      
+      return tomorrowUTC.getTime() - nowUTC.getTime();
+    };
+
+    // Aggiorna i dati ogni ora per avere sempre i dati più recenti
+    const hourlyInterval = setInterval(() => {
+      loadFilteredData('all', dateRange);
+    }, 60 * 60 * 1000); // 1 ora
+
+    // Imposta il timer per la mezzanotte italiana
+    const msUntilMidnight = getMillisecondsUntilItalianMidnight();
+    
+    const midnightTimer = setTimeout(() => {
+      // Ricarica i dati alla mezzanotte italiana
+      loadFilteredData('all', dateRange);
+      
+      // Imposta un intervallo giornaliero per i giorni successivi
+      const dailyInterval = setInterval(() => {
+        loadFilteredData('all', dateRange);
+      }, 24 * 60 * 60 * 1000); // 24 ore
+
+      // Cleanup dell'intervallo quando il componente viene smontato o il filtro cambia
+      return () => clearInterval(dailyInterval);
+    }, msUntilMidnight);
+
+    // Cleanup dei timer quando il componente viene smontato o il filtro cambia
+    return () => {
+      clearInterval(hourlyInterval);
+      clearTimeout(midnightTimer);
+    };
+  }, [currentFilter, dateRange, shortCode]);
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 py-8">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -205,7 +255,16 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500">Aggiornato ora</span>
+            {currentFilter === 'all' && (
+              <span className="text-sm text-gray-500">
+                {loading ? 'Aggiornamento...' : `Ultimo aggiornamento: ${lastUpdated.toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome' })}`}
+              </span>
+            )}
+            {currentFilter !== 'all' && (
+              <span className="text-sm text-gray-500">
+                {loading ? 'Caricamento...' : 'Dati filtrati'}
+              </span>
+            )}
           </div>
         </div>
 
