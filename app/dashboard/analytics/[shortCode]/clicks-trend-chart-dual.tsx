@@ -223,7 +223,9 @@ export default function ClicksTrendChartDual({
   const maxValue = useMemo(() => {
     const maxTotal = Math.max(...data.map(d => d.total_clicks));
     const maxUnique = Math.max(...data.map(d => d.unique_clicks));
-    return Math.max(maxTotal, maxUnique) * 1.1; // Aggiungi 10% di padding
+    const rawMax = Math.max(maxTotal, maxUnique);
+    // Arrotonda per eccesso e aggiungi padding intero per avere solo numeri interi
+    return Math.ceil(rawMax * 1.1);
   }, [data]);
 
   if (!data || data.length === 0) {
@@ -321,6 +323,8 @@ export default function ClicksTrendChartDual({
               stroke="#666"
               domain={[0, maxValue]}
               allowDecimals={false}
+              tickCount={6}
+              type="number"
             />
             <Tooltip 
               content={<CustomTooltip filterType={filterType} />}
