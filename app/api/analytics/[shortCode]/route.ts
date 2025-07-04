@@ -89,8 +89,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         filtered_clicks AS (
           SELECT * FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
-          WHERE (clicked_at AT TIME ZONE 'Europe/Rome')::date >= (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
-          AND (clicked_at AT TIME ZONE 'Europe/Rome')::date < (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
+          WHERE clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         ),
         all_clicks AS (
           SELECT * FROM clicks c
@@ -245,8 +244,7 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date >= (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date < (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY country
         ORDER BY clicks DESC
         LIMIT 10
@@ -283,8 +281,7 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date >= (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date < (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY device_type
         ORDER BY clicks DESC
       `;
@@ -319,8 +316,7 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date >= (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date < (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY browser_name
         ORDER BY clicks DESC
         LIMIT 10
@@ -357,8 +353,7 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date >= (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
-        AND (clicked_at AT TIME ZONE 'Europe/Rome')::date < (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY referrer
         ORDER BY clicks DESC
         LIMIT 10
@@ -478,18 +473,17 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       
       const { rows } = await sql<TimeSeriesData>`
         WITH hour_series AS (
-          -- Genera serie oraria direttamente in fuso orario italiano
+          -- Genera serie oraria partendo dall'ora UTC e convertendo a italiano per la visualizzazione
           SELECT generate_series(
-            ${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome',
-            ${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome',
+            ${startTimeUTC}::timestamptz,
+            ${endTimeUTC}::timestamptz,
             interval '1 hour'
-          ) AT TIME ZONE 'Europe/Rome' AS hour_utc
+          ) AS hour_utc
         ),
         hourly_clicks AS (
           SELECT 
-            -- Raggruppa i click per ora in fuso orario italiano
-            -- Conversione: UTC -> Europe/Rome -> truncate to hour -> back as timestamptz
-            date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome') AT TIME ZONE 'Europe/Rome' as hour_utc,
+            -- Raggruppa i click per ora UTC (così come sono memorizzati nel database)
+            date_trunc('hour', clicked_at) as hour_utc,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -500,12 +494,12 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             -- Filtra usando i timestamp UTC convertiti
             AND clicked_at >= ${startTimeUTC}::timestamptz
             AND clicked_at < ${endTimeUTC}::timestamptz + interval '1 hour'
-          GROUP BY date_trunc('hour', clicked_at AT TIME ZONE 'Europe/Rome') AT TIME ZONE 'Europe/Rome'
+          GROUP BY date_trunc('hour', clicked_at)
         )
         SELECT 
-          -- L'ora è già in fuso orario italiano
-          hs.hour_utc as full_datetime,
-          TO_CHAR(hs.hour_utc, 'HH24:MI') as date,
+          -- Converte l'ora UTC in italiana e include sia data che ora per il tooltip
+          hs.hour_utc AT TIME ZONE 'Europe/Rome' as full_datetime,
+          TO_CHAR(hs.hour_utc AT TIME ZONE 'Europe/Rome', 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
