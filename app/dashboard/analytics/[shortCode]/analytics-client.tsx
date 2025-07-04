@@ -83,11 +83,6 @@ interface AnalyticsClientProps {
   shortCode: string;
 }
 
-// Funzione helper per garantire che percentage sia sempre un numero valido
-const safePercentage = (percentage: number | null | undefined): number => {
-  return typeof percentage === 'number' && !isNaN(percentage) ? percentage : 0;
-};
-
 // Funzione helper per calcolare l'intervallo di date in base al filtro
 const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { startDate: string; endDate: string } => {
   // Usa il fuso orario italiano per il calcolo delle date
