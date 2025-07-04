@@ -149,15 +149,53 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
   const [loading, setLoading] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  // Auto-refresh per il filtro "all" alla mezzanotte italiana
+  useEffect(() => {
+    if (currentFilter !== 'all') return;
+
+    const setupMidnightRefresh = () => {
+      // Calcola il tempo fino alla prossima mezzanotte italiana
+      const now = new Date();
+      const italianNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+      
+      // Prossima mezzanotte italiana
+      const nextMidnight = new Date(italianNow);
+      nextMidnight.setHours(24, 0, 0, 0); // Mezzanotte del giorno successivo
+      
+      // Converti di nuovo in UTC per il setTimeout
+      const timeUntilMidnight = nextMidnight.getTime() - italianNow.getTime();
+      
+      console.log(`Prossimo refresh alla mezzanotte italiana tra ${Math.round(timeUntilMidnight / 1000 / 60)} minuti`);
+      
+      const timeoutId = setTimeout(() => {
+        console.log('Auto-refresh alla mezzanotte italiana per il filtro "sempre"');
+        loadFilteredData('all');
+        // Configura il prossimo refresh (ogni 24 ore)
+        setupMidnightRefresh();
+      }, timeUntilMidnight);
+
+      return timeoutId;
+    };
+
+    const timeoutId = setupMidnightRefresh();
+    
+    // Cleanup del timeout quando il componente viene smontato o il filtro cambia
+    return () => clearTimeout(timeoutId);
+  }, [currentFilter]);
 
   // Funzione per caricare i dati filtrati
   const loadFilteredData = async (filter: DateFilter, customRange?: DateRange) => {
+    if (filter === 'all') {
+      setData(initialData);
+      return;
+    }
+
     setLoading(true);
     try {
       const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
       
-      // Per tutti i filtri, incluso "all", ricarica sempre i dati per avere l'ultima versione
+      // Per il filtro "today", passiamo anche l'informazione dell'ora
       const params = new URLSearchParams({
         filterType: filter,
         ...(startDate && { startDate }),
@@ -168,7 +206,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
       if (response.ok) {
         const filteredData = await response.json();
         setData(filteredData);
-        setLastUpdated(new Date()); // Aggiorna il timestamp dell'ultimo aggiornamento
       }
     } catch (error) {
       console.error('Error loading filtered data:', error);
@@ -186,58 +223,28 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     loadFilteredData(filter, customRange);
   };
 
-  // Effetto per aggiornare automaticamente i dati alla mezzanotte italiana quando il filtro è "all"
+  // Effetto per il refresh automatico dei dati a mezzanotte italiana
   useEffect(() => {
-    if (currentFilter !== 'all') {
-      return; // Solo per il filtro "sempre"
-    }
-
-    // Funzione per ottenere l'ora italiana corrente
-    const getItalianTime = () => {
-      return new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-    };
-
-    // Funzione per calcolare i millisecondi fino alla prossima mezzanotte italiana
-    const getMillisecondsUntilItalianMidnight = () => {
-      const now = getItalianTime();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      
-      // Convertiamo back in UTC per il calcolo corretto
-      const tomorrowUTC = new Date(tomorrow.toLocaleString("en-US", {timeZone: "UTC"}));
-      const nowUTC = new Date(now.toLocaleString("en-US", {timeZone: "UTC"}));
-      
-      return tomorrowUTC.getTime() - nowUTC.getTime();
-    };
-
-    // Aggiorna i dati ogni ora per avere sempre i dati più recenti
-    const hourlyInterval = setInterval(() => {
-      loadFilteredData('all', dateRange);
-    }, 60 * 60 * 1000); // 1 ora
-
-    // Imposta il timer per la mezzanotte italiana
-    const msUntilMidnight = getMillisecondsUntilItalianMidnight();
+    const now = new Date();
+    const italianNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
     
-    const midnightTimer = setTimeout(() => {
-      // Ricarica i dati alla mezzanotte italiana
-      loadFilteredData('all', dateRange);
+    // Controlla se il filtro attuale è "all"
+    if (currentFilter === 'all') {
+      // Calcola il tempo rimanente fino alla mezzanotte italiana
+      const nextMidnight = new Date(italianNow);
+      nextMidnight.setHours(24, 0, 0, 0);
       
-      // Imposta un intervallo giornaliero per i giorni successivi
-      const dailyInterval = setInterval(() => {
-        loadFilteredData('all', dateRange);
-      }, 24 * 60 * 60 * 1000); // 24 ore
+      const timeout = nextMidnight.getTime() - italianNow.getTime();
+      
+      // Imposta un timeout per aggiornare i dati a mezzanotte
+      const timer = setTimeout(() => {
+        loadFilteredData('all');
+      }, timeout);
 
-      // Cleanup dell'intervallo quando il componente viene smontato o il filtro cambia
-      return () => clearInterval(dailyInterval);
-    }, msUntilMidnight);
-
-    // Cleanup dei timer quando il componente viene smontato o il filtro cambia
-    return () => {
-      clearInterval(hourlyInterval);
-      clearTimeout(midnightTimer);
-    };
-  }, [currentFilter, dateRange, shortCode]);
+      // Pulisci il timer all'unmount del componente
+      return () => clearTimeout(timer);
+    }
+  }, [currentFilter, loadFilteredData]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 py-8">
@@ -255,16 +262,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            {currentFilter === 'all' && (
-              <span className="text-sm text-gray-500">
-                {loading ? 'Aggiornamento...' : `Ultimo aggiornamento: ${lastUpdated.toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome' })}`}
-              </span>
-            )}
-            {currentFilter !== 'all' && (
-              <span className="text-sm text-gray-500">
-                {loading ? 'Caricamento...' : 'Dati filtrati'}
-              </span>
-            )}
+            <span className="text-sm text-gray-500">Aggiornato ora</span>
           </div>
         </div>
 

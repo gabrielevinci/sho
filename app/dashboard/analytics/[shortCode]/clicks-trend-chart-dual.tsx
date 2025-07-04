@@ -70,6 +70,7 @@ const formatDate = (dateString: string, filterType: DateFilter = 'all'): string 
     });
   } else if (filterType === 'all') {
     // Per "sempre", format dipende dalla lunghezza del periodo
+    // Le date dal backend sono già in formato YYYY-MM-DD, rappresentano giorni italiani
     return date.toLocaleDateString('it-IT', { 
       day: '2-digit', 
       month: 'short'
