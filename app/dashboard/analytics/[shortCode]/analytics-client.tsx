@@ -36,24 +36,28 @@ type ClickAnalytics = {
 type GeographicData = {
   country: string;
   clicks: number;
+  percentage: number;
   unique_clicks?: number;
 };
 
 type DeviceData = {
   device_type: string;
   clicks: number;
+  percentage: number;
   unique_clicks?: number;
 };
 
 type BrowserData = {
   browser_name: string;
   clicks: number;
+  percentage: number;
   unique_clicks?: number;
 };
 
 type ReferrerData = {
   referrer: string;
   clicks: number;
+  percentage: number;
   unique_clicks?: number;
 };
 
@@ -427,10 +431,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.geographicData.map((country, index) => {
-                      // Calcola la percentuale basata sui click totali di questa categoria rispetto alla somma dei click delle categorie
-                      const totalCategoryClicks = data.geographicData.reduce((sum, item) => sum + item.clicks, 0);
-                      const percentage = totalCategoryClicks > 0 ? (country.clicks / totalCategoryClicks) * 100 : 0;
-                      
                       // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = country.unique_clicks !== undefined 
                         ? country.unique_clicks 
@@ -454,7 +454,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-green-600">
-                              {percentage.toFixed(1)}%
+                              {country.percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
@@ -487,10 +487,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.deviceData.map((device) => {
-                      // Calcola la percentuale basata sui click totali di questa categoria
-                      const totalCategoryClicks = data.deviceData.reduce((sum, item) => sum + item.clicks, 0);
-                      const percentage = totalCategoryClicks > 0 ? (device.clicks / totalCategoryClicks) * 100 : 0;
-                      
                       // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = device.unique_clicks !== undefined 
                         ? device.unique_clicks 
@@ -518,7 +514,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-blue-600">
-                              {percentage.toFixed(1)}%
+                              {device.percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
@@ -551,10 +547,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.browserData.map((browser, index) => {
-                      // Calcola la percentuale basata sui click totali di questa categoria
-                      const totalCategoryClicks = data.browserData.reduce((sum, item) => sum + item.clicks, 0);
-                      const percentage = totalCategoryClicks > 0 ? (browser.clicks / totalCategoryClicks) * 100 : 0;
-                      
                       // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = browser.unique_clicks !== undefined 
                         ? browser.unique_clicks 
@@ -578,7 +570,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-purple-600">
-                              {percentage.toFixed(1)}%
+                              {browser.percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
@@ -611,10 +603,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.referrerData.map((referrer, index) => {
-                      // Calcola la percentuale basata sui click totali di questa categoria
-                      const totalCategoryClicks = data.referrerData.reduce((sum, item) => sum + item.clicks, 0);
-                      const percentage = totalCategoryClicks > 0 ? (referrer.clicks / totalCategoryClicks) * 100 : 0;
-                      
                       // Calcola i click unici proporzionalmente ai click totali globali
                       const uniqueClicks = referrer.unique_clicks !== undefined 
                         ? referrer.unique_clicks 
@@ -640,7 +628,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-orange-600">
-                              {percentage.toFixed(1)}%
+                              {referrer.percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>

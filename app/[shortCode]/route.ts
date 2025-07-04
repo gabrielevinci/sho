@@ -52,9 +52,17 @@ async function recordClick(linkId: number, request: NextRequest) {
   const userFingerprint = generateUserFingerprint(request, browserName, osName, deviceType);
 
   try {
+    // Genera timestamp corrente nel fuso orario italiano
     await sql`
-      INSERT INTO clicks (link_id, country, referrer, browser_name, device_type, os_name, user_fingerprint)
-      VALUES (${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, ${osName}, ${userFingerprint})
+      INSERT INTO clicks (
+        link_id, country, referrer, browser_name, device_type, os_name, 
+        user_fingerprint, clicked_at_rome
+      )
+      VALUES (
+        ${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, 
+        ${osName}, ${userFingerprint}, 
+        NOW() AT TIME ZONE 'Europe/Rome'
+      )
     `;
     await sql`
       UPDATE links SET click_count = click_count + 1 WHERE id = ${linkId}

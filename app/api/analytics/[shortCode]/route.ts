@@ -32,21 +32,25 @@ type ClickAnalytics = {
 type GeographicData = {
   country: string;
   clicks: number;
+  percentage: number;
 };
 
 type DeviceData = {
   device_type: string;
   clicks: number;
+  percentage: number;
 };
 
 type BrowserData = {
   browser_name: string;
   clicks: number;
+  percentage: number;
 };
 
 type ReferrerData = {
   referrer: string;
   clicks: number;
+  percentage: number;
 };
 
 type TimeSeriesData = {
@@ -76,7 +80,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
   try {
     let query;
     if (startDate && endDate) {
-      // Convertiamo le date in UTC per interrogare il database correttamente
+      // Convertiamo le date per il filtro temporale
       const startTimeUTC = new Date(startDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
@@ -89,7 +93,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         filtered_clicks AS (
           SELECT * FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
-          WHERE clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
+          WHERE clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
         ),
         all_clicks AS (
           SELECT * FROM clicks c
@@ -106,14 +110,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         ),
         time_stats AS (
           SELECT
-            -- Usa fuso orario italiano per calcolare oggi, questa settimana, questo mese
-            -- Conversione esplicita: UTC -> Europe/Rome per confronti temporali accurati
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
+            -- Usa clicked_at_rome che è già nel fuso orario italiano
+            COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
           FROM all_clicks
         ),
         top_stats AS (
@@ -156,14 +159,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT country) as unique_countries,
             COUNT(DISTINCT referrer) as unique_referrers,
             COUNT(DISTINCT device_type) as unique_devices,
-            -- Usa fuso orario italiano per calcolare oggi, questa settimana, questo mese
-            -- Conversione esplicita: UTC -> Europe/Rome per confronti temporali accurati
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
+            -- Usa clicked_at_rome che è già nel fuso orario italiano
+            COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
           FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
         ),
@@ -235,23 +237,42 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
   try {
     let query;
     if (startDate && endDate) {
-      // Convertiamo le date in UTC per interrogare il database correttamente
+      // Convertiamo le date per il filtro temporale
       const startTimeUTC = new Date(startDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<GeographicData>`
-        SELECT country, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+        )
+        SELECT 
+          country, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
+        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
         GROUP BY country
         ORDER BY clicks DESC
         LIMIT 10
       `;
     } else {
       query = sql<GeographicData>`
-        SELECT country, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        )
+        SELECT 
+          country, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -272,22 +293,41 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
   try {
     let query;
     if (startDate && endDate) {
-      // Convertiamo le date in UTC per interrogare il database correttamente
+      // Convertiamo le date per il filtro temporale
       const startTimeUTC = new Date(startDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<DeviceData>`
-        SELECT device_type, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+        )
+        SELECT 
+          device_type, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
+        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
         GROUP BY device_type
         ORDER BY clicks DESC
       `;
     } else {
       query = sql<DeviceData>`
-        SELECT device_type, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        )
+        SELECT 
+          device_type, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -307,23 +347,42 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
   try {
     let query;
     if (startDate && endDate) {
-      // Convertiamo le date in UTC per interrogare il database correttamente
+      // Convertiamo le date per il filtro temporale
       const startTimeUTC = new Date(startDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<BrowserData>`
-        SELECT browser_name, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+        )
+        SELECT 
+          browser_name, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
+        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
         GROUP BY browser_name
         ORDER BY clicks DESC
         LIMIT 10
       `;
     } else {
       query = sql<BrowserData>`
-        SELECT browser_name, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        )
+        SELECT 
+          browser_name, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -344,23 +403,42 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
   try {
     let query;
     if (startDate && endDate) {
-      // Convertiamo le date in UTC per interrogare il database correttamente
+      // Convertiamo le date per il filtro temporale
       const startTimeUTC = new Date(startDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<ReferrerData>`
-        SELECT referrer, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+        )
+        SELECT 
+          referrer, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
+        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
         GROUP BY referrer
         ORDER BY clicks DESC
         LIMIT 10
       `;
     } else {
       query = sql<ReferrerData>`
-        SELECT referrer, COUNT(*) as clicks
+        WITH total_clicks AS (
+          SELECT COUNT(*) as total
+          FROM clicks c
+          JOIN links l ON c.link_id = l.id
+          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        )
+        SELECT 
+          referrer, 
+          COUNT(*) as clicks,
+          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -383,46 +461,32 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     
     // Gestione del filtro "all" (sempre)
     if (filterType === 'all' || (!startDate && !endDate)) {
-      console.log('Using "all" filter - getting all daily data with Italian timezone');
-      
-      // Assicuriamoci di includere il giorno corrente fino all'ultimo minuto
-      // La logica qui è fondamentale: dobbiamo essere sicuri di attribuire i click
-      // al giorno italiano corretto, considerando che i timestamp nel DB sono in UTC
+      console.log('Using "all" filter - getting all daily data from link creation to today');
       
       const { rows } = await sql<TimeSeriesData>`
-        WITH first_click AS (
-          -- Trova la prima data in fuso orario italiano (considerando l'ora)
-          -- Ad esempio un click registrato alle 23:00 UTC del giorno X, sarà attribuito
-          -- all'1:00 del giorno X+1 in Italia (UTC+2)
-          SELECT MIN((clicked_at AT TIME ZONE 'Europe/Rome')::date) as min_date
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
-          WHERE l.user_id = ${userId} 
-            AND l.workspace_id = ${workspaceId} 
-            AND l.short_code = ${shortCode}
+        WITH link_creation_date AS (
+          -- Trova la data di creazione del link (già in fuso orario italiano se created_at è TIMESTAMPTZ)
+          SELECT (created_at AT TIME ZONE 'Europe/Rome')::date as creation_date
+          FROM links
+          WHERE user_id = ${userId} 
+            AND workspace_id = ${workspaceId} 
+            AND short_code = ${shortCode}
         ),
-        current_date_time_italy AS (
-          -- Data e ora corrente in Italia, completa con l'orario
-          SELECT NOW() AT TIME ZONE 'Europe/Rome' as current_date_time
-        ),
-        next_day_italy AS (
-          -- Prossima mezzanotte italiana, per includere tutti i click di oggi
-          SELECT (date_trunc('day', (SELECT current_date_time FROM current_date_time_italy)) + INTERVAL '1 day')::date as next_day
+        current_date_italy AS (
+          -- Data corrente in Italia
+          SELECT (NOW() AT TIME ZONE 'Europe/Rome')::date as current_date
         ),
         date_series AS (
           SELECT generate_series(
-            COALESCE((SELECT min_date FROM first_click), (SELECT (current_date_time - INTERVAL '30 days')::date FROM current_date_time_italy)),
-            (SELECT next_day FROM next_day_italy),
+            (SELECT creation_date FROM link_creation_date),
+            (SELECT current_date FROM current_date_italy),
             INTERVAL '1 day'
           )::date AS date
         ),
         daily_clicks AS (
           SELECT 
-            -- Raggruppa i click per giorno in fuso orario italiano
-            -- Conversione esplicita: UTC -> Europe/Rome -> date
-            -- Questo è fondamentale: un click alle 23:00 UTC (01:00 Italia)
-            -- deve essere conteggiato nel giorno italiano corretto
-            (clicked_at AT TIME ZONE 'Europe/Rome')::date as date,
+            -- Raggruppa i click per giorno utilizzando clicked_at_rome (già in fuso orario italiano)
+            clicked_at_rome::date as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -430,7 +494,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-          GROUP BY (clicked_at AT TIME ZONE 'Europe/Rome')::date
+          GROUP BY clicked_at_rome::date
         )
         SELECT 
           ds.date::text as date,
@@ -457,33 +521,28 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     const useHourlyData = filterType === 'today' || daysDiff === 0;
 
     if (useHourlyData) {
-      // Per il filtro "today", il frontend passa timestamp italiani con timezone +02:00
-      const startTime = startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const endTime = endDate || new Date().toISOString();
-      
-      // Convertiamo i timestamp italiani in UTC per interrogare il database correttamente
-      // Se la data include il timezone +02:00, lo sostituiamo con Z per convertire in UTC
-      // altrimenti usiamo la data così com'è (già in UTC)
-      const startTimeUTC = startTime.includes('+02:00') 
-        ? new Date(startTime.replace('+02:00', 'Z')).toISOString()
-        : startTime;
-      const endTimeUTC = endTime.includes('+02:00') 
-        ? new Date(endTime.replace('+02:00', 'Z')).toISOString()
-        : endTime;
-      
+      // Per il filtro "today", mostriamo le ultime 24 ore dall'ora corrente italiana
       const { rows } = await sql<TimeSeriesData>`
-        WITH hour_series AS (
-          -- Genera serie oraria partendo dall'ora UTC e convertendo a italiano per la visualizzazione
+        WITH current_hour_italy AS (
+          -- Ora corrente in Italia, troncata all'ora
+          SELECT date_trunc('hour', NOW() AT TIME ZONE 'Europe/Rome') as current_hour
+        ),
+        start_hour_italy AS (
+          -- 24 ore fa dall'ora corrente italiana
+          SELECT (SELECT current_hour FROM current_hour_italy) - INTERVAL '23 hours' as start_hour
+        ),
+        hour_series AS (
+          -- Genera serie oraria dalle ultime 24 ore fino all'ora corrente
           SELECT generate_series(
-            ${startTimeUTC}::timestamptz,
-            ${endTimeUTC}::timestamptz,
+            (SELECT start_hour FROM start_hour_italy),
+            (SELECT current_hour FROM current_hour_italy),
             interval '1 hour'
-          ) AS hour_utc
+          ) AS hour_rome
         ),
         hourly_clicks AS (
           SELECT 
-            -- Raggruppa i click per ora UTC (così come sono memorizzati nel database)
-            date_trunc('hour', clicked_at) as hour_utc,
+            -- Raggruppa i click per ora utilizzando clicked_at_rome
+            date_trunc('hour', clicked_at_rome) as hour_rome,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -491,43 +550,41 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            -- Filtra usando i timestamp UTC convertiti
-            AND clicked_at >= ${startTimeUTC}::timestamptz
-            AND clicked_at < ${endTimeUTC}::timestamptz + interval '1 hour'
-          GROUP BY date_trunc('hour', clicked_at)
+            -- Filtra le ultime 24 ore usando clicked_at_rome
+            AND date_trunc('hour', clicked_at_rome) >= (SELECT start_hour FROM start_hour_italy)
+            AND date_trunc('hour', clicked_at_rome) <= (SELECT current_hour FROM current_hour_italy)
+          GROUP BY date_trunc('hour', clicked_at_rome)
         )
         SELECT 
-          -- Converte l'ora UTC in italiana e include sia data che ora per il tooltip
-          hs.hour_utc AT TIME ZONE 'Europe/Rome' as full_datetime,
-          TO_CHAR(hs.hour_utc AT TIME ZONE 'Europe/Rome', 'HH24:MI') as date,
+          -- Aggiunge 2 ore al timestamp per correggere il tooltip
+          (hs.hour_rome + INTERVAL '2 hours')::timestamp as full_datetime,
+          TO_CHAR(hs.hour_rome, 'HH24:MI') as date,
           COALESCE(hc.total_clicks, 0) as total_clicks,
           COALESCE(hc.unique_clicks, 0) as unique_clicks
         FROM hour_series hs
-        LEFT JOIN hourly_clicks hc ON hs.hour_utc = hc.hour_utc
-        ORDER BY hs.hour_utc
+        LEFT JOIN hourly_clicks hc ON hs.hour_rome = hc.hour_rome
+        ORDER BY hs.hour_rome
       `;
       
       return rows;
     } else {
-      // Dati giornalieri per altri periodi - usa la stessa logica del filtro "today"
-      // Convertiamo le date in UTC per interrogare il database correttamente
+      // Dati giornalieri per altri periodi (filtri personalizzati)
       const startTimeUTC = new Date(actualStartDate).toISOString();
       const endTimeUTC = new Date(new Date(actualEndDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
-          -- Genera serie giornaliera in fuso orario italiano
+          -- Genera serie giornaliera utilizzando le date del filtro
           SELECT generate_series(
-            (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date,
-            (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date - INTERVAL '1 day',
+            ${actualStartDate}::date,
+            ${actualEndDate}::date,
             INTERVAL '1 day'
           )::date AS date
         ),
         daily_clicks AS (
           SELECT 
-            -- Raggruppa i click per giorno in fuso orario italiano
-            -- Conversione esplicita: UTC -> Europe/Rome -> date
-            (clicked_at AT TIME ZONE 'Europe/Rome')::date as date,
+            -- Raggruppa i click per giorno utilizzando clicked_at_rome (già in fuso orario italiano)
+            clicked_at_rome::date as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -535,10 +592,10 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            -- Filtra usando i timestamp UTC
-            AND clicked_at >= ${startTimeUTC}::timestamptz
-            AND clicked_at < ${endTimeUTC}::timestamptz
-          GROUP BY (clicked_at AT TIME ZONE 'Europe/Rome')::date
+            -- Filtra usando clicked_at_rome che è già nel fuso orario italiano
+            AND clicked_at_rome::date >= ${actualStartDate}::date
+            AND clicked_at_rome::date <= ${actualEndDate}::date
+          GROUP BY clicked_at_rome::date
         )
         SELECT 
           ds.date::text as date,
