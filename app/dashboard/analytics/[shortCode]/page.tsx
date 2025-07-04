@@ -33,21 +33,25 @@ type ClickAnalytics = {
 type GeographicData = {
   country: string;
   clicks: number;
+  percentage: number;
 };
 
 type DeviceData = {
   device_type: string;
   clicks: number;
+  percentage: number;
 };
 
 type BrowserData = {
   browser_name: string;
   clicks: number;
+  percentage: number;
 };
 
 type ReferrerData = {
   referrer: string;
   clicks: number;
+  percentage: number;
 };
 
 type TimeSeriesData = {

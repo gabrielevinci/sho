@@ -252,7 +252,7 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
         SELECT 
           country, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -272,7 +272,7 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
         SELECT 
           country, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -308,7 +308,7 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
         SELECT 
           device_type, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -327,7 +327,7 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
         SELECT 
           device_type, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -362,7 +362,7 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
         SELECT 
           browser_name, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -382,7 +382,7 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
         SELECT 
           browser_name, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -418,7 +418,7 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
         SELECT 
           referrer, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -438,7 +438,7 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
         SELECT 
           referrer, 
           COUNT(*) as clicks,
-          ROUND((COUNT(*) * 100.0 / (SELECT total FROM total_clicks)), 1) as percentage
+          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
@@ -569,9 +569,6 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       return rows;
     } else {
       // Dati giornalieri per altri periodi (filtri personalizzati)
-      const startTimeUTC = new Date(actualStartDate).toISOString();
-      const endTimeUTC = new Date(new Date(actualEndDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
-      
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
           -- Genera serie giornaliera utilizzando le date del filtro

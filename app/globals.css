@@ -46,3 +46,39 @@ body {
 .react-datepicker__day:hover {
   background-color: #dbeafe;
 }
+
+/* Fix per il testo degli input che non si vede */
+input[type="text"],
+input[type="email"], 
+input[type="password"],
+input[type="url"],
+input[type="search"],
+input[type="tel"],
+input[type="number"],
+textarea,
+select {
+  color: #374151 !important; /* text-gray-700 */
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus,
+input[type="tel"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  color: #111827 !important; /* text-gray-900 */
+}
+
+/* Assicurati che il placeholder sia visibile */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important; /* text-gray-400 */
+}
+
+/* Fix specifico per react-datepicker input */
+.react-datepicker__input-container input {
+  color: #374151 !important;
+}

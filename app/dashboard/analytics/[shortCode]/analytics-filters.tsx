@@ -26,11 +26,11 @@ interface AnalyticsFiltersProps {
 
 const filterOptions = [
   { value: 'all' as DateFilter, label: 'Sempre', description: 'Tutti i dati disponibili' },
-  { value: 'today' as DateFilter, label: 'Oggi', description: 'Ultime 24 ore' },
-  { value: 'week' as DateFilter, label: 'Settimana', description: 'Ultimi 7 giorni' },
-  { value: 'month' as DateFilter, label: 'Mese', description: 'Ultimi 30 giorni' },
-  { value: '3months' as DateFilter, label: '3 Mesi', description: 'Ultimi 90 giorni' },
-  { value: 'year' as DateFilter, label: 'Anno', description: 'Ultimi 365 giorni' },
+  { value: 'today' as DateFilter, label: '24 ore', description: '' },
+  { value: 'week' as DateFilter, label: 'Ultimi 7 giorni', description: '' },
+  { value: 'month' as DateFilter, label: 'Ultimi 30 giorni', description: '' },
+  { value: '3months' as DateFilter, label: 'Ultimi 90 giorni', description: '' },
+  { value: 'year' as DateFilter, label: 'Ultimi 365 giorni', description: '' },
   { value: 'custom' as DateFilter, label: 'Personalizzato', description: 'Seleziona intervallo' },
 ];
 
@@ -123,12 +123,14 @@ export default function AnalyticsFilters({
                   : option.label
                 }
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {option.value === 'custom' && isCustomActive && dateRange.startDate && dateRange.endDate
-                  ? 'Intervallo selezionato'
-                  : option.description
-                }
-              </div>
+              {option.description && (
+                <div className="text-xs text-gray-500 mt-1">
+                  {option.value === 'custom' && isCustomActive && dateRange.startDate && dateRange.endDate
+                    ? 'Intervallo selezionato'
+                    : option.description
+                  }
+                </div>
+              )}
             </button>
           );
         })}
@@ -165,7 +167,7 @@ export default function AnalyticsFilters({
                 maxDate={new Date()}
                 dateFormat="dd/MM/yyyy"
                 placeholderText="Seleziona data inizio"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             
@@ -183,7 +185,7 @@ export default function AnalyticsFilters({
                 maxDate={new Date()}
                 dateFormat="dd/MM/yyyy"
                 placeholderText="Seleziona data fine"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>

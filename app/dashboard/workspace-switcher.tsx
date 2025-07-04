@@ -53,7 +53,7 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
                       name="newName"
                       defaultValue={ws.name}
                       autoFocus
-                      className="flex-grow bg-transparent text-sm font-semibold focus:outline-none"
+                      className="flex-grow bg-transparent text-sm font-semibold text-gray-900 focus:outline-none"
                     />
                     <button type="submit" className="p-1 text-green-600 hover:text-green-800"><Check className="h-4 w-4" /></button>
                     <button type="button" onClick={() => setEditingId(null)} className="p-1 text-red-600 hover:text-red-800"><X className="h-4 w-4" /></button>
@@ -75,7 +75,7 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
           </div>
           <div className="border-t border-gray-200 p-2">
             <form action={createWorkspace} onSubmit={handleFormSubmit} className="flex items-center gap-1">
-              <input name="name" placeholder="Nuovo workspace..." required minLength={2} className="flex-grow bg-transparent px-2 py-1 text-sm placeholder-gray-400 focus:outline-none"/>
+              <input name="name" placeholder="Nuovo workspace..." required minLength={2} className="flex-grow bg-transparent px-2 py-1 text-sm placeholder-gray-400 text-gray-900 focus:outline-none"/>
               <CreateButton />
             </form>
           </div>

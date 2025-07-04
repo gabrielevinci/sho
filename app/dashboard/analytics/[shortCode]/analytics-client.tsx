@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import ClicksTrendChartDual from './clicks-trend-chart-dual';
@@ -83,6 +83,11 @@ interface AnalyticsClientProps {
   shortCode: string;
 }
 
+// Funzione helper per garantire che percentage sia sempre un numero valido
+const safePercentage = (percentage: number | null | undefined): number => {
+  return typeof percentage === 'number' && !isNaN(percentage) ? percentage : 0;
+};
+
 // Funzione helper per calcolare l'intervallo di date in base al filtro
 const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { startDate: string; endDate: string } => {
   // Usa il fuso orario italiano per il calcolo delle date
@@ -154,6 +159,36 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
 
+  // Funzione per caricare i dati filtrati
+  const loadFilteredData = useCallback(async (filter: DateFilter, customRange?: DateRange) => {
+    if (filter === 'all') {
+      setData(initialData);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
+      
+      // Per il filtro "today", passiamo anche l'informazione dell'ora
+      const params = new URLSearchParams({
+        filterType: filter,
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate })
+      });
+      
+      const response = await fetch(`/api/analytics/${shortCode}?${params.toString()}`);
+      if (response.ok) {
+        const result = await response.json();
+        setData(result);
+      }
+    } catch (error) {
+      console.error('Error loading filtered data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [shortCode, initialData]);
+
   // Auto-refresh per il filtro "all" alla mezzanotte italiana
   useEffect(() => {
     if (currentFilter !== 'all') return;
@@ -186,37 +221,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     
     // Cleanup del timeout quando il componente viene smontato o il filtro cambia
     return () => clearTimeout(timeoutId);
-  }, [currentFilter]);
-
-  // Funzione per caricare i dati filtrati
-  const loadFilteredData = async (filter: DateFilter, customRange?: DateRange) => {
-    if (filter === 'all') {
-      setData(initialData);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
-      
-      // Per il filtro "today", passiamo anche l'informazione dell'ora
-      const params = new URLSearchParams({
-        filterType: filter,
-        ...(startDate && { startDate }),
-        ...(endDate && { endDate })
-      });
-      
-      const response = await fetch(`/api/analytics/${shortCode}?${params.toString()}`);
-      if (response.ok) {
-        const filteredData = await response.json();
-        setData(filteredData);
-      }
-    } catch (error) {
-      console.error('Error loading filtered data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [currentFilter, loadFilteredData]);
 
   // Handler per il cambio di filtro
   const handleFilterChange = (filter: DateFilter, customRange?: DateRange) => {
@@ -438,6 +443,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           ? Math.round((country.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
+                      // Calcola la percentuale basata sui click totali del link
+                      const percentage = data.clickAnalytics.total_clicks > 0 
+                        ? (country.clicks / data.clickAnalytics.total_clicks) * 100
+                        : 0;
+                      
                       return (
                         <tr key={country.country} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -454,7 +464,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-green-600">
-                              {country.percentage.toFixed(1)}%
+                              {percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
@@ -494,6 +504,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           ? Math.round((device.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
+                      // Calcola la percentuale basata sui click totali del link
+                      const percentage = data.clickAnalytics.total_clicks > 0 
+                        ? (device.clicks / data.clickAnalytics.total_clicks) * 100
+                        : 0;
+                      
                       return (
                         <tr key={device.device_type} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -514,7 +529,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-blue-600">
-                              {device.percentage.toFixed(1)}%
+                              {percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
@@ -554,6 +569,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           ? Math.round((browser.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
+                      // Calcola la percentuale basata sui click totali del link
+                      const percentage = data.clickAnalytics.total_clicks > 0 
+                        ? (browser.clicks / data.clickAnalytics.total_clicks) * 100
+                        : 0;
+                      
                       return (
                         <tr key={browser.browser_name} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -570,7 +590,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-purple-600">
-                              {browser.percentage.toFixed(1)}%
+                              {percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>
@@ -610,6 +630,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           ? Math.round((referrer.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
+                      // Calcola la percentuale basata sui click totali del link
+                      const percentage = data.clickAnalytics.total_clicks > 0 
+                        ? (referrer.clicks / data.clickAnalytics.total_clicks) * 100
+                        : 0;
+                      
                       return (
                         <tr key={referrer.referrer} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-3 px-3">
@@ -628,7 +653,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-orange-600">
-                              {referrer.percentage.toFixed(1)}%
+                              {percentage.toFixed(1)}%
                             </span>
                           </td>
                         </tr>

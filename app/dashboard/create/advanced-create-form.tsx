@@ -21,7 +21,7 @@ function SubmitButton() {
 
 // Componente per i campi UTM con struttura HTML valida
 function UtmFields() {
-  const fieldClass = "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500";
+  const fieldClass = "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500";
   const labelClass = "block text-sm font-medium text-gray-600";
   return (
     <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
@@ -70,24 +70,24 @@ export default function AdvancedCreateForm() {
     <form ref={formRef} action={formAction} className="space-y-6">
       <div>
         <label htmlFor="originalUrl" className="block text-sm font-medium text-gray-800">URL di Destinazione</label>
-        <input type="url" name="originalUrl" id="originalUrl" required placeholder="https://esempio.com/il-mio-articolo" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+        <input type="url" name="originalUrl" id="originalUrl" required placeholder="https://esempio.com/il-mio-articolo" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
         {state.errors?.originalUrl && <p className="mt-1 text-sm text-red-600">{state.errors.originalUrl}</p>}
       </div>
 
       <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-600">Titolo (Opzionale)</label>
-          <input type="text" name="title" id="title" placeholder="Il mio fantastico articolo" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+          <input type="text" name="title" id="title" placeholder="Il mio fantastico articolo" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
         </div>
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-600">Descrizione (Opzionale)</label>
-          <textarea name="description" id="description" rows={3} placeholder="Una breve descrizione del contenuto del link." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <textarea name="description" id="description" rows={3} placeholder="Una breve descrizione del contenuto del link." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
         </div>
         <div>
           <label htmlFor="shortCode" className="block text-sm font-medium text-gray-600">Short Code Personalizzato (Opzionale)</label>
           <div className="flex items-center mt-1">
             <span className="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md h-11">{SITE_URL.replace(/^https?:\/\//, '')}/</span>
-            <input type="text" name="shortCode" id="shortCode" placeholder="mio-link" className="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+            <input type="text" name="shortCode" id="shortCode" placeholder="mio-link" className="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-r-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
           </div>
           {state.errors?.shortCode && <p className="mt-1 text-sm text-red-600">{state.errors.shortCode}</p>}
         </div>
