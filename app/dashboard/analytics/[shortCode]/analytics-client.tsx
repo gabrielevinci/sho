@@ -151,7 +151,6 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
 
 export default function AnalyticsClient({ initialData, shortCode }: AnalyticsClientProps) {
   const [data, setData] = useState<AnalyticsData>(initialData);
-  const [loading, setLoading] = useState(false);
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
 
@@ -162,7 +161,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
       return;
     }
 
-    setLoading(true);
     try {
       const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
       
@@ -180,8 +178,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
       }
     } catch (error) {
       console.error('Error loading filtered data:', error);
-    } finally {
-      setLoading(false);
     }
   }, [shortCode, initialData]);
 

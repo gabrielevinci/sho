@@ -2,7 +2,6 @@
 
 import { getSession } from '@/app/lib/session';
 import { sql } from '@vercel/postgres';
-import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
 // Azione per eliminare un link
