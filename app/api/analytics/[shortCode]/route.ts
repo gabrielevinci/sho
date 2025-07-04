@@ -76,6 +76,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
   try {
     let query;
     if (startDate && endDate) {
+      // Convertiamo le date in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(startDate).toISOString();
+      const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
       // Per i filtri, usa il range di date specificato
       query = sql<ClickAnalytics>`
         WITH link_data AS (
@@ -85,7 +89,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         filtered_clicks AS (
           SELECT * FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
-          WHERE clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
+          WHERE clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         ),
         all_clicks AS (
           SELECT * FROM clicks c
@@ -231,12 +235,16 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
   try {
     let query;
     if (startDate && endDate) {
+      // Convertiamo le date in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(startDate).toISOString();
+      const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
       query = sql<GeographicData>`
         SELECT country, COUNT(*) as clicks
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY country
         ORDER BY clicks DESC
         LIMIT 10
@@ -264,12 +272,16 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
   try {
     let query;
     if (startDate && endDate) {
+      // Convertiamo le date in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(startDate).toISOString();
+      const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
       query = sql<DeviceData>`
         SELECT device_type, COUNT(*) as clicks
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY device_type
         ORDER BY clicks DESC
       `;
@@ -295,12 +307,16 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
   try {
     let query;
     if (startDate && endDate) {
+      // Convertiamo le date in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(startDate).toISOString();
+      const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
       query = sql<BrowserData>`
         SELECT browser_name, COUNT(*) as clicks
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY browser_name
         ORDER BY clicks DESC
         LIMIT 10
@@ -328,12 +344,16 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
   try {
     let query;
     if (startDate && endDate) {
+      // Convertiamo le date in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(startDate).toISOString();
+      const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
       query = sql<ReferrerData>`
         SELECT referrer, COUNT(*) as clicks
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
+        AND clicked_at >= ${startTimeUTC}::timestamptz AND clicked_at < ${endTimeUTC}::timestamptz
         GROUP BY referrer
         ORDER BY clicks DESC
         LIMIT 10
@@ -474,18 +494,24 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       return rows;
     } else {
       // Dati giornalieri per altri periodi - usa la stessa logica del filtro "today"
+      // Convertiamo le date in UTC per interrogare il database correttamente
+      const startTimeUTC = new Date(actualStartDate).toISOString();
+      const endTimeUTC = new Date(new Date(actualEndDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
+          -- Genera serie giornaliera in fuso orario italiano
           SELECT generate_series(
-            ${actualStartDate}::date,
-            ${actualEndDate}::date,
+            (${startTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date,
+            (${endTimeUTC}::timestamptz AT TIME ZONE 'Europe/Rome')::date - INTERVAL '1 day',
             INTERVAL '1 day'
           )::date AS date
         ),
         daily_clicks AS (
           SELECT 
-            -- Raggruppa i click per giorno UTC, poi convertiremo per la visualizzazione
-            clicked_at::date as date,
+            -- Raggruppa i click per giorno in fuso orario italiano
+            -- Conversione esplicita: UTC -> Europe/Rome -> date
+            (clicked_at AT TIME ZONE 'Europe/Rome')::date as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -493,9 +519,10 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND clicked_at >= ${actualStartDate}::timestamp
-            AND clicked_at < (${actualEndDate}::date + INTERVAL '1 day')
-          GROUP BY clicked_at::date
+            -- Filtra usando i timestamp UTC
+            AND clicked_at >= ${startTimeUTC}::timestamptz
+            AND clicked_at < ${endTimeUTC}::timestamptz
+          GROUP BY (clicked_at AT TIME ZONE 'Europe/Rome')::date
         )
         SELECT 
           ds.date::text as date,
