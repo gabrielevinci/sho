@@ -85,8 +85,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         filtered_clicks AS (
           SELECT * FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
-          WHERE (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date >= ${startDate}::date 
-          AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date <= ${endDate}::date
+          WHERE clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
         ),
         all_clicks AS (
           SELECT * FROM clicks c
@@ -237,8 +236,7 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date >= ${startDate}::date 
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date <= ${endDate}::date
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
         GROUP BY country
         ORDER BY clicks DESC
         LIMIT 10
@@ -271,8 +269,7 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date >= ${startDate}::date 
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date <= ${endDate}::date
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
         GROUP BY device_type
         ORDER BY clicks DESC
       `;
@@ -303,8 +300,7 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date >= ${startDate}::date 
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date <= ${endDate}::date
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
         GROUP BY browser_name
         ORDER BY clicks DESC
         LIMIT 10
@@ -337,8 +333,7 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date >= ${startDate}::date 
-        AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date <= ${endDate}::date
+        AND clicked_at >= ${startDate}::timestamp AND clicked_at < (${endDate}::date + INTERVAL '1 day')
         GROUP BY referrer
         ORDER BY clicks DESC
         LIMIT 10
@@ -370,6 +365,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     if (filterType === 'all' || (!startDate && !endDate)) {
       console.log('Using "all" filter - getting all daily data with Italian timezone');
       // Per "sempre", ottieni tutti i dati giornalieri usando il fuso orario italiano
+      // Questo è necessario per raggruppare correttamente i click per giorno italiano
       const { rows } = await sql<TimeSeriesData>`
         WITH first_click AS (
           -- Trova la prima data in fuso orario italiano
@@ -477,7 +473,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       
       return rows;
     } else {
-      // Dati giornalieri per altri periodi - usa fuso orario italiano per il raggruppamento
+      // Dati giornalieri per altri periodi - usa la stessa logica del filtro "today"
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
           SELECT generate_series(
@@ -488,9 +484,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         ),
         daily_clicks AS (
           SELECT 
-            -- Raggruppa i click per giorno in fuso orario italiano
-            -- Conversione esplicita: UTC -> Europe/Rome -> date
-            (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date as date,
+            -- Raggruppa i click per giorno UTC, poi convertiremo per la visualizzazione
+            clicked_at::date as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -498,9 +493,9 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-            AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date >= ${actualStartDate}::date
-            AND (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date <= ${actualEndDate}::date
-          GROUP BY (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date
+            AND clicked_at >= ${actualStartDate}::timestamp
+            AND clicked_at < (${actualEndDate}::date + INTERVAL '1 day')
+          GROUP BY clicked_at::date
         )
         SELECT 
           ds.date::text as date,
