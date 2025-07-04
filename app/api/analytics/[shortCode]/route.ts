@@ -103,12 +103,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         time_stats AS (
           SELECT
             -- Usa fuso orario italiano per calcolare oggi, questa settimana, questo mese
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
+            -- Conversione esplicita: UTC -> Europe/Rome per confronti temporali accurati
+            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
           FROM all_clicks
         ),
         top_stats AS (
@@ -152,12 +153,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT referrer) as unique_referrers,
             COUNT(DISTINCT device_type) as unique_devices,
             -- Usa fuso orario italiano per calcolare oggi, questa settimana, questo mese
-            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN clicked_at AT TIME ZONE 'Europe/Rome' >= (NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
+            -- Conversione esplicita: UTC -> Europe/Rome per confronti temporali accurati
+            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome') >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
           FROM clicks c
           JOIN link_data ld ON c.link_id = ld.id
         ),
@@ -363,7 +365,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       const { rows } = await sql<TimeSeriesData>`
         WITH first_click AS (
           -- Trova la prima data in fuso orario italiano
-          SELECT MIN((clicked_at AT TIME ZONE 'Europe/Rome')::date) as min_date
+          -- Assumendo che clicked_at sia memorizzato in UTC, lo convertiamo a Europe/Rome
+          SELECT MIN((clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date) as min_date
           FROM clicks c
           JOIN links l ON c.link_id = l.id
           WHERE l.user_id = ${userId} 
@@ -384,7 +387,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         daily_clicks AS (
           SELECT 
             -- Raggruppa i click per giorno in fuso orario italiano
-            (clicked_at AT TIME ZONE 'Europe/Rome')::date as date,
+            -- Conversione esplicita: UTC -> Europe/Rome -> date
+            (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -392,7 +396,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-          GROUP BY (clicked_at AT TIME ZONE 'Europe/Rome')::date
+          GROUP BY (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date
         )
         SELECT 
           ds.date::text as date,
@@ -476,7 +480,8 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         daily_clicks AS (
           SELECT 
             -- Raggruppa i click per giorno in fuso orario italiano
-            (clicked_at AT TIME ZONE 'Europe/Rome')::date as date,
+            -- Conversione esplicita: UTC -> Europe/Rome -> date
+            (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date as date,
             COUNT(*) as total_clicks,
             COUNT(DISTINCT user_fingerprint) as unique_clicks
           FROM clicks c
@@ -486,7 +491,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             AND l.short_code = ${shortCode}
             AND clicked_at >= ${actualStartDate}::timestamp
             AND clicked_at < (${actualEndDate}::date + INTERVAL '1 day')
-          GROUP BY (clicked_at AT TIME ZONE 'Europe/Rome')::date
+          GROUP BY (clicked_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome')::date
         )
         SELECT 
           ds.date::text as date,
