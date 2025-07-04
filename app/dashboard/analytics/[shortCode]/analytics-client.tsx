@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart
 import Link from 'next/link';
 import ClicksTrendChartDual from './clicks-trend-chart-dual';
 import AnalyticsFilters, { DateFilter, DateRange } from './analytics-filters';
+import LinkHeader from './link-header';
 
 // Tipi per i dati delle statistiche
 type LinkAnalytics = {
@@ -277,6 +278,9 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           onFilterChange={handleFilterChange}
         />
 
+        {/* Intestazione del link - Primo blocco */}
+        <LinkHeader linkData={data.linkData} shortCode={shortCode} />
+
         {/* Statistiche di base */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
@@ -343,54 +347,6 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                 {data.clickAnalytics.unique_countries}
               </div>
               <div className="text-sm text-teal-700">Paesi</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Intestazione del link */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-3">
-                <BarChart3 className="h-6 w-6 text-blue-600" />
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Statistiche Link
-                </h1>
-                {loading && (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  {data.linkData.title || 'Link senza titolo'}
-                </h2>
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <code className="bg-gray-100 px-2 py-1 rounded text-blue-600 font-medium">
-                    /{shortCode}
-                  </code>
-                  <span>→</span>
-                  <a 
-                    href={data.linkData.original_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 truncate max-w-md"
-                  >
-                    <span className="truncate">{data.linkData.original_url}</span>
-                    <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                  </a>
-                </div>
-                {data.linkData.description && (
-                  <p className="text-gray-600 text-sm">{data.linkData.description}</p>
-                )}
-                <div className="flex items-center space-x-1 text-xs text-gray-500">
-                  <Calendar className="h-4 w-4" />
-                  <span>Creato il {new Date(data.linkData.created_at).toLocaleDateString('it-IT', { 
-                    day: '2-digit', 
-                    month: 'long', 
-                    year: 'numeric' 
-                  })}</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
