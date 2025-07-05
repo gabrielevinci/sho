@@ -82,8 +82,19 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
   try {
     let query;
     if (startDate && endDate) {
+      // Determina se è un filtro personalizzato e aggiusta le date di conseguenza
+      const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+      
+      let adjustedStartDate = startDate;
+      if (isCustomFilter) {
+        const startDateObj = new Date(startDate);
+        startDateObj.setDate(startDateObj.getDate() + 1);
+        adjustedStartDate = startDateObj.toISOString().split('T')[0];
+        console.log(`Analytics: Adjusted start date for custom filter: ${startDate} -> ${adjustedStartDate}`);
+      }
+      
       // Convertiamo le date per il filtro temporale
-      const startTimeUTC = new Date(startDate).toISOString();
+      const startTimeUTC = new Date(adjustedStartDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       // Per i filtri, usa il range di date specificato
@@ -236,7 +247,17 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         periods = 365;
       } else {
         // Per filtro custom -> calcola il numero reale di giorni tra le date (inclusivo)
-        const start = new Date(startDate);
+        // Usa le date aggiustate se è un filtro personalizzato
+        const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+        
+        let calculationStartDate = startDate;
+        if (isCustomFilter) {
+          const startDateObj = new Date(startDate);
+          startDateObj.setDate(startDateObj.getDate() + 1);
+          calculationStartDate = startDateObj.toISOString().split('T')[0];
+        }
+        
+        const start = new Date(calculationStartDate);
         const end = new Date(endDate);
         
         // Assicuriamoci che stiamo contando giorni completi
@@ -247,6 +268,8 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         const diffTime = endTime.getTime() - startTime.getTime();
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
         periods = Math.max(1, diffDays);
+        
+        console.log(`Average calculation: using ${calculationStartDate} to ${endDate} = ${periods} days`);
       }
     } else if (filterType === 'all') {
       // Per "all": calcola i giorni dalla creazione del link ad oggi
@@ -297,12 +320,23 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
   }
 }
 
-async function getFilteredGeographicData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string): Promise<GeographicData[]> {
+async function getFilteredGeographicData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<GeographicData[]> {
   try {
     let query;
     if (startDate && endDate) {
+      // Determina se è un filtro personalizzato e aggiusta le date di conseguenza
+      const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+      
+      let adjustedStartDate = startDate;
+      if (isCustomFilter) {
+        const startDateObj = new Date(startDate);
+        startDateObj.setDate(startDateObj.getDate() + 1);
+        adjustedStartDate = startDateObj.toISOString().split('T')[0];
+        console.log(`Geographic: Adjusted start date for custom filter: ${startDate} -> ${adjustedStartDate}`);
+      }
+      
       // Convertiamo le date per il filtro temporale
-      const startTimeUTC = new Date(startDate).toISOString();
+      const startTimeUTC = new Date(adjustedStartDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<GeographicData>`
@@ -353,12 +387,23 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
   }
 }
 
-async function getFilteredDeviceData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string): Promise<DeviceData[]> {
+async function getFilteredDeviceData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<DeviceData[]> {
   try {
     let query;
     if (startDate && endDate) {
+      // Determina se è un filtro personalizzato e aggiusta le date di conseguenza
+      const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+      
+      let adjustedStartDate = startDate;
+      if (isCustomFilter) {
+        const startDateObj = new Date(startDate);
+        startDateObj.setDate(startDateObj.getDate() + 1);
+        adjustedStartDate = startDateObj.toISOString().split('T')[0];
+        console.log(`Device: Adjusted start date for custom filter: ${startDate} -> ${adjustedStartDate}`);
+      }
+      
       // Convertiamo le date per il filtro temporale
-      const startTimeUTC = new Date(startDate).toISOString();
+      const startTimeUTC = new Date(adjustedStartDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<DeviceData>`
@@ -407,12 +452,23 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
   }
 }
 
-async function getFilteredBrowserData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string): Promise<BrowserData[]> {
+async function getFilteredBrowserData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<BrowserData[]> {
   try {
     let query;
     if (startDate && endDate) {
+      // Determina se è un filtro personalizzato e aggiusta le date di conseguenza
+      const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+      
+      let adjustedStartDate = startDate;
+      if (isCustomFilter) {
+        const startDateObj = new Date(startDate);
+        startDateObj.setDate(startDateObj.getDate() + 1);
+        adjustedStartDate = startDateObj.toISOString().split('T')[0];
+        console.log(`Browser: Adjusted start date for custom filter: ${startDate} -> ${adjustedStartDate}`);
+      }
+      
       // Convertiamo le date per il filtro temporale
-      const startTimeUTC = new Date(startDate).toISOString();
+      const startTimeUTC = new Date(adjustedStartDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<BrowserData>`
@@ -463,12 +519,23 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
   }
 }
 
-async function getFilteredReferrerData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string): Promise<ReferrerData[]> {
+async function getFilteredReferrerData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<ReferrerData[]> {
   try {
     let query;
     if (startDate && endDate) {
+      // Determina se è un filtro personalizzato e aggiusta le date di conseguenza
+      const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+      
+      let adjustedStartDate = startDate;
+      if (isCustomFilter) {
+        const startDateObj = new Date(startDate);
+        startDateObj.setDate(startDateObj.getDate() + 1);
+        adjustedStartDate = startDateObj.toISOString().split('T')[0];
+        console.log(`Referrer: Adjusted start date for custom filter: ${startDate} -> ${adjustedStartDate}`);
+      }
+      
       // Convertiamo le date per il filtro temporale
-      const startTimeUTC = new Date(startDate).toISOString();
+      const startTimeUTC = new Date(adjustedStartDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<ReferrerData>`
@@ -674,9 +741,20 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       // Dati giornalieri per altri periodi (filtri personalizzati)
       console.log(`Using custom date range filter from ${actualStartDate} to ${actualEndDate}`);
       
-      // Assicuriamoci che actualStartDate sia formattata correttamente
-      // Questo è cruciale per garantire che la prima data visualizzata sia esattamente quella specificata dall'utente
-      const formattedStartDate = new Date(actualStartDate).toISOString().split('T')[0];
+      // Determina se è un filtro personalizzato (non predefinito)
+      const isCustomFilter = !['today', 'week', 'month', '3months', 'year', 'all'].includes(filterType || '');
+      
+      // Per i filtri personalizzati, aggiungi un giorno alla data di inizio per correggere il problema di visualizzazione
+      let adjustedStartDate = actualStartDate;
+      if (isCustomFilter && actualStartDate) {
+        const startDateObj = new Date(actualStartDate);
+        startDateObj.setDate(startDateObj.getDate() + 1);
+        adjustedStartDate = startDateObj.toISOString().split('T')[0];
+        console.log(`Adjusted start date for custom filter: ${actualStartDate} -> ${adjustedStartDate}`);
+      }
+      
+      // Assicuriamoci che le date siano formattate correttamente
+      const formattedStartDate = new Date(adjustedStartDate).toISOString().split('T')[0];
       const formattedEndDate = new Date(actualEndDate).toISOString().split('T')[0];
       
       console.log(`Formatted dates: from ${formattedStartDate} to ${formattedEndDate}`);
@@ -745,10 +823,10 @@ export async function GET(
     const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData] = await Promise.all([
       getLinkData(session.userId, session.workspaceId, shortCode),
       getFilteredClickAnalytics(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
-      getFilteredGeographicData(session.userId, session.workspaceId, shortCode, startDate, endDate),
-      getFilteredDeviceData(session.userId, session.workspaceId, shortCode, startDate, endDate),
-      getFilteredBrowserData(session.userId, session.workspaceId, shortCode, startDate, endDate),
-      getFilteredReferrerData(session.userId, session.workspaceId, shortCode, startDate, endDate),
+      getFilteredGeographicData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
+      getFilteredDeviceData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
+      getFilteredBrowserData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
+      getFilteredReferrerData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
       getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType)
     ]);
 
