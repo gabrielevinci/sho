@@ -465,8 +465,6 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       
       // Se è stato specificato startDate, dobbiamo usare quella invece della data di creazione
       if (startDate) {
-        const startDateObj = new Date(startDate);
-        const today = new Date();
         const { rows } = await sql<TimeSeriesData>`
           WITH date_series AS (
             SELECT generate_series(
