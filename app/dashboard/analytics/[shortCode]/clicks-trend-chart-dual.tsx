@@ -107,73 +107,63 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
     let formattedLabel: string;
     
     if (filterType === 'today') {
-      // Per "oggi", i dati provengono dalla colonna "clicked_at_rome" già in orario italiano
+      // Per "oggi", usa sempre l'ora del label (che corrisponde all'asse X) per evitare discrepanze
       const dataPoint = payload[0].payload;
       let dateString = "";
-      let timeString = "";
+      let timeString = label; // Usa sempre l'ora del label dell'asse X
       
       try {
+        // Per la data, cerca di usare full_datetime solo per determinare il giorno
         if (dataPoint && dataPoint.full_datetime) {
-          // full_datetime è già in orario italiano (clicked_at_rome)
           const date = new Date(dataPoint.full_datetime);
           if (!isNaN(date.getTime())) {
+            // Usa solo la parte della data, non l'ora
             dateString = date.toLocaleDateString('it-IT', {
-              weekday: 'short',
-              day: '2-digit',
-              month: 'short'
-            });
-            timeString = date.toLocaleTimeString('it-IT', { 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              hour12: false 
-            });
-          }
-        } else {
-          // Fallback: usa l'ora del label dall'asse X
-          timeString = label;
-          
-          // Per la data, usa la data dal campo date del dataPoint (che corrisponde all'ascissa)
-          if (dataPoint && dataPoint.date) {
-            // Il campo date contiene la data in formato YYYY-MM-DD o l'ora in formato HH:MM
-            // Se è un'ora, dobbiamo ricostruire la data completa
-            if (dataPoint.date.includes(':')) {
-              // È un'ora, quindi dobbiamo usare la data di oggi in Italia
-              const now = new Date();
-              const italianDate = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-              dateString = italianDate.toLocaleDateString('it-IT', {
-                weekday: 'short',
-                day: '2-digit',
-                month: 'short'
-              });
-            } else {
-              // È una data completa
-              const date = new Date(`${dataPoint.date}T00:00:00`);
-              if (!isNaN(date.getTime())) {
-                dateString = date.toLocaleDateString('it-IT', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: 'short'
-                });
-              }
-            }
-          }
-          
-          // Se non abbiamo ancora una data, usa oggi
-          if (!dateString) {
-            const today = new Date();
-            const italianToday = new Date(today.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-            dateString = italianToday.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
               month: 'short'
             });
           }
         }
+        
+        // Se non abbiamo la data da full_datetime, prova con il campo date
+        if (!dateString && dataPoint && dataPoint.date) {
+          if (dataPoint.date.includes(':')) {
+            // È un'ora, usa la data di oggi in Italia
+            const now = new Date();
+            const italianDate = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+            dateString = italianDate.toLocaleDateString('it-IT', {
+              weekday: 'short',
+              day: '2-digit',
+              month: 'short'
+            });
+          } else {
+            // È una data completa
+            const date = new Date(`${dataPoint.date}T00:00:00`);
+            if (!isNaN(date.getTime())) {
+              dateString = date.toLocaleDateString('it-IT', {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short'
+              });
+            }
+          }
+        }
+        
+        // Fallback finale: usa oggi in orario italiano
+        if (!dateString) {
+          const today = new Date();
+          const italianToday = new Date(today.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+          dateString = italianToday.toLocaleDateString('it-IT', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short'
+          });
+        }
       } catch (e) {
         console.error("Errore nella formattazione della data:", e);
-        timeString = label; // Fallback all'ora del label
         
-        // Fallback per la data: usa oggi in orario italiano
+        // Fallback completo
         const today = new Date();
         const italianToday = new Date(today.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
         dateString = italianToday.toLocaleDateString('it-IT', {
