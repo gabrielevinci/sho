@@ -110,7 +110,7 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
       // Per "oggi", usa sempre l'ora del label (che corrisponde all'asse X) per evitare discrepanze
       const dataPoint = payload[0].payload;
       let dateString = "";
-      let timeString = label; // Usa sempre l'ora del label dell'asse X
+      const timeString = label; // Usa sempre l'ora del label dell'asse X
       
       try {
         // Per la data, cerca di usare full_datetime solo per determinare il giorno
