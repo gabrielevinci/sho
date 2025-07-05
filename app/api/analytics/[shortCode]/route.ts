@@ -465,10 +465,14 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       
       // Se è stato specificato startDate, dobbiamo usare quella invece della data di creazione
       if (startDate) {
+        // Formatta correttamente la data di inizio per garantire la corrispondenza esatta
+        const formattedStartDate = new Date(startDate).toISOString().split('T')[0];
+        console.log(`Using "all" filter with specific start date: ${formattedStartDate}`);
+        
         const { rows } = await sql<TimeSeriesData>`
           WITH date_series AS (
             SELECT generate_series(
-              ${startDate}::date,
+              ${formattedStartDate}::date,
               (NOW() AT TIME ZONE 'Europe/Rome')::date,
               INTERVAL '1 day'
             )::date AS date
@@ -606,12 +610,20 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       // Dati giornalieri per altri periodi (filtri personalizzati)
       console.log(`Using custom date range filter from ${actualStartDate} to ${actualEndDate}`);
       
+      // Assicuriamoci che actualStartDate sia formattata correttamente
+      // Questo è cruciale per garantire che la prima data visualizzata sia esattamente quella specificata dall'utente
+      const formattedStartDate = new Date(actualStartDate).toISOString().split('T')[0];
+      const formattedEndDate = new Date(actualEndDate).toISOString().split('T')[0];
+      
+      console.log(`Formatted dates: from ${formattedStartDate} to ${formattedEndDate}`);
+      
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
           -- Genera serie giornaliera utilizzando esattamente le date specificate dall'utente
+          -- Assicuriamoci che la prima data sia esattamente quella specificata dall'utente
           SELECT generate_series(
-            ${actualStartDate}::date,
-            ${actualEndDate}::date,
+            ${formattedStartDate}::date,
+            ${formattedEndDate}::date,
             INTERVAL '1 day'
           )::date AS date
         ),
@@ -627,8 +639,9 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
             -- Filtra usando clicked_at_rome che è già nel fuso orario italiano
-            AND clicked_at_rome::date >= ${actualStartDate}::date
-            AND clicked_at_rome::date <= ${actualEndDate}::date
+            -- Usiamo le date formattate per garantire la corrispondenza esatta
+            AND clicked_at_rome::date >= ${formattedStartDate}::date
+            AND clicked_at_rome::date <= ${formattedEndDate}::date
           GROUP BY clicked_at_rome::date
         )
         SELECT 
