@@ -457,7 +457,6 @@ async function getFilteredReferrerData(userId: string, workspaceId: string, shor
 
 async function getFilteredTimeSeriesData(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<TimeSeriesData[]> {
   try {
-    console.log('getFilteredTimeSeriesData called with:', { startDate, endDate, filterType });
     
     // Gestione del filtro "all" (sempre)
     if (filterType === 'all' || (!startDate && !endDate)) {
@@ -571,7 +570,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       // Dati giornalieri per altri periodi (filtri personalizzati)
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
-          -- Genera serie giornaliera utilizzando le date del filtro
+          -- Genera serie giornaliera utilizzando le date del filtro nel fuso orario italiano
           SELECT generate_series(
             ${actualStartDate}::date,
             ${actualEndDate}::date,
