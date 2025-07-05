@@ -40,19 +40,9 @@ const formatDate = (dateString: string, filterType: DateFilter = 'all'): string 
   }
   
   // Per altri filtri, il backend restituisce date in formato YYYY-MM-DD
-  // IMPORTANTE: Non aggiungere 'T00:00:00' per evitare problemi di timezone
-  // Usiamo direttamente la data come stringa YYYY-MM-DD che viene interpretata come data locale
-  let date: Date;
-  
-  if (dateString.includes('T')) {
-    // Se già include un orario, usala così com'è
-    date = new Date(dateString);
-  } else {
-    // Per le date in formato YYYY-MM-DD, creiamo la data in modo che sia interpretata come fuso orario locale
-    // invece che UTC, usando il costruttore Date con parametri separati
-    const [year, month, day] = dateString.split('-').map(Number);
-    date = new Date(year, month - 1, day); // month - 1 perché i mesi in JavaScript sono 0-based
-  }
+  // Aggiungiamo 'T00:00:00' per creare un timestamp valido
+  const dateToFormat = dateString.includes('T') ? dateString : `${dateString}T00:00:00`;
+  const date = new Date(dateToFormat);
   
   // Verifica che la data sia valida
   if (isNaN(date.getTime())) {
@@ -148,14 +138,8 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
               month: 'short'
             });
           } else {
-            // È una data completa, creiamo la data nel fuso orario locale
-            let date: Date;
-            if (dataPoint.date.includes('T')) {
-              date = new Date(dataPoint.date);
-            } else {
-              const [year, month, day] = dataPoint.date.split('-').map(Number);
-              date = new Date(year, month - 1, day);
-            }
+            // È una data completa
+            const date = new Date(`${dataPoint.date}T00:00:00`);
             if (!isNaN(date.getTime())) {
               dateString = date.toLocaleDateString('it-IT', {
                 weekday: 'short',
@@ -202,14 +186,8 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
           // Ricostruiamo la data completa dal payload per il tooltip
           const dataPoint = payload[0].payload;
           if (dataPoint && dataPoint.date) {
-            let fullDate: Date;
-            if (dataPoint.date.includes('T')) {
-              fullDate = new Date(dataPoint.date);
-            } else {
-              // Creiamo la data nel fuso orario locale per evitare problemi di timezone
-              const [year, month, day] = dataPoint.date.split('-').map(Number);
-              fullDate = new Date(year, month - 1, day);
-            }
+            const dateToFormat = dataPoint.date.includes('T') ? dataPoint.date : `${dataPoint.date}T00:00:00`;
+            const fullDate = new Date(dateToFormat);
             if (!isNaN(fullDate.getTime())) {
               const fullFormattedDate = fullDate.toLocaleDateString('it-IT', {
                 weekday: 'long',
