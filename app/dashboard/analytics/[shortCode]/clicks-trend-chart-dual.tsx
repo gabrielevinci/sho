@@ -107,19 +107,16 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
     let formattedLabel: string;
     
     if (filterType === 'today') {
-      // Per "oggi", dobbiamo convertire manualmente da UTC a orario italiano (UTC+2)
+      // Per "oggi", i dati provengono dalla colonna "clicked_at_rome" già in orario italiano
       const dataPoint = payload[0].payload;
       let dateString = "";
       let timeString = "";
       
       try {
         if (dataPoint && dataPoint.full_datetime) {
-          // full_datetime dovrebbe essere già convertito in orario italiano dal backend
+          // full_datetime è già in orario italiano (clicked_at_rome)
           const date = new Date(dataPoint.full_datetime);
           if (!isNaN(date.getTime())) {
-            // SOTTRAGGO 2 ORE per essere coerente con l'asse X che mostra UTC+2
-            date.setHours(date.getHours() - 2);
-            
             dateString = date.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
@@ -132,41 +129,40 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
             });
           }
         } else {
-          // Fallback: converto manualmente l'ora del label da UTC a orario italiano
-          console.warn("full_datetime non disponibile, convertendo manualmente UTC a Italia");
-          
-          // Il label è l'ora in formato HH:MM dall'asse X (già convertita)
-          // Quindi uso direttamente il label per l'ora
+          // Fallback: usa l'ora del label dall'asse X
           timeString = label;
           
-          // Per la data, devo sapere a quale giorno appartiene questa ora in Italia
-          // Uso la data corrente italiana come base
-          const now = new Date();
-          const italianNow = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+          // Per la data, usa la data dal campo date del dataPoint (che corrisponde all'ascissa)
+          if (dataPoint && dataPoint.date) {
+            // Il campo date contiene la data in formato YYYY-MM-DD o l'ora in formato HH:MM
+            // Se è un'ora, dobbiamo ricostruire la data completa
+            if (dataPoint.date.includes(':')) {
+              // È un'ora, quindi dobbiamo usare la data di oggi in Italia
+              const now = new Date();
+              const italianDate = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+              dateString = italianDate.toLocaleDateString('it-IT', {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short'
+              });
+            } else {
+              // È una data completa
+              const date = new Date(`${dataPoint.date}T00:00:00`);
+              if (!isNaN(date.getTime())) {
+                dateString = date.toLocaleDateString('it-IT', {
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: 'short'
+                });
+              }
+            }
+          }
           
-          // Parsing dell'ora dal label
-          const [hours, minutes] = label.split(':');
-          if (hours && minutes) {
-            const currentHour = italianNow.getHours();
-            const labelHour = parseInt(hours);
-            
-            // Se l'ora del label è molto diversa dall'ora corrente, 
-            // potrebbe essere del giorno precedente o successivo
-            const targetDate = new Date(italianNow);
-            
-            // Se l'ora del grafico è molto più grande di quella corrente,
-            // probabilmente è del giorno precedente
-            if (labelHour > currentHour + 12) {
-              targetDate.setDate(targetDate.getDate() - 1);
-            }
-            // Se l'ora del grafico è molto più piccola di quella corrente,
-            // potrebbe essere del giorno successivo (nelle prime ore)
-            else if (labelHour < currentHour - 12) {
-              targetDate.setDate(targetDate.getDate() + 1);
-            }
-            
-            targetDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-            dateString = targetDate.toLocaleDateString('it-IT', {
+          // Se non abbiamo ancora una data, usa oggi
+          if (!dateString) {
+            const today = new Date();
+            const italianToday = new Date(today.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+            dateString = italianToday.toLocaleDateString('it-IT', {
               weekday: 'short',
               day: '2-digit',
               month: 'short'
@@ -175,11 +171,12 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
         }
       } catch (e) {
         console.error("Errore nella formattazione della data:", e);
-        timeString = label; // Fallback finale
+        timeString = label; // Fallback all'ora del label
         
-        // Fallback per la data: usa oggi
+        // Fallback per la data: usa oggi in orario italiano
         const today = new Date();
-        dateString = today.toLocaleDateString('it-IT', {
+        const italianToday = new Date(today.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+        dateString = italianToday.toLocaleDateString('it-IT', {
           weekday: 'short',
           day: '2-digit',
           month: 'short'

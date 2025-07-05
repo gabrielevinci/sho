@@ -1,7 +1,6 @@
-'use client'; // Necessario per usare i React Hooks (useState, useActionState)
+'use client'; // Necessario per usare i React Hooks (useState, useFormState)
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { register, RegisterState } from './actions';
 import Link from 'next/link';
 
@@ -27,7 +26,7 @@ function SubmitButton() {
 }
 
 export default function RegisterPage() {
-  const [state, formAction] = useActionState(register, initialState);
+  const [state, formAction] = useFormState(register, initialState);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
