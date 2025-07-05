@@ -267,17 +267,17 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
-        {/* Filtri temporali */}
+        {/* 1. Statistiche link */}
+        <LinkHeader linkData={data.linkData} shortCode={shortCode} />
+
+        {/* 2. Filtri temporali */}
         <AnalyticsFilters
           currentFilter={currentFilter}
           dateRange={dateRange}
           onFilterChange={handleFilterChange}
         />
 
-        {/* Intestazione del link - Primo blocco */}
-        <LinkHeader linkData={data.linkData} shortCode={shortCode} />
-
-        {/* Statistiche di base */}
+        {/* 3. Statistiche generali */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
             <BarChart3 className="h-5 w-5 mr-2 text-indigo-600" />
@@ -347,13 +347,13 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
-        {/* Grafico andamento temporale - usa sempre i dati filtrati */}
+        {/* 4. Andamento click */}
         <ClicksTrendChartDual 
           data={data.timeSeriesData} 
           filterType={currentFilter}
         />
 
-        {/* Grafici e tabelle dettagliate */}
+        {/* 5. Statistiche dettagliate */}
         <div className="space-y-6">
           {/* Header senza toggle */}
           <div className="flex items-center justify-between">
@@ -615,7 +615,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>        </div>
         </div>
 
-        {/* Statistiche temporali - usa sempre i dati originali, non filtrati */}
+        {/* 6. Andamento temporale */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
             <Calendar className="h-5 w-5 mr-2 text-blue-600" />
