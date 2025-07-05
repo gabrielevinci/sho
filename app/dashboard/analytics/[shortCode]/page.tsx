@@ -28,6 +28,8 @@ type ClickAnalytics = {
   unique_clicks_today: number;
   unique_clicks_this_week: number;
   unique_clicks_this_month: number;
+  avg_total_clicks_per_period: number;      // Media click totali per periodo (ora/giorno)
+  avg_unique_clicks_per_period: number;     // Media click unici per periodo (ora/giorno)
 };
 
 type GeographicData = {
@@ -141,7 +143,9 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
       clicks_this_month: 0,
       unique_clicks_today: 0,
       unique_clicks_this_week: 0,
-      unique_clicks_this_month: 0
+      unique_clicks_this_month: 0,
+      avg_total_clicks_per_period: 0,
+      avg_unique_clicks_per_period: 0
     };
   } catch (error) {
     console.error("Failed to fetch click analytics:", error);
@@ -159,7 +163,9 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
       clicks_this_month: 0,
       unique_clicks_today: 0,
       unique_clicks_this_week: 0,
-      unique_clicks_this_month: 0
+      unique_clicks_this_month: 0,
+      avg_total_clicks_per_period: 0,
+      avg_unique_clicks_per_period: 0
     };
   }
 }

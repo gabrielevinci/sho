@@ -32,6 +32,8 @@ type ClickAnalytics = {
   unique_clicks_today: number;
   unique_clicks_this_week: number;
   unique_clicks_this_month: number;
+  avg_total_clicks_per_period: number;      // Media click totali per periodo (ora/giorno)
+  avg_unique_clicks_per_period: number;     // Media click unici per periodo (ora/giorno)
 };
 
 type GeographicData = {
@@ -149,6 +151,22 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
   }
 };
 
+// Funzione helper per ottenere il label del periodo per le medie
+const getPeriodLabel = (filter: DateFilter): string => {
+  switch (filter) {
+    case 'today':
+      return '/ora';
+    case 'week':
+    case 'month':
+    case '3months':
+    case 'year':
+    case 'all':
+    case 'custom':
+    default:
+      return '/giorno';
+  }
+};
+
 export default function AnalyticsClient({ initialData, shortCode }: AnalyticsClientProps) {
   const [data, setData] = useState<AnalyticsData>(initialData);
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
@@ -156,20 +174,24 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
 
   // Funzione per caricare i dati filtrati
   const loadFilteredData = useCallback(async (filter: DateFilter, customRange?: DateRange) => {
-    if (filter === 'all') {
-      setData(initialData);
-      return;
-    }
-
     try {
-      const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
+      let params: URLSearchParams;
       
-      // Per il filtro "today", passiamo anche l'informazione dell'ora
-      const params = new URLSearchParams({
-        filterType: filter,
-        ...(startDate && { startDate }),
-        ...(endDate && { endDate })
-      });
+      if (filter === 'all') {
+        // Per il filtro "all", passiamo solo il filterType per calcolare le medie
+        params = new URLSearchParams({
+          filterType: filter
+        });
+      } else {
+        const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
+        
+        // Per altri filtri, passiamo anche le date
+        params = new URLSearchParams({
+          filterType: filter,
+          ...(startDate && { startDate }),
+          ...(endDate && { endDate })
+        });
+      }
       
       const response = await fetch(`/api/analytics/${shortCode}?${params.toString()}`);
       if (response.ok) {
@@ -179,7 +201,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     } catch (error) {
       console.error('Error loading filtered data:', error);
     }
-  }, [shortCode, initialData]);
+  }, [shortCode]);
 
   // Auto-refresh per il filtro "all" alla mezzanotte italiana
   useEffect(() => {
@@ -247,6 +269,14 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
     }
   }, [currentFilter, loadFilteredData]);
 
+  // Effetto per inizializzare i dati con le medie per il filtro "all"
+  useEffect(() => {
+    if (currentFilter === 'all') {
+      loadFilteredData('all');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Esegue solo al mount del componente
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 py-8">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -295,6 +325,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                 {data.clickAnalytics.total_clicks.toLocaleString('it-IT')}
               </div>
               <div className="text-sm text-blue-700">Click totali</div>
+              {data.clickAnalytics.avg_total_clicks_per_period > 0 && (
+                <div className="text-xs text-blue-600 mt-2 font-medium">
+                  Media: {data.clickAnalytics.avg_total_clicks_per_period.toLocaleString('it-IT')}{getPeriodLabel(currentFilter)}
+                </div>
+              )}
             </div>
 
             {/* Click unici */}
@@ -307,6 +342,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                 {data.clickAnalytics.unique_clicks.toLocaleString('it-IT')}
               </div>
               <div className="text-sm text-green-700">Click unici</div>
+              {data.clickAnalytics.avg_unique_clicks_per_period > 0 && (
+                <div className="text-xs text-green-600 mt-2 font-medium">
+                  Media: {data.clickAnalytics.avg_unique_clicks_per_period.toLocaleString('it-IT')}{getPeriodLabel(currentFilter)}
+                </div>
+              )}
             </div>
 
             {/* Origini/Referrer */}

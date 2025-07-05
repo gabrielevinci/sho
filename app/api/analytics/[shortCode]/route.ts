@@ -27,6 +27,8 @@ type ClickAnalytics = {
   unique_clicks_today: number;
   unique_clicks_this_week: number;
   unique_clicks_this_month: number;
+  avg_total_clicks_per_period: number;      // Media click totali per periodo (ora/giorno)
+  avg_unique_clicks_per_period: number;     // Media click unici per periodo (ora/giorno)
 };
 
 type GeographicData = {
@@ -76,7 +78,7 @@ async function getLinkData(userId: string, workspaceId: string, shortCode: strin
   }
 }
 
-async function getFilteredClickAnalytics(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string): Promise<ClickAnalytics> {
+async function getFilteredClickAnalytics(userId: string, workspaceId: string, shortCode: string, startDate?: string, endDate?: string, filterType?: string): Promise<ClickAnalytics> {
   try {
     let query;
     if (startDate && endDate) {
@@ -196,7 +198,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       `;
     }
     const { rows } = await query;
-    return rows[0] || {
+    const result = rows[0] || {
       total_clicks: 0,
       unique_clicks: 0,
       unique_countries: 0,
@@ -210,8 +212,68 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       clicks_this_month: 0,
       unique_clicks_today: 0,
       unique_clicks_this_week: 0,
-      unique_clicks_this_month: 0
+      unique_clicks_this_month: 0,
+      avg_total_clicks_per_period: 0,
+      avg_unique_clicks_per_period: 0
     };
+
+    // Calcola le medie in base al tipo di filtro
+    let periods = 1;
+    
+    if (filterType === 'today') {
+      // Per "24 ore" -> media click/ora (ultime 24 ore)
+      periods = 24;
+    } else if (startDate && endDate) {
+      // Per filtri predefiniti, usa il numero teorico di giorni
+      // Per filtro custom, calcola la differenza reale delle date
+      if (filterType === 'week') {
+        periods = 7;
+      } else if (filterType === 'month') {
+        periods = 30;
+      } else if (filterType === '3months') {
+        periods = 90;
+      } else if (filterType === 'year') {
+        periods = 365;
+      } else {
+        // Per filtro custom -> calcola il numero reale di giorni tra le date (inclusivo)
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        // Assicuriamoci che stiamo contando giorni completi
+        const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        
+        // Calcola la differenza in giorni + 1 per includere entrambi i giorni estremi
+        const diffTime = endTime.getTime() - startTime.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        periods = Math.max(1, diffDays);
+      }
+    } else if (filterType === 'all') {
+      // Per "all": calcola i giorni dalla creazione del link ad oggi
+      try {
+        const linkInfo = await sql`
+          SELECT created_at 
+          FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        `;
+        if (linkInfo.rows.length > 0) {
+          const createdAt = new Date(linkInfo.rows[0].created_at);
+          const now = new Date();
+          periods = Math.max(1, Math.ceil((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+      } catch (error) {
+        console.error("Error calculating periods for 'all' filter:", error);
+        periods = 1;
+      }
+    } else {
+      // Fallback per casi senza date specifiche
+      periods = 1;
+    }
+
+    result.avg_total_clicks_per_period = periods > 0 ? Math.round((result.total_clicks / periods) * 100) / 100 : 0;
+    result.avg_unique_clicks_per_period = periods > 0 ? Math.round((result.unique_clicks / periods) * 100) / 100 : 0;
+
+    return result;
   } catch (error) {
     console.error("Failed to fetch filtered click analytics:", error);
     return {
@@ -228,7 +290,9 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       clicks_this_month: 0,
       unique_clicks_today: 0,
       unique_clicks_this_week: 0,
-      unique_clicks_this_month: 0
+      unique_clicks_this_month: 0,
+      avg_total_clicks_per_period: 0,
+      avg_unique_clicks_per_period: 0
     };
   }
 }
@@ -680,7 +744,7 @@ export async function GET(
     // Otteniamo tutti i dati filtrati in parallelo
     const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData] = await Promise.all([
       getLinkData(session.userId, session.workspaceId, shortCode),
-      getFilteredClickAnalytics(session.userId, session.workspaceId, shortCode, startDate, endDate),
+      getFilteredClickAnalytics(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
       getFilteredGeographicData(session.userId, session.workspaceId, shortCode, startDate, endDate),
       getFilteredDeviceData(session.userId, session.workspaceId, shortCode, startDate, endDate),
       getFilteredBrowserData(session.userId, session.workspaceId, shortCode, startDate, endDate),
