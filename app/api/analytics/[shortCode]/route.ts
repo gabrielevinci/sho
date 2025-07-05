@@ -463,9 +463,45 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     if (filterType === 'all' || (!startDate && !endDate)) {
       console.log('Using "all" filter - getting all daily data from link creation to today');
       
+      // Se è stato specificato startDate, dobbiamo usare quella invece della data di creazione
+      if (startDate) {
+        const startDateObj = new Date(startDate);
+        const today = new Date();
+        const { rows } = await sql<TimeSeriesData>`
+          WITH date_series AS (
+            SELECT generate_series(
+              ${startDate}::date,
+              (NOW() AT TIME ZONE 'Europe/Rome')::date,
+              INTERVAL '1 day'
+            )::date AS date
+          ),
+          daily_clicks AS (
+            SELECT 
+              clicked_at_rome::date as date,
+              COUNT(*) as total_clicks,
+              COUNT(DISTINCT user_fingerprint) as unique_clicks
+            FROM clicks c
+            JOIN links l ON c.link_id = l.id
+            WHERE l.user_id = ${userId} 
+              AND l.workspace_id = ${workspaceId} 
+              AND l.short_code = ${shortCode}
+            GROUP BY clicked_at_rome::date
+          )
+          SELECT 
+            ds.date::text as date,
+            COALESCE(dc.total_clicks, 0) as total_clicks,
+            COALESCE(dc.unique_clicks, 0) as unique_clicks
+          FROM date_series ds
+          LEFT JOIN daily_clicks dc ON ds.date = dc.date
+          ORDER BY ds.date
+        `;
+        return rows;
+      }
+      
+      // Altrimenti usa la data di creazione del link
       const { rows } = await sql<TimeSeriesData>`
         WITH link_creation_date AS (
-          -- Trova la data di creazione del link (già in fuso orario italiano se created_at è TIMESTAMPTZ)
+          -- Trova la data di creazione del link
           SELECT (created_at AT TIME ZONE 'Europe/Rome')::date as creation_date
           FROM links
           WHERE user_id = ${userId} 
@@ -509,6 +545,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
     }
 
     // Se non ci sono date specifiche ma non è "all", usa gli ultimi 30 giorni
+    // Garantisce che le date utilizzate siano esattamente quelle specificate dall'utente quando disponibili
     const actualStartDate = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const actualEndDate = endDate || new Date().toISOString().split('T')[0];
 
@@ -569,9 +606,11 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
       return rows;
     } else {
       // Dati giornalieri per altri periodi (filtri personalizzati)
+      console.log(`Using custom date range filter from ${actualStartDate} to ${actualEndDate}`);
+      
       const { rows } = await sql<TimeSeriesData>`
         WITH date_series AS (
-          -- Genera serie giornaliera utilizzando le date del filtro
+          -- Genera serie giornaliera utilizzando esattamente le date specificate dall'utente
           SELECT generate_series(
             ${actualStartDate}::date,
             ${actualEndDate}::date,
