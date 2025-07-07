@@ -24,6 +24,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden; /* Previene lo scrollbar orizzontale */
+}
+
+/* Previene l'overflow orizzontale per tutti i container */
+html {
+  overflow-x: hidden;
 }
 
 /* Stili personalizzati per react-datepicker */
@@ -81,4 +87,112 @@ textarea::placeholder {
 /* Fix specifico per react-datepicker input */
 .react-datepicker__input-container input {
   color: #374151 !important;
+}
+
+/* Dashboard Table Improvements */
+.dashboard-table {
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+.dashboard-table th:nth-child(1) { width: 18%; } /* Titolo */
+.dashboard-table th:nth-child(2) { width: 8%; } /* Click */
+.dashboard-table th:nth-child(3) { width: 14%; } /* Data */
+.dashboard-table th:nth-child(4) { width: 16%; } /* Shorted */
+.dashboard-table th:nth-child(5) { width: 20%; } /* Originale */
+.dashboard-table th:nth-child(6) { width: 24%; } /* Azioni - Aumentata per ospitare tutti i pulsanti */
+
+.dashboard-table th,
+.dashboard-table td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  vertical-align: top;
+}
+
+/* Ensure consistent spacing and no horizontal overflow */
+.dashboard-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Improved table responsiveness */
+@media (max-width: 768px) {
+  .dashboard-table {
+    font-size: 0.875rem;
+  }
+  
+  .dashboard-table th,
+  .dashboard-table td {
+    padding: 0.5rem 0.25rem;
+  }
+  
+  .dashboard-table .url-display {
+    font-size: 0.75rem;
+  }
+  
+  /* Hide some columns on mobile */
+  .dashboard-table th:nth-child(3),
+  .dashboard-table td:nth-child(3) {
+    display: none;
+  }
+  
+  .dashboard-table th:nth-child(5),
+  .dashboard-table td:nth-child(5) {
+    display: none;
+  }
+  
+  /* Adjust widths for mobile */
+  .dashboard-table th:nth-child(1) { width: 30%; }
+  .dashboard-table th:nth-child(2) { width: 15%; }
+  .dashboard-table th:nth-child(4) { width: 25%; }
+  .dashboard-table th:nth-child(6) { width: 30%; }
+}
+
+/* Professional table styling */
+.dashboard-table tbody tr:hover {
+  background-color: #f8fafc;
+  transition: background-color 0.2s ease;
+}
+
+.dashboard-table .action-buttons {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap; /* Impedisce il wrapping dei pulsanti */
+  min-width: fit-content;
+}
+
+/* Better URL display */
+.url-display {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+/* Improved link truncation */
+.link-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* Consistent spacing for action buttons */
+.action-buttons > * {
+  flex-shrink: 0;
+}
+
+/* Ensure action buttons don't wrap */
+.action-buttons .flex {
+  flex-wrap: nowrap;
+}
+
+/* Make sure action buttons are always on one line */
+@media (max-width: 1200px) {
+  .dashboard-table th:nth-child(6) { 
+    width: 28%; 
+    min-width: 200px;
+  }
 }

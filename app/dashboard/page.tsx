@@ -2,13 +2,21 @@ import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
 import { sql } from '@vercel/postgres';
 import { logout } from './actions';
-import LinksList, { LinkFromDB } from './links-list';
-import WorkspaceSwitcher from './workspace-switcher';
+import DashboardClient from './dashboard-client';
 import Link from 'next/link';
 
 type Workspace = {
   id: string;
   name: string;
+};
+
+export type LinkFromDB = {
+  short_code: string;
+  original_url: string;
+  created_at: Date;
+  title: string | null;
+  description: string | null;
+  click_count: number;
 };
 
 async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
@@ -61,13 +69,12 @@ export default async function DashboardPage() {
   
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12">
-      <div className="w-full max-w-5xl p-4 md:p-8 space-y-8">
+      <div className="w-full max-w-7xl p-4 md:p-8 space-y-8">
         
         <header className="flex justify-between items-center">
-          <WorkspaceSwitcher 
-            workspaces={userWorkspaces} 
-            activeWorkspace={activeWorkspace}
-          />
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+          </div>
           <div className="flex items-center space-x-4">
             <Link 
               href="/dashboard/create"
@@ -83,22 +90,11 @@ export default async function DashboardPage() {
           </div>
         </header>
 
-        <main className="space-y-12">
-          {activeWorkspace ? (
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Link in: <span className="text-blue-600">{activeWorkspace.name}</span>
-              </h2>
-              <LinksList links={userLinks} />
-            </div>
-          ) : (
-            <div className="text-center p-12 bg-white rounded-lg shadow-md">
-              <h2 className="text-xl font-semibold text-gray-700">Nessun workspace trovato.</h2>
-              <p className="text-gray-500 mt-2">Crea il tuo primo workspace per iniziare a shortare i link.</p>
-            </div>
-          )}
-        </main>
-        
+        <DashboardClient 
+          initialWorkspaces={userWorkspaces} 
+          initialActiveWorkspace={activeWorkspace}
+          initialLinks={userLinks}
+        />
       </div>
     </div>
   );
