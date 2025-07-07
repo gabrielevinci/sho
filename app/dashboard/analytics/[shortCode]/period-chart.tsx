@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
-import { Calendar, TrendingUp, Download, Eye, EyeOff } from 'lucide-react';
+import { Calendar, Download, Eye, EyeOff } from 'lucide-react';
 import { addTestDataToMonthly, addTestDataToWeekly } from './test-data';
 
 type MonthlyData = {
@@ -20,6 +20,30 @@ type WeeklyData = {
   week_end: string;
   total_clicks: number;
   unique_clicks: number;
+};
+
+// Tipi estesi per i dati del grafico
+type EnhancedMonthlyData = {
+  name: string;
+  total_clicks: number;
+  unique_clicks: number;
+  month_number: number;
+  isCurrentMonth: boolean;
+  totalClicksColor: string;
+  uniqueClicksColor: string;
+  isHighlighted: boolean;
+};
+
+type EnhancedWeeklyData = {
+  name: string;
+  total_clicks: number;
+  unique_clicks: number;
+  week: number;
+  isCurrentWeek: boolean;
+  totalClicksColor: string;
+  uniqueClicksColor: string;
+  isHighlighted: boolean;
+  period: string;
 };
 
 interface PeriodChartProps {
@@ -365,8 +389,8 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
                 >
                   {displayData.map((entry, index) => {
                     const isCurrentPeriod = viewMode === 'weekly' 
-                      ? (entry as any).isCurrentWeek 
-                      : (entry as any).isCurrentMonth;
+                      ? (entry as EnhancedWeeklyData).isCurrentWeek 
+                      : (entry as EnhancedMonthlyData).isCurrentMonth;
                     return (
                       <Cell 
                         key={`cell-total-${index}`}
@@ -395,8 +419,8 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
                 >
                   {displayData.map((entry, index) => {
                     const isCurrentPeriod = viewMode === 'weekly' 
-                      ? (entry as any).isCurrentWeek 
-                      : (entry as any).isCurrentMonth;
+                      ? (entry as EnhancedWeeklyData).isCurrentWeek 
+                      : (entry as EnhancedMonthlyData).isCurrentMonth;
                     return (
                       <Cell 
                         key={`cell-unique-${index}`}
