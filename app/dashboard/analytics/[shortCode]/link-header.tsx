@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ExternalLink, Calendar, Copy, Edit, Trash2, RotateCcw, Save, X } from 'lucide-react';
+import { ExternalLink, Calendar, Copy, Edit, Trash2, RotateCcw, Save, X, QrCode, Download } from 'lucide-react';
 import { deleteLink, resetLinkStats, updateLink } from './actions';
 import { useRouter } from 'next/navigation';
+import QRCode from 'qrcode';
 
 type LinkAnalytics = {
   short_code: string;
@@ -32,6 +33,9 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [shortUrl, setShortUrl] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState(false);
   
   const router = useRouter();
 
@@ -48,6 +52,42 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
       setShortUrl(`${window.location.origin}/${editData.new_short_code}`);
     }
   }, [editData.new_short_code, isEditing]);
+
+  // Funzione per generare il QR code
+  const generateQRCode = async () => {
+    setGeneratingQr(true);
+    try {
+      // Aggiungiamo il parametro qr=1 per tracciare i click dal QR code
+      const qrUrl = `${shortUrl}?qr=1`;
+      const qrDataUrl = await QRCode.toDataURL(qrUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeUrl(qrDataUrl);
+      setShowQrModal(true);
+    } catch (error) {
+      console.error('Errore durante la generazione del QR code:', error);
+      alert('Errore durante la generazione del QR code');
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
+
+  // Funzione per scaricare il QR code
+  const downloadQRCode = () => {
+    if (qrCodeUrl) {
+      const link = document.createElement('a');
+      link.href = qrCodeUrl;
+      link.download = `qr-code-${shortCode}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   // Funzione per copiare il link
   const handleCopyLink = async () => {
@@ -154,6 +194,17 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
                 Reset
               </button>
 
+              {/* Pulsante QR Code */}
+              <button
+                onClick={generateQRCode}
+                disabled={loading || generatingQr}
+                className="inline-flex items-center px-3 py-2 border border-purple-300 rounded-md text-sm font-medium bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                title="Genera QR Code"
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                {generatingQr ? 'Generando...' : 'QR Code'}
+              </button>
+
               {/* Pulsante Modifica */}
               {!isEditing ? (
                 <button
@@ -208,7 +259,7 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
           </div>
 
           {/* Contenuto del link */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Titolo */}
             {isEditing ? (
               <div>
@@ -224,27 +275,27 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
                 />
               </div>
             ) : (
-              <h2 className="text-lg font-semibold text-gray-800">
-                {linkData.title || 'Link senza titolo'}
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {linkData.title || 'Link senza titolo'}
+                </h2>
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span>Link shortato:</span>
+                  <a 
+                    href={shortUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
+                  >
+                    <span>{shortUrl}</span>
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
             )}
 
-            {/* Short URL */}
-            <div className="flex items-center space-x-2 text-sm">
-              <span className="text-gray-600">Link shortato:</span>
-              <a 
-                href={shortUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
-              >
-                <span>{shortUrl}</span>
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-
-            {/* Short Code */}
-            {isEditing ? (
+            {/* Short Code - Solo in modalità editing */}
+            {isEditing && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Codice breve (dopo il &quot;/&quot;)
@@ -259,13 +310,6 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
                 <p className="text-xs text-gray-500 mt-1">
                   Solo lettere e numeri, senza spazi o caratteri speciali
                 </p>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <span>Codice breve:</span>
-                <code className="bg-gray-100 px-2 py-1 rounded text-blue-600 font-medium">
-                  /{shortCode}
-                </code>
               </div>
             )}
 
@@ -314,12 +358,12 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
               </div>
             ) : (
               linkData.description && (
-                <p className="text-gray-600 text-sm">{linkData.description}</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{linkData.description}</p>
               )
             )}
 
             {/* Data di creazione */}
-            <div className="flex items-center space-x-1 text-xs text-gray-500">
+            <div className="flex items-center space-x-1 text-xs text-gray-500 pt-2 border-t border-gray-100">
               <Calendar className="h-4 w-4" />
               <span>Creato il {new Date(linkData.created_at).toLocaleDateString('it-IT', { 
                 day: '2-digit', 
@@ -385,6 +429,54 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
                 className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50"
               >
                 {loading ? 'Reset...' : 'Reset'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal QR Code */}
+      {showQrModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                QR Code del Link
+              </h3>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="text-center mb-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Scansiona questo QR code per accedere al link
+              </p>
+              {qrCodeUrl && (
+                <img 
+                  src={qrCodeUrl} 
+                  alt="QR Code" 
+                  className="mx-auto border border-gray-200 rounded-lg"
+                />
+              )}
+            </div>
+            
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={downloadQRCode}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Scarica PNG
+              </button>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Chiudi
               </button>
             </div>
           </div>

@@ -39,8 +39,16 @@ function generateUserFingerprint(request: NextRequest, browserName: string, osNa
 // Funzione helper per registrare il click (aggiornata con fingerprint)
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
-  const referrer = request.headers.get('referer') || 'Direct';
+  let referrer = request.headers.get('referer') || 'Direct';
   const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
+
+  // Controlla se il click proviene da un QR code
+  const url = new URL(request.url);
+  const isQrCode = url.searchParams.get('qr') === '1';
+  
+  if (isQrCode) {
+    referrer = 'QR Code';
+  }
 
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
