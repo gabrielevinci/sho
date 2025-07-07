@@ -9,7 +9,7 @@ interface SWRProviderProps {
 
 // Estensione del tipo Error per includere info e status
 interface FetchError extends Error {
-  info?: any;
+  info?: unknown;
   status?: number;
 }
 
@@ -65,14 +65,14 @@ export default function SWRProvider({ children }: SWRProviderProps) {
           console.error('SWR Error:', error, 'Key:', key);
         },
         // Configurazione per il successo
-        onSuccess: (data, key, config) => {
+        onSuccess: (data, key) => {
           // Opzionale: log per debugging
           if (process.env.NODE_ENV === 'development') {
             console.log('SWR Success:', key, 'Data loaded');
           }
         },
         // Configurazione per il loading
-        onLoadingSlow: (key, config) => {
+        onLoadingSlow: (key) => {
           console.warn('SWR Loading slow:', key);
         },
         // Configurazione per il background update
