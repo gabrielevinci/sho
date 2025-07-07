@@ -52,16 +52,17 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
               <h2 className="text-xl font-bold text-gray-900 mb-2">
                 {linkData.title || 'Link senza titolo'}
               </h2>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center justify-between space-x-2 text-sm text-gray-600">
                 <span>Link shortato:</span>
                 <a 
                   href={shortUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
+                  className="text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-[300px]"
+                  title={shortUrl}
                 >
-                  <span>{shortUrl}</span>
-                  <ExternalLink className="h-4 w-4" />
+                  <span className="overflow-hidden text-ellipsis">{shortUrl}</span>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
                 </a>
               </div>
             </div>
@@ -73,9 +74,10 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
                 href={linkData.original_url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 truncate max-w-md"
+                className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 max-w-[300px]"
+                title={linkData.original_url}
               >
-                <span className="truncate">{linkData.original_url}</span>
+                <span className="whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{linkData.original_url}</span>
                 <ExternalLink className="h-4 w-4 flex-shrink-0" />
               </a>
             </div>

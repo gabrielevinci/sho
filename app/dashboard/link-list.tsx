@@ -77,13 +77,15 @@ export default function LinkList({ links, baseUrl }: { links: Link[], baseUrl: s
                   return (
                     <tr key={link.id}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                        <a href={shortUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        <a href={shortUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-[200px]">
                           {/* Rimuoviamo il protocollo per pulizia visiva */}
                           {shortUrl.replace(/^https?:\/\//, '')}
                         </a>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 truncate max-w-xs">
-                        {link.original_url}
+                      <td className="px-3 py-4 text-sm text-gray-500">
+                        <span className="whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-[200px]" title={link.original_url}>
+                          {link.original_url}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         {new Date(link.created_at).toLocaleDateString('it-IT')}

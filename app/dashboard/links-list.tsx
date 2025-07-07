@@ -77,7 +77,7 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
                       href={fullShortUrl} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="text-blue-600 hover:text-blue-800 font-medium url-display text-sm"
+                      className="text-blue-600 hover:text-blue-800 font-medium url-display text-sm whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-[200px]"
                       title={fullShortUrl}
                     >
                       {displayUrl}
@@ -88,7 +88,7 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
                       href={link.original_url} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="text-gray-600 hover:text-gray-800 url-display text-sm"
+                      className="text-gray-600 hover:text-gray-800 url-display text-sm whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-[200px]"
                       title={link.original_url}
                     >
                       {truncatedOriginalUrl}
