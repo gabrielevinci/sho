@@ -63,6 +63,23 @@ type TimeSeriesData = {
   full_datetime?: string | Date; // Campo opzionale per i dati orari
 };
 
+type MonthlyData = {
+  month: string;
+  month_number: number;
+  year: number;
+  total_clicks: number;
+  unique_clicks: number;
+};
+
+type WeeklyData = {
+  week: number;
+  year: number;
+  week_start: string;
+  week_end: string;
+  total_clicks: number;
+  unique_clicks: number;
+};
+
 // Funzione per ottenere i dati del link
 async function getLinkData(userId: string, workspaceId: string, shortCode: string): Promise<LinkAnalytics | null> {
   try {
@@ -284,6 +301,91 @@ async function getTimeSeriesData(userId: string, workspaceId: string, shortCode:
   }
 }
 
+// Funzione per ottenere i dati mensili dei click
+async function getMonthlyData(userId: string, workspaceId: string, shortCode: string): Promise<MonthlyData[]> {
+  try {
+    const { rows } = await sql<MonthlyData>`
+      WITH month_series AS (
+        SELECT 
+          generate_series(1, 12) as month_number,
+          EXTRACT(YEAR FROM CURRENT_DATE) as year,
+          TO_CHAR(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::integer, generate_series(1, 12), 1), 'Month') as month
+      ),
+      monthly_clicks AS (
+        SELECT 
+          EXTRACT(MONTH FROM clicked_at)::integer as month_number,
+          EXTRACT(YEAR FROM clicked_at)::integer as year,
+          COUNT(*)::integer as total_clicks,
+          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = ${userId} 
+          AND l.workspace_id = ${workspaceId} 
+          AND l.short_code = ${shortCode}
+          AND EXTRACT(YEAR FROM clicked_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+        GROUP BY EXTRACT(MONTH FROM clicked_at), EXTRACT(YEAR FROM clicked_at)
+      )
+      SELECT 
+        TRIM(ms.month) as month,
+        ms.month_number::integer,
+        ms.year::integer,
+        COALESCE(mc.total_clicks, 0) as total_clicks,
+        COALESCE(mc.unique_clicks, 0) as unique_clicks
+      FROM month_series ms
+      LEFT JOIN monthly_clicks mc ON ms.month_number = mc.month_number AND ms.year = mc.year
+      ORDER BY ms.month_number
+    `;
+    return rows || [];
+  } catch (error) {
+    console.error("Failed to fetch monthly data:", error);
+    return [];
+  }
+}
+
+// Funzione per ottenere i dati settimanali dei click dell'anno corrente
+async function getWeeklyData(userId: string, workspaceId: string, shortCode: string): Promise<WeeklyData[]> {
+  try {
+    const { rows } = await sql<WeeklyData>`
+      WITH week_series AS (
+        SELECT 
+          generate_series(1, 52) as week,
+          EXTRACT(YEAR FROM CURRENT_DATE) as year,
+          (DATE_TRUNC('year', CURRENT_DATE) + (generate_series(1, 52) - 1) * INTERVAL '1 week')::date as week_start,
+          (DATE_TRUNC('year', CURRENT_DATE) + (generate_series(1, 52) - 1) * INTERVAL '1 week' + INTERVAL '6 days')::date as week_end
+      ),
+      weekly_clicks AS (
+        SELECT 
+          DATE_PART('week', clicked_at)::integer as week,
+          EXTRACT(YEAR FROM clicked_at)::integer as year,
+          COUNT(*)::integer as total_clicks,
+          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = ${userId} 
+          AND l.workspace_id = ${workspaceId} 
+          AND l.short_code = ${shortCode}
+          AND EXTRACT(YEAR FROM clicked_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+        GROUP BY DATE_PART('week', clicked_at), EXTRACT(YEAR FROM clicked_at)
+      )
+      SELECT 
+        ws.week::integer,
+        ws.year::integer,
+        ws.week_start::text,
+        ws.week_end::text,
+        COALESCE(wc.total_clicks, 0) as total_clicks,
+        COALESCE(wc.unique_clicks, 0) as unique_clicks
+      FROM week_series ws
+      LEFT JOIN weekly_clicks wc ON ws.week = wc.week AND ws.year = wc.year
+      WHERE ws.week <= DATE_PART('week', CURRENT_DATE)
+      ORDER BY ws.week
+    `;
+    return rows || [];
+  } catch (error) {
+    console.error("Failed to fetch weekly data:", error);
+    return [];
+  }
+}
+
 export default async function AnalyticsPage({ 
   params 
 }: { 
@@ -298,14 +400,16 @@ export default async function AnalyticsPage({
   const { shortCode } = await params;
   
   // Otteniamo tutti i dati iniziali in parallelo per ottimizzare le performance
-  const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData] = await Promise.all([
+  const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData, monthlyData, weeklyData] = await Promise.all([
     getLinkData(session.userId, session.workspaceId, shortCode),
     getClickAnalytics(session.userId, session.workspaceId, shortCode),
     getGeographicData(session.userId, session.workspaceId, shortCode),
     getDeviceData(session.userId, session.workspaceId, shortCode),
     getBrowserData(session.userId, session.workspaceId, shortCode),
     getReferrerData(session.userId, session.workspaceId, shortCode),
-    getTimeSeriesData(session.userId, session.workspaceId, shortCode)
+    getTimeSeriesData(session.userId, session.workspaceId, shortCode),
+    getMonthlyData(session.userId, session.workspaceId, shortCode),
+    getWeeklyData(session.userId, session.workspaceId, shortCode)
   ]);
 
   if (!linkData) {
@@ -319,7 +423,9 @@ export default async function AnalyticsPage({
     deviceData,
     browserData,
     referrerData,
-    timeSeriesData
+    timeSeriesData,
+    monthlyData: monthlyData || [],
+    weeklyData: weeklyData || []
   };
 
   return <AnalyticsClient initialData={initialData} shortCode={shortCode} />;

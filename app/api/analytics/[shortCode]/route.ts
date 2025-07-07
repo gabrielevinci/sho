@@ -62,6 +62,24 @@ type TimeSeriesData = {
   full_datetime?: string | Date; // Campo opzionale per i dati orari
 };
 
+// Types for monthly and weekly data
+type MonthlyData = {
+  month: string;
+  month_number: number;
+  year: number;
+  total_clicks: number;
+  unique_clicks: number;
+};
+
+type WeeklyData = {
+  week: number;
+  year: number;
+  week_start: string;
+  week_end: string;
+  total_clicks: number;
+  unique_clicks: number;
+};
+
 // Funzioni per ottenere i dati filtrati
 async function getLinkData(userId: string, workspaceId: string, shortCode: string): Promise<LinkAnalytics | null> {
   try {
@@ -802,6 +820,99 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
   }
 }
 
+// Function to get monthly data
+async function getMonthlyData(userId: string, workspaceId: string, shortCode: string): Promise<MonthlyData[]> {
+  try {
+    const { rows } = await sql<MonthlyData>`
+      WITH month_series AS (
+        SELECT 
+          generate_series(1, 12) as month_number,
+          EXTRACT(YEAR FROM CURRENT_DATE) as year,
+          TO_CHAR(make_date(EXTRACT(YEAR FROM CURRENT_DATE)::integer, generate_series(1, 12), 1), 'Month') as month
+      ),
+      monthly_clicks AS (
+        SELECT 
+          EXTRACT(MONTH FROM COALESCE(clicked_at_rome, clicked_at))::integer as month_number,
+          EXTRACT(YEAR FROM COALESCE(clicked_at_rome, clicked_at))::integer as year,
+          COUNT(*)::integer as total_clicks,
+          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = ${userId} 
+          AND l.workspace_id = ${workspaceId} 
+          AND l.short_code = ${shortCode}
+          AND EXTRACT(YEAR FROM COALESCE(clicked_at_rome, clicked_at)) = EXTRACT(YEAR FROM CURRENT_DATE)
+        GROUP BY EXTRACT(MONTH FROM COALESCE(clicked_at_rome, clicked_at)), EXTRACT(YEAR FROM COALESCE(clicked_at_rome, clicked_at))
+      )
+      SELECT 
+        TRIM(ms.month) as month,
+        ms.month_number::integer,
+        ms.year::integer,
+        COALESCE(mc.total_clicks, 0) as total_clicks,
+        COALESCE(mc.unique_clicks, 0) as unique_clicks
+      FROM month_series ms
+      LEFT JOIN monthly_clicks mc ON ms.month_number = mc.month_number AND ms.year = mc.year
+      ORDER BY ms.month_number
+    `;
+    return rows || [];
+  } catch (error) {
+    console.error("Failed to fetch monthly data:", error);
+    return [];
+  }
+}
+
+// Function to get weekly data
+async function getWeeklyData(userId: string, workspaceId: string, shortCode: string): Promise<WeeklyData[]> {
+  try {
+    const { rows } = await sql<WeeklyData>`
+      WITH week_boundaries AS (
+        -- Calcola le settimane ISO per il 2025
+        -- La settimana 1 del 2025 va dal 30 dicembre 2024 al 5 gennaio 2025
+        SELECT 
+          week_num,
+          EXTRACT(YEAR FROM CURRENT_DATE) as year,
+          -- Calcola l'inizio di ogni settimana ISO
+          ('2024-12-30'::date + (week_num - 1) * INTERVAL '7 days')::date as week_start,
+          -- Calcola la fine di ogni settimana ISO
+          ('2024-12-30'::date + (week_num - 1) * INTERVAL '7 days' + INTERVAL '6 days')::date as week_end
+        FROM generate_series(1, 52) as week_num
+      ),
+      weekly_clicks AS (
+        SELECT 
+          -- Usa la settimana ISO standard di PostgreSQL
+          EXTRACT(week FROM COALESCE(clicked_at_rome, clicked_at))::integer as week,
+          EXTRACT(isoyear FROM COALESCE(clicked_at_rome, clicked_at))::integer as year,
+          COUNT(*)::integer as total_clicks,
+          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = ${userId} 
+          AND l.workspace_id = ${workspaceId} 
+          AND l.short_code = ${shortCode}
+          -- Filtra per l'anno ISO 2025 (che include i click dal 30-12-2024)
+          AND EXTRACT(isoyear FROM COALESCE(clicked_at_rome, clicked_at)) = EXTRACT(YEAR FROM CURRENT_DATE)
+        GROUP BY 
+          EXTRACT(week FROM COALESCE(clicked_at_rome, clicked_at)), 
+          EXTRACT(isoyear FROM COALESCE(clicked_at_rome, clicked_at))
+      )
+      SELECT 
+        wb.week_num::integer as week,
+        wb.year::integer,
+        wb.week_start::text,
+        wb.week_end::text,
+        COALESCE(wc.total_clicks, 0) as total_clicks,
+        COALESCE(wc.unique_clicks, 0) as unique_clicks
+      FROM week_boundaries wb
+      LEFT JOIN weekly_clicks wc ON wb.week_num = wc.week AND wb.year = wc.year
+      ORDER BY wb.week_num
+    `;
+    return rows || [];
+  } catch (error) {
+    console.error("Failed to fetch weekly data:", error);
+    return [];
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ shortCode: string }> }
@@ -820,14 +931,16 @@ export async function GET(
     const filterType = searchParams.get('filterType') || undefined;
 
     // Otteniamo tutti i dati filtrati in parallelo
-    const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData] = await Promise.all([
+    const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData, monthlyData, weeklyData] = await Promise.all([
       getLinkData(session.userId, session.workspaceId, shortCode),
       getFilteredClickAnalytics(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
       getFilteredGeographicData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
       getFilteredDeviceData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
       getFilteredBrowserData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
       getFilteredReferrerData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
-      getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType)
+      getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
+      getMonthlyData(session.userId, session.workspaceId, shortCode),
+      getWeeklyData(session.userId, session.workspaceId, shortCode)
     ]);
 
     if (!linkData) {
@@ -841,7 +954,9 @@ export async function GET(
       deviceData,
       browserData,
       referrerData,
-      timeSeriesData
+      timeSeriesData,
+      monthlyData,
+      weeklyData
     });
 
   } catch (error) {

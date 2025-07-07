@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ExternalLink, Calendar, Copy, Edit, Trash2, RotateCcw, Save, X } from 'lucide-react';
 import { deleteLink, resetLinkStats, updateLink } from './actions';
 import { useRouter } from 'next/navigation';
@@ -25,14 +25,29 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
   const [editData, setEditData] = useState({
     title: linkData.title || '',
     description: linkData.description || '',
-    original_url: linkData.original_url
+    original_url: linkData.original_url,
+    new_short_code: shortCode
   });
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [shortUrl, setShortUrl] = useState('');
   
   const router = useRouter();
-  const shortUrl = `${window.location.origin}/${shortCode}`;
+
+  // Otteniamo l'URL solo lato client
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setShortUrl(`${window.location.origin}/${shortCode}`);
+    }
+  }, [shortCode]);
+
+  // Aggiorna l'URL quando cambia il short code in modalità editing
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isEditing) {
+      setShortUrl(`${window.location.origin}/${editData.new_short_code}`);
+    }
+  }, [editData.new_short_code, isEditing]);
 
   // Funzione per copiare il link
   const handleCopyLink = async () => {
@@ -47,14 +62,31 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
 
   // Funzione per salvare le modifiche
   const handleSave = async () => {
+    // Validazione del short code
+    if (editData.new_short_code.trim() === '') {
+      alert('Il codice breve non può essere vuoto');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9]+$/.test(editData.new_short_code)) {
+      alert('Il codice breve può contenere solo lettere e numeri');
+      return;
+    }
+    
     setLoading(true);
     try {
-      await updateLink(shortCode, editData);
+      const result = await updateLink(shortCode, editData);
       setIsEditing(false);
-      window.location.reload(); // Ricarica la pagina per aggiornare i dati
+      
+      // Se è stato cambiato il short code, reindirizza alla nuova pagina
+      if (result.newShortCode && result.newShortCode !== shortCode) {
+        router.push(`/dashboard/analytics/${result.newShortCode}`);
+      } else {
+        window.location.reload(); // Ricarica la pagina per aggiornare i dati
+      }
     } catch (error) {
       console.error('Errore durante il salvataggio:', error);
-      alert('Errore durante il salvataggio delle modifiche');
+      alert(error instanceof Error ? error.message : 'Errore durante il salvataggio delle modifiche');
     } finally {
       setLoading(false);
     }
@@ -149,7 +181,8 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
                       setEditData({
                         title: linkData.title || '',
                         description: linkData.description || '',
-                        original_url: linkData.original_url
+                        original_url: linkData.original_url,
+                        new_short_code: shortCode
                       });
                     }}
                     disabled={loading}
@@ -196,6 +229,46 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
               </h2>
             )}
 
+            {/* Short URL */}
+            <div className="flex items-center space-x-2 text-sm">
+              <span className="text-gray-600">Link shortato:</span>
+              <a 
+                href={shortUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
+              >
+                <span>{shortUrl}</span>
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+
+            {/* Short Code */}
+            {isEditing ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Codice breve (dopo il &quot;/&quot;)
+                </label>
+                <input
+                  type="text"
+                  value={editData.new_short_code}
+                  onChange={(e) => setEditData({ ...editData, new_short_code: e.target.value.replace(/[^a-zA-Z0-9]/g, '') })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Inserisci il codice breve"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Solo lettere e numeri, senza spazi o caratteri speciali
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <span>Codice breve:</span>
+                <code className="bg-gray-100 px-2 py-1 rounded text-blue-600 font-medium">
+                  /{shortCode}
+                </code>
+              </div>
+            )}
+
             {/* URL */}
             {isEditing ? (
               <div>
@@ -212,10 +285,7 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
               </div>
             ) : (
               <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <code className="bg-gray-100 px-2 py-1 rounded text-blue-600 font-medium">
-                  /{shortCode}
-                </code>
-                <span>→</span>
+                <span>Reindirizza a:</span>
                 <a 
                   href={linkData.original_url} 
                   target="_blank" 

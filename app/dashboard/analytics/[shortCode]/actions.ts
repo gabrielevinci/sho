@@ -92,6 +92,7 @@ export async function updateLink(
     title?: string;
     description?: string;
     original_url?: string;
+    new_short_code?: string;
   }
 ) {
   const session = await getSession();
@@ -101,12 +102,27 @@ export async function updateLink(
   }
 
   try {
+    // Se viene fornito un nuovo short code, verifichiamo che non sia già in uso
+    if (data.new_short_code && data.new_short_code !== shortCode) {
+      const existingLink = await sql`
+        SELECT id FROM links 
+        WHERE short_code = ${data.new_short_code}
+        AND user_id = ${session.userId}
+        AND workspace_id = ${session.workspaceId}
+      `;
+      
+      if (existingLink.rows.length > 0) {
+        throw new Error('Questo short code è già in uso');
+      }
+    }
+
     const result = await sql`
       UPDATE links 
       SET 
         title = ${data.title || null},
         description = ${data.description || null},
-        original_url = ${data.original_url || null}
+        original_url = ${data.original_url || null},
+        short_code = ${data.new_short_code || shortCode}
       WHERE user_id = ${session.userId} 
       AND workspace_id = ${session.workspaceId} 
       AND short_code = ${shortCode}
@@ -116,11 +132,11 @@ export async function updateLink(
       throw new Error('Link non trovato');
     }
 
-    revalidatePath(`/dashboard/analytics/${shortCode}`);
+    revalidatePath(`/dashboard/analytics/${data.new_short_code || shortCode}`);
     revalidatePath('/dashboard');
-    return { success: true };
+    return { success: true, newShortCode: data.new_short_code || shortCode };
   } catch (error) {
     console.error('Errore durante l\'aggiornamento del link:', error);
-    throw new Error('Errore durante l\'aggiornamento del link');
+    throw new Error(error instanceof Error ? error.message : 'Errore durante l\'aggiornamento del link');
   }
 }

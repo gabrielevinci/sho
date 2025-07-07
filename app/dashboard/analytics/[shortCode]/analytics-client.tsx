@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import ClicksTrendChartDual from './clicks-trend-chart-dual';
+import PeriodChart from './period-chart';
 import AnalyticsFilters, { DateFilter, DateRange } from './analytics-filters';
 import LinkHeader from './link-header';
 
@@ -71,6 +72,23 @@ type TimeSeriesData = {
   full_datetime?: string | Date; // Campo opzionale per i dati orari
 };
 
+type MonthlyData = {
+  month: string;
+  month_number: number;
+  year: number;
+  total_clicks: number;
+  unique_clicks: number;
+};
+
+type WeeklyData = {
+  week: number;
+  year: number;
+  week_start: string;
+  week_end: string;
+  total_clicks: number;
+  unique_clicks: number;
+};
+
 interface AnalyticsData {
   linkData: LinkAnalytics;
   clickAnalytics: ClickAnalytics;
@@ -79,6 +97,8 @@ interface AnalyticsData {
   browserData: BrowserData[];
   referrerData: ReferrerData[];
   timeSeriesData: TimeSeriesData[];
+  monthlyData: MonthlyData[];
+  weeklyData: WeeklyData[];
 }
 
 interface AnalyticsClientProps {
@@ -393,7 +413,13 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           filterType={currentFilter}
         />
 
-        {/* 5. Statistiche dettagliate */}
+        {/* 5. Analisi periodica (nuovo grafico) */}
+        <PeriodChart 
+          monthlyData={data.monthlyData} 
+          weeklyData={data.weeklyData}
+        />
+
+        {/* 6. Statistiche dettagliate */}
         <div className="space-y-6">
           {/* Header senza toggle */}
           <div className="flex items-center justify-between">
