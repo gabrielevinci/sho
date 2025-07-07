@@ -53,19 +53,103 @@ export interface CreateAdvancedLinkState {
   finalShortCode?: string;
 }
 
-const AdvancedLinkSchema = z.object({
-  originalUrl: z.string().url({ message: "L'URL di destinazione deve essere un URL valido." }),
-  shortCode: z.string().optional().transform(val => val || '').refine(val => /^[a-zA-Z0-9_-]*$/.test(val), {
-    message: "Lo short code può contenere solo lettere, numeri, trattini (-) e underscore (_)."
-  }),
-  title: z.string().optional(),
-  description: z.string().optional(),
-  utm_source: z.string().optional(),
-  utm_medium: z.string().optional(),
-  utm_campaign: z.string().optional(),
-  utm_term: z.string().optional(),
-  utm_content: z.string().optional(),
-});
+// --- FUNZIONE PER RECUPERARE UN LINK PER LA MODIFICA ---
+export async function getLinkByShortCode(shortCode: string) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
+    throw new Error('Not authenticated');
+  }
+
+  const { rows } = await sql`
+    SELECT 
+      short_code, original_url, title, description, 
+      utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+      created_at
+    FROM links 
+    WHERE short_code = ${shortCode} AND user_id = ${session.userId} AND workspace_id = ${session.workspaceId}
+  `;
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows[0];
+}
+
+// --- SCHEMA E FUNZIONI PER LA MODIFICA DEL LINK ---
+export interface UpdateLinkState {
+  message: string;
+  errors?: { originalUrl?: string; shortCode?: string; general?: string; };
+  success: boolean;
+  finalShortCode?: string;
+}
+
+export async function updateAdvancedLink(
+  currentShortCode: string,
+  prevState: UpdateLinkState,
+  formData: FormData
+): Promise<UpdateLinkState> {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
+    return { success: false, message: '', errors: { general: "Autenticazione richiesta o workspace non valido." } };
+  }
+  
+  const { userId, workspaceId } = session;
+  const rawData = Object.fromEntries(formData.entries());
+  const validatedFields = AdvancedLinkSchema.safeParse(rawData);
+
+  if (!validatedFields.success) {
+    const fieldErrors = validatedFields.error.flatten().fieldErrors;
+    return {
+      success: false,
+      message: "Errore di validazione. Controlla i campi.",
+      errors: { originalUrl: fieldErrors.originalUrl?.[0], shortCode: fieldErrors.shortCode?.[0] }
+    };
+  }
+  
+  const { originalUrl, title, description, utm_source, utm_medium, utm_campaign, utm_term, utm_content } = validatedFields.data;
+  let shortCode = validatedFields.data.shortCode;
+
+  // Se non è stato fornito un nuovo short code, mantieni quello attuale
+  if (!shortCode) {
+    shortCode = currentShortCode;
+  }
+
+  // Se il short code è diverso da quello attuale, verifica che non sia già in uso
+  if (shortCode !== currentShortCode) {
+    const { rows } = await sql`SELECT id FROM links WHERE short_code = ${shortCode}`;
+    if (rows.length > 0) {
+      return { success: false, message: '', errors: { shortCode: "Questo short code è già in uso. Scegline un altro." } };
+    }
+  }
+  
+  try {
+    await sql`
+      UPDATE links 
+      SET 
+        original_url = ${originalUrl},
+        short_code = ${shortCode},
+        title = ${title},
+        description = ${description},
+        utm_source = ${utm_source},
+        utm_medium = ${utm_medium},
+        utm_campaign = ${utm_campaign},
+        utm_term = ${utm_term},
+        utm_content = ${utm_content}
+      WHERE short_code = ${currentShortCode} AND user_id = ${userId} AND workspace_id = ${workspaceId}
+    `;
+  } catch (error) {
+    console.error("Database error during link update:", error);
+    return { success: false, message: '', errors: { general: "Si è verificato un errore del database. Riprova." } };
+  }
+
+  revalidatePath('/dashboard');
+  return {
+    success: true,
+    message: "Link modificato con successo!",
+    finalShortCode: shortCode
+  };
+}
 
 export async function createAdvancedLink(prevState: CreateAdvancedLinkState, formData: FormData): Promise<CreateAdvancedLinkState> {
   const session = await getSession();
@@ -74,8 +158,6 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   }
   const { userId, workspaceId } = session;
 
-  // --- QUESTA È LA MODIFICA CHIAVE ---
-  // Convertiamo l'intero formData in un oggetto JS pulito, il modo robusto per usare Zod.
   const rawData = Object.fromEntries(formData.entries());
   const validatedFields = AdvancedLinkSchema.safeParse(rawData);
 
@@ -123,3 +205,17 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
     finalShortCode: shortCode
   };
 }
+
+const AdvancedLinkSchema = z.object({
+  originalUrl: z.string().url({ message: "L'URL di destinazione deve essere un URL valido." }),
+  shortCode: z.string().optional().transform(val => val || '').refine(val => /^[a-zA-Z0-9_-]*$/.test(val), {
+    message: "Lo short code può contenere solo lettere, numeri, trattini (-) e underscore (_)."
+  }),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  utm_source: z.string().optional(),
+  utm_medium: z.string().optional(),
+  utm_campaign: z.string().optional(),
+  utm_term: z.string().optional(),
+  utm_content: z.string().optional(),
+});

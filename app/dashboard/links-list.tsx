@@ -105,9 +105,6 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
                       </Link>
                       <LinkActions
                         shortCode={link.short_code}
-                        originalUrl={link.original_url}
-                        title={link.title}
-                        description={link.description}
                         showInline={true}
                         onUpdate={onUpdateLinks}
                       />

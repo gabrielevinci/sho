@@ -38,9 +38,6 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
             </h1>
             <LinkActions
               shortCode={shortCode}
-              originalUrl={linkData.original_url}
-              title={linkData.title}
-              description={linkData.description}
               onUpdate={() => window.location.reload()}
             />
           </div>
