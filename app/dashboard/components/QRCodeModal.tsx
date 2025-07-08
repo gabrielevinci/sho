@@ -56,7 +56,7 @@ export default function QRCodeModal({
     if (isOpen && url) {
       generateQRCode();
     }
-  }, [isOpen, generateQRCode]);
+  }, [isOpen, generateQRCode, url]);
 
   const downloadQRCode = async () => {
     if (!qrCodeUrl) return;

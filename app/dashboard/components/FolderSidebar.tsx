@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon, HomeIcon, LinkIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon, HomeIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import DeleteFolderModal from './DeleteFolderModal';
 
 export interface Folder {
