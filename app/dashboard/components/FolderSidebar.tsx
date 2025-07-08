@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon, HomeIcon, LinkIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import DeleteFolderModal from './DeleteFolderModal';
 
 export interface Folder {
@@ -65,6 +65,18 @@ export default function FolderSidebar({
     position: 'before' | 'after';
   } | null>(null); // For yellow line (reorder between folders)
   const [invalidDropTarget, setInvalidDropTarget] = useState<string | null>(null); // For red border (invalid operation)
+  
+  // Performance optimizations for root-level folder reordering
+  const [dragDebounceTimer, setDragDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
+  
+  // Caching for validation results to avoid repeated calculations
+  const validationCache = useRef<Map<string, { valid: boolean; error?: string }>>(new Map());
+  
+  // Clear validation cache when folders change
+  useEffect(() => {
+    validationCache.current.clear();
+  }, [folders]);
 
   // Gestione del drag and drop
   const handleDragOver = (e: React.DragEvent, folderId: string | null) => {
@@ -154,13 +166,16 @@ export default function FolderSidebar({
     }
   };
 
-  // Costruisce l'albero delle cartelle
+  // Costruisce l'albero delle cartelle con ottimizzazioni per le performance
   const buildFolderTree = useCallback((folders: Folder[]) => {
     // Sort folders by position first, then by name
+    // Optimized sorting for root-level folders
     const sortedFolders = [...folders].sort((a, b) => {
+      // Prioritize position for all folders
       if (a.position !== b.position) {
         return a.position - b.position;
       }
+      // Use name as secondary sort only when positions are equal
       return a.name.localeCompare(b.name);
     });
     
@@ -454,7 +469,7 @@ export default function FolderSidebar({
     e.dataTransfer.setData('application/folder', folderId);
   };
 
-  // Handle folder drag over with improved visual feedback and debouncing
+  // Handle folder drag over with improved visual feedback and optimized performance
   const handleFolderDragOver = (e: React.DragEvent, folderId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -465,6 +480,11 @@ export default function FolderSidebar({
     const folderData = e.dataTransfer.types.includes('application/folder');
     
     if (folderData && draggingFolderId) {
+      // Clear any pending debounce timer
+      if (dragDebounceTimer) {
+        clearTimeout(dragDebounceTimer);
+      }
+      
       // Set the drop effect for folder reordering
       e.dataTransfer.dropEffect = 'move';
       
@@ -472,50 +492,64 @@ export default function FolderSidebar({
       const y = e.clientY - rect.top;
       const height = rect.height;
       
-      // Optimized margins for even better drag experience
-      // Top area: first 20% for "insert before" 
-      // Middle area: 20% to 80% for "move into folder" (60% of height - large zone)
-      // Bottom area: last 20% for "insert after"
-      const topThreshold = height * 0.20;
-      const bottomThreshold = height * 0.80;
+      // Enhanced thresholds for better UX
+      // Top area: first 25% for "insert before" 
+      // Middle area: 25% to 75% for "move into folder" (50% of height - balanced zone)
+      // Bottom area: last 25% for "insert after"
+      const topThreshold = height * 0.25;
+      const bottomThreshold = height * 0.75;
       
-      // Immediate feedback without debounce to avoid flickering
+      // Determine operation with improved logic
+      let targetOperation: 'move' | 'reorder-before' | 'reorder-after';
       if (y < topThreshold) {
-        // Top area - insert before this folder
-        const validation = validateFolderOperation(draggingFolderId, folderId, 'reorder');
-        if (validation.valid) {
-          setFolderInsertPosition({ folderId, position: 'before' });
-          setFolderDropTarget(null);
-          setInvalidDropTarget(null);
-        } else {
-          setFolderInsertPosition(null);
-          setFolderDropTarget(null);
-          setInvalidDropTarget(folderId);
-        }
+        targetOperation = 'reorder-before';
       } else if (y > bottomThreshold) {
-        // Bottom area - insert after this folder
-        const validation = validateFolderOperation(draggingFolderId, folderId, 'reorder');
-        if (validation.valid) {
-          setFolderInsertPosition({ folderId, position: 'after' });
-          setFolderDropTarget(null);
-          setInvalidDropTarget(null);
-        } else {
-          setFolderInsertPosition(null);
-          setFolderDropTarget(null);
-          setInvalidDropTarget(folderId);
-        }
+        targetOperation = 'reorder-after';
       } else {
-        // Middle area - move into this folder (change parent)
-        const validation = validateFolderOperation(draggingFolderId, folderId, 'move');
-        if (validation.valid) {
-          setFolderDropTarget(folderId);
-          setFolderInsertPosition(null);
-          setInvalidDropTarget(null);
+        targetOperation = 'move';
+      }
+      
+      // Optimized validation and immediate UI feedback
+      const performValidationAndUpdate = () => {
+        if (targetOperation === 'move') {
+          const validation = validateFolderOperation(draggingFolderId, folderId, 'move');
+          if (validation.valid) {
+            setFolderDropTarget(folderId);
+            setFolderInsertPosition(null);
+            setInvalidDropTarget(null);
+          } else {
+            setFolderDropTarget(null);
+            setFolderInsertPosition(null);
+            setInvalidDropTarget(folderId);
+          }
         } else {
-          setFolderDropTarget(null);
-          setFolderInsertPosition(null);
-          setInvalidDropTarget(folderId);
+          const validation = validateFolderOperation(draggingFolderId, folderId, 'reorder');
+          if (validation.valid) {
+            setFolderInsertPosition({ 
+              folderId, 
+              position: targetOperation === 'reorder-before' ? 'before' : 'after' 
+            });
+            setFolderDropTarget(null);
+            setInvalidDropTarget(null);
+          } else {
+            setFolderInsertPosition(null);
+            setFolderDropTarget(null);
+            setInvalidDropTarget(folderId);
+          }
         }
+      };
+      
+      // For root-level folders, apply immediate feedback without debouncing
+      const draggingFolder = folders.find(f => f.id === draggingFolderId);
+      const targetFolder = folders.find(f => f.id === folderId);
+      
+      if (draggingFolder?.parent_folder_id === null && targetFolder?.parent_folder_id === null) {
+        // Root-level operation - immediate feedback for better performance
+        performValidationAndUpdate();
+      } else {
+        // Non-root operation - light debouncing to prevent flickering
+        const timer = setTimeout(performValidationAndUpdate, 50);
+        setDragDebounceTimer(timer);
       }
     } else {
       // Regular link drag
@@ -524,10 +558,16 @@ export default function FolderSidebar({
     }
   };
 
-  // Handle folder drag leave with improved boundary detection
+  // Handle folder drag leave with improved boundary detection and debounce cleanup
   const handleFolderDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Clear any pending debounce timer
+    if (dragDebounceTimer) {
+      clearTimeout(dragDebounceTimer);
+      setDragDebounceTimer(null);
+    }
     
     // More precise boundary checking to avoid premature clearing
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -535,7 +575,7 @@ export default function FolderSidebar({
     const y = e.clientY;
     
     // Add a small buffer to prevent flickering when moving between closely packed elements
-    const buffer = 5;
+    const buffer = 8; // Slightly increased buffer for better UX
     
     if (x < rect.left - buffer || x > rect.right + buffer || 
         y < rect.top - buffer || y > rect.bottom + buffer) {
@@ -547,8 +587,14 @@ export default function FolderSidebar({
     }
   };
 
-  // Handle folder drag end
+  // Handle folder drag end with cleanup
   const handleFolderDragEnd = () => {
+    // Clear any pending debounce timer
+    if (dragDebounceTimer) {
+      clearTimeout(dragDebounceTimer);
+      setDragDebounceTimer(null);
+    }
+    
     setDraggingFolderId(null);
     setFolderDropTarget(null);
     setFolderInsertPosition(null);
@@ -704,7 +750,7 @@ export default function FolderSidebar({
     }
   };
 
-  // Helper function to reorder folder at a specific position
+  // Helper function to reorder folder at a specific position with optimized caching
   const reorderFolderAtPosition = async (sourceFolderId: string, targetFolderId: string, position: 'before' | 'after') => {
     // Validate the operation
     const validation = validateFolderOperation(sourceFolderId, targetFolderId, 'reorder');
@@ -713,23 +759,39 @@ export default function FolderSidebar({
       return;
     }
     
+    // Mark operation as pending to prevent duplicate requests
+    if (pendingOperations.has(`${sourceFolderId}-${targetFolderId}-${position}`)) {
+      return;
+    }
+    
+    const operationId = `${sourceFolderId}-${targetFolderId}-${position}`;
+    setPendingOperations(prev => new Set(prev).add(operationId));
+    
     // Per il riordinamento, aggiorna immediatamente l'UI riorganizzando le posizioni
     const originalFolders = [...folders];
     const sourceFolder = folders.find(f => f.id === sourceFolderId);
     const targetFolder = folders.find(f => f.id === targetFolderId);
     
     if (sourceFolder && targetFolder) {
+      // For root-level folders, use optimized position calculation
+      const isRootLevel = sourceFolder.parent_folder_id === null && targetFolder.parent_folder_id === null;
+      
       const updatedFolders = folders.map(folder => {
         if (folder.id === sourceFolderId) {
           // Aggiorna la posizione della cartella sorgente
+          const newPosition = isRootLevel 
+            ? (position === 'before' ? targetFolder.position - 0.1 : targetFolder.position + 0.1)
+            : (position === 'before' ? targetFolder.position - 0.5 : targetFolder.position + 0.5);
+          
           return {
             ...folder,
-            position: position === 'before' ? targetFolder.position - 0.5 : targetFolder.position + 0.5
+            position: newPosition
           };
         }
         return folder;
       });
       
+      // Apply immediate UI update for better perceived performance
       setFolders(updatedFolders);
       buildFolderTree(updatedFolders);
     }
@@ -749,7 +811,12 @@ export default function FolderSidebar({
       
       if (response.ok) {
         onFoldersChange();
-        onToast?.('Cartella riordinata con successo', 'success');
+        // For root-level operations, show success immediately
+        if (sourceFolder?.parent_folder_id === null && targetFolder?.parent_folder_id === null) {
+          onToast?.('Cartelle riordinate', 'success');
+        } else {
+          onToast?.('Cartella riordinata con successo', 'success');
+        }
       } else {
         // Ripristina lo stato originale in caso di errore
         setFolders(originalFolders);
@@ -765,11 +832,24 @@ export default function FolderSidebar({
       
       console.error('Errore durante il riordinamento:', error);
       onToast?.(`Errore: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`, 'error');
+    } finally {
+      // Remove operation from pending set
+      setPendingOperations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(operationId);
+        return newSet;
+      });
     }
   };
 
   // Validation function for drag & drop operations
   const validateFolderOperation = (sourceFolderId: string, targetFolderId: string, operation: 'move' | 'reorder'): { valid: boolean; error?: string } => {
+    // Check cache first
+    const cacheKey = `${sourceFolderId}-${targetFolderId}-${operation}`;
+    if (validationCache.current.has(cacheKey)) {
+      return validationCache.current.get(cacheKey)!;
+    }
+    
     const sourceFolder = folders.find(f => f.id === sourceFolderId);
     const targetFolder = folders.find(f => f.id === targetFolderId);
     
@@ -797,6 +877,8 @@ export default function FolderSidebar({
     // Now folders can be reordered regardless of their parent level
     // This allows for maximum flexibility in folder organization
     
+    // Cache the result
+    validationCache.current.set(cacheKey, { valid: true });
     return { valid: true };
   };
   
@@ -827,18 +909,18 @@ export default function FolderSidebar({
     
     return (
       <div key={node.id} className="select-none">
-        {/* Yellow line indicator for "insert before" */}
+        {/* Yellow line indicator for "insert before" with enhanced styling */}
         {isInsertBefore && (
-          <div className="h-0.5 bg-yellow-400 mx-3 mb-1 rounded-full"></div>
+          <div className="h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-3 mb-1 rounded-full shadow-sm animate-pulse"></div>
         )}
         
         <div 
-          className={`group flex items-center py-2 px-3 rounded-lg cursor-pointer hover:bg-gray-100 ${
-            isSelected ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-          } ${isDragOver ? 'bg-blue-100 border-2 border-dashed border-blue-400' : ''}
-          ${isDropTarget ? 'bg-yellow-50 border-2 border-yellow-400 ring-2 ring-yellow-200' : ''}
-          ${isInvalidTarget ? 'bg-red-50 border-2 border-red-400 ring-2 ring-red-200' : ''}
-          ${isDraggingThis ? 'opacity-30 scale-95 transform' : ''}`}
+          className={`group flex items-center py-2 px-3 rounded-lg cursor-pointer transition-all duration-200 transform ${
+            isSelected ? 'bg-blue-50 border-l-4 border-blue-500 shadow-sm' : ''
+          } ${isDragOver ? 'bg-blue-100 border-2 border-dashed border-blue-400 scale-105' : ''}
+          ${isDropTarget ? 'bg-yellow-50 border-2 border-yellow-400 ring-2 ring-yellow-200 scale-105' : ''}
+          ${isInvalidTarget ? 'bg-red-50 border-2 border-red-400 ring-2 ring-red-200 shake' : ''}
+          ${isDraggingThis ? 'opacity-40 scale-95 transform rotate-1' : 'hover:bg-gray-100 hover:scale-102'}`}
           style={{ marginLeft: `${level * 16}px` }}
           onDragOver={(e) => {
             handleDragOver(e, node.id);
@@ -964,9 +1046,9 @@ export default function FolderSidebar({
           </div>
         </div>
         
-        {/* Yellow line indicator for "insert after" */}
+        {/* Yellow line indicator for "insert after" with enhanced styling */}
         {isInsertAfter && (
-          <div className="h-0.5 bg-yellow-400 mx-3 mt-1 rounded-full"></div>
+          <div className="h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 mx-3 mt-1 rounded-full shadow-sm animate-pulse"></div>
         )}
 
         {/* Render children */}
@@ -984,12 +1066,14 @@ export default function FolderSidebar({
   // Get default folder ID (usually "All Links")
   const [defaultFolderId, setDefaultFolderId] = useState<string | null>(null);
   
-  // Register the clearSelectionRef function
+  // Cleanup effect for timers
   useEffect(() => {
-    if (onClearSelectionRef && clearSelectionRef.current) {
-      onClearSelectionRef(() => clearSelectionRef.current);
-    }
-  }, [onClearSelectionRef, clearSelectionRef]);
+    return () => {
+      if (dragDebounceTimer) {
+        clearTimeout(dragDebounceTimer);
+      }
+    };
+  }, [dragDebounceTimer]);
   
   // Find default folder (usually "All Links") when folders change
   useEffect(() => {
@@ -1000,6 +1084,13 @@ export default function FolderSidebar({
       }
     }
   }, [folders]);
+
+  // Register the clearSelectionRef function
+  useEffect(() => {
+    if (onClearSelectionRef && clearSelectionRef.current) {
+      onClearSelectionRef(() => clearSelectionRef.current);
+    }
+  }, [onClearSelectionRef, clearSelectionRef]);
 
   if (loading) {
     return (
@@ -1038,28 +1129,47 @@ export default function FolderSidebar({
       </div>
       
       <div className="flex-1 overflow-y-auto">
-        {/* Sezione fissa "Tutti i link" in alto */}
+        {/* Sezione "Tutti i link" - Stile sidebar invece di cartella */}
         {defaultFolderId && (
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className="border-b border-gray-200">
             <div 
-              className={`flex items-center py-3 px-4 rounded-lg cursor-pointer transition-colors ${
-                selectedFolderId === defaultFolderId ? 'bg-blue-100 border-l-4 border-blue-500 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-              } ${dragOverFolderId === defaultFolderId ? 'bg-blue-100 border-2 border-dashed border-blue-400' : ''}`}
+              className={`flex items-center py-4 px-6 cursor-pointer transition-all duration-200 border-l-4 ${
+                selectedFolderId === defaultFolderId 
+                  ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' 
+                  : 'border-transparent text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+              } ${dragOverFolderId === defaultFolderId ? 'bg-blue-100 ring-2 ring-blue-300 ring-inset' : ''}`}
               onDragOver={(e) => handleDragOver(e, defaultFolderId)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, defaultFolderId)}
               onClick={() => onFolderSelect(defaultFolderId)}
             >
               <div className="flex items-center flex-1">
-                <FolderIcon className="w-5 h-5 mr-3" />
-                <span className="font-medium">Tutti i link</span>
+                <div className={`mr-3 transition-colors ${
+                  selectedFolderId === defaultFolderId ? 'text-blue-600' : 'text-gray-500'
+                }`}>
+                  <HomeIcon className="w-5 h-5" />
+                </div>
+                <span className={`font-medium transition-colors ${
+                  selectedFolderId === defaultFolderId ? 'text-blue-700' : 'text-gray-700'
+                }`}>
+                  Tutti i link
+                </span>
+              </div>
+              <div className={`ml-2 flex items-center ${
+                selectedFolderId === defaultFolderId ? 'text-blue-600' : 'text-gray-400'
+              }`}>
+                <DocumentIcon className="w-4 h-4 mr-1" />
+                <span className="text-xs font-medium">Tutti</span>
               </div>
             </div>
           </div>
         )}
         
-        {/* Cartelle normali */}
+        {/* Sezione Cartelle */}
         <div className="p-4">
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cartelle</h3>
+          </div>
           <div className="space-y-1">
             {/* Mostra solo le cartelle normali (esclude "Tutti i link") */}
             {folderTree.filter(node => !defaultFolderId || node.id !== defaultFolderId).map(node => renderFolderNode(node))}

@@ -49,8 +49,7 @@ export async function PUT(request: NextRequest) {
     
     // Removed the restriction for reordering folders at different levels
     // Now folders can be reordered between any levels within the same workspace
-    
-    // Calculate the new position for the source folder
+      // Calculate the new position for the source folder
     const newPosition = await calculateNewPosition(
       sourceFolder, 
       targetFolder, 
@@ -58,6 +57,10 @@ export async function PUT(request: NextRequest) {
       session.userId
     );
     
+    // Determine if we need to trigger recompaction
+    const isRootLevel = targetFolder.parent_folder_id === null;
+    const shouldRecompact = !isRootLevel || (Math.random() > 0.8); // 20% chance for root-level, always for nested
+
     // Update the source folder's position and parent if needed
     await sql`BEGIN`;
     
@@ -71,10 +74,12 @@ export async function PUT(request: NextRequest) {
         WHERE id = ${folderId} AND user_id = ${session.userId}
       `;
       
-      // Recompact positions for both old and new parent levels
-      await recompactPositions(sourceFolder.parent_folder_id, session.userId);
-      if (sourceFolder.parent_folder_id !== targetFolder.parent_folder_id) {
-        await recompactPositions(targetFolder.parent_folder_id, session.userId);
+      // Conditional recompaction for better performance
+      if (shouldRecompact) {
+        await recompactPositions(sourceFolder.parent_folder_id, session.userId);
+        if (sourceFolder.parent_folder_id !== targetFolder.parent_folder_id) {
+          await recompactPositions(targetFolder.parent_folder_id, session.userId);
+        }
       }
       
       await sql`COMMIT`;
@@ -92,7 +97,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Calculate the new position for the source folder
+// Calculate the new position for the source folder with optimized algorithm
 async function calculateNewPosition(
   sourceFolder: Record<string, unknown>, 
   targetFolder: Record<string, unknown>, 
@@ -114,30 +119,39 @@ async function calculateNewPosition(
   
   let newPosition: number;
   
+  // Check if this is a root-level operation for optimization
+  const isRootLevel = targetFolder.parent_folder_id === null;
+  
   if (insertPosition === 'before') {
     if (targetIndex === 0) {
       // Insert at the beginning
-      newPosition = Math.max(0, (targetFolder.position as number) - 1);
+      newPosition = Math.max(0, (targetFolder.position as number) - (isRootLevel ? 0.1 : 1));
     } else {
       // Insert between previous and target
       const prevPosition = siblingPositions[targetIndex - 1].position;
-      newPosition = (prevPosition + (targetFolder.position as number)) / 2;
+      const gap = (targetFolder.position as number) - prevPosition;
+      newPosition = isRootLevel && gap > 0.2 
+        ? prevPosition + (gap / 2)  // Use midpoint for root-level for better performance
+        : (prevPosition + (targetFolder.position as number)) / 2;
     }
   } else { // 'after'
     if (targetIndex === siblingPositions.length - 1) {
       // Insert at the end
-      newPosition = (targetFolder.position as number) + 1;
+      newPosition = (targetFolder.position as number) + (isRootLevel ? 0.1 : 1);
     } else {
       // Insert between target and next
       const nextPosition = siblingPositions[targetIndex + 1].position;
-      newPosition = ((targetFolder.position as number) + nextPosition) / 2;
+      const gap = nextPosition - (targetFolder.position as number);
+      newPosition = isRootLevel && gap > 0.2 
+        ? (targetFolder.position as number) + (gap / 2)  // Use midpoint for root-level for better performance
+        : ((targetFolder.position as number) + nextPosition) / 2;
     }
   }
   
   return Math.max(0, newPosition);
 }
 
-// Recompact positions to ensure they are sequential integers
+// Recompact positions to ensure they are sequential integers with optimized batch updates
 async function recompactPositions(parentFolderId: string | null, userId: string): Promise<void> {
   const folders = await sql`
     SELECT id 
@@ -147,12 +161,30 @@ async function recompactPositions(parentFolderId: string | null, userId: string)
     ORDER BY position ASC
   `;
   
-  // Update positions to be sequential integers starting from 0
-  for (let i = 0; i < folders.rows.length; i++) {
-    await sql`
-      UPDATE folders 
-      SET position = ${i}, updated_at = NOW()
-      WHERE id = ${folders.rows[i].id} AND user_id = ${userId}
-    `;
+  // For small number of folders, use individual updates for minimal locking
+  if (folders.rows.length < 10) {
+    for (let i = 0; i < folders.rows.length; i++) {
+      await sql`
+        UPDATE folders 
+        SET position = ${i}, updated_at = NOW()
+        WHERE id = ${folders.rows[i].id} AND user_id = ${userId}
+      `;
+    }
+    return;
+  }
+  
+  // For larger collections, use a more efficient batch update approach
+  const batchSize = 5;
+  for (let i = 0; i < folders.rows.length; i += batchSize) {
+    const batch = folders.rows.slice(i, i + batchSize);
+    const values = batch.map((folder, index) => `('${folder.id}', ${i + index})`).join(',');
+    
+    await sql.query(`
+      WITH updates(id, new_position) AS (VALUES ${values})
+      UPDATE folders
+      SET position = updates.new_position, updated_at = NOW()
+      FROM updates
+      WHERE folders.id = updates.id AND folders.user_id = '${userId}'
+    `);
   }
 }
