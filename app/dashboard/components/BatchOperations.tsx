@@ -34,14 +34,15 @@ export default function BatchOperations({
 
   // Funzione per creare l'albero delle cartelle con le rientranze
   const buildFlatFolderList = (folders: Folder[]): Array<{folder: Folder, depth: number}> => {
-    const folderMap = new Map<string, Folder & {children: (Folder & {children: (Folder & {children: any[]})[]})[]}>();
+    type FolderWithChildren = Folder & {children: FolderWithChildren[]};
+    const folderMap = new Map<string, FolderWithChildren>();
     
     // Crea una mappa delle cartelle con i loro figli
     folders.forEach(folder => {
       folderMap.set(folder.id, { ...folder, children: [] });
     });
     
-    const rootFolders: (Folder & {children: any[]})[] = [];
+    const rootFolders: FolderWithChildren[] = [];
     
     // Costruisce l'albero
     folders.forEach(folder => {
@@ -58,11 +59,11 @@ export default function BatchOperations({
     });
     
     // Funzione ricorsiva per appiattire l'albero
-    const flattenTree = (folder: any, depth: number = 0): Array<{folder: Folder, depth: number}> => {
+    const flattenTree = (folder: FolderWithChildren, depth: number = 0): Array<{folder: Folder, depth: number}> => {
       const result = [{ folder: folder as Folder, depth }];
       
       if (folder.children) {
-        folder.children.forEach((child: any) => {
+        folder.children.forEach((child: FolderWithChildren) => {
           result.push(...flattenTree(child, depth + 1));
         });
       }
@@ -71,7 +72,7 @@ export default function BatchOperations({
     };
     
     // Appiattisce l'albero mantenendo l'ordine gerarchico
-    let flatList: Array<{folder: Folder, depth: number}> = [];
+    const flatList: Array<{folder: Folder, depth: number}> = [];
     rootFolders.forEach(root => {
       flatList.push(...flattenTree(root));
     });

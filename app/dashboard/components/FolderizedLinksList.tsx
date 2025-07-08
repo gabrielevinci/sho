@@ -34,7 +34,6 @@ export default function FolderizedLinksList({
   links, 
   selectedFolderId, 
   defaultFolderId,
-  onUpdateLinks,
   onDeleteLink,
   onUpdateLink,
   onToast,
@@ -346,7 +345,6 @@ export default function FolderizedLinksList({
         onBatchMoveToFolder={handleBatchMoveToFolder}
         onClearSelection={handleClearSelection}
         onToast={onToast}
-        links={links}
       />
       
       <div className="bg-white rounded-lg shadow-md h-full flex flex-col overflow-hidden">

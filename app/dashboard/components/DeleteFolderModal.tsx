@@ -20,6 +20,16 @@ export default function DeleteFolderModal({
 }: DeleteFolderModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsDeleting(false);
+      onClose();
+    }
+  };
+
   // Gestione tasti
   useEffect(() => {
     if (!isOpen) return;
@@ -36,17 +46,7 @@ export default function DeleteFolderModal({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose, isDeleting, isDefault]);
-
-  const handleConfirm = async () => {
-    setIsDeleting(true);
-    try {
-      await onConfirm();
-    } finally {
-      setIsDeleting(false);
-      onClose();
-    }
-  };
+  }, [isOpen, onClose, isDeleting, isDefault, handleConfirm]);
 
   if (!isOpen) return null;
 
