@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ExclamationTriangleIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface ConfirmationModalProps {
@@ -25,6 +26,24 @@ export default function ConfirmationModal({
   type = 'warning',
   isLoading = false
 }: ConfirmationModalProps) {
+  // Gestione tasti
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && !isLoading) {
+        onConfirm();
+      } else if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onConfirm, onClose, isLoading]);
+
   if (!isOpen) return null;
 
   const getIcon = () => {
@@ -50,7 +69,7 @@ export default function ConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
         <div className="flex items-center space-x-3 mb-4">
           <div className="flex-shrink-0">

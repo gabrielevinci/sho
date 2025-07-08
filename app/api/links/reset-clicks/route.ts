@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest) {
     // Azzera i click del link
     await sql`
       UPDATE links
-      SET click_count = 0
+      SET click_count = 0, unique_click_count = 0
       WHERE short_code = ${shortCode} AND user_id = ${session.userId}
     `;
 

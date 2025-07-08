@@ -24,11 +24,11 @@ function ToastComponent({ toast, onClose }: ToastProps) {
     // Mostra il toast dopo un breve ritardo per l'animazione
     const showTimer = setTimeout(() => setIsVisible(true), 10);
     
-    // Nasconde il toast dopo la durata specificata
+    // Nasconde il toast dopo la durata specificata (default 1.5 secondi)
     const hideTimer = setTimeout(() => {
       setIsVisible(false);
       setTimeout(() => onClose(toast.id), 300); // Attesa per l'animazione di uscita
-    }, toast.duration || 3000);
+    }, toast.duration || 1500);
 
     return () => {
       clearTimeout(showTimer);
@@ -65,21 +65,21 @@ function ToastComponent({ toast, onClose }: ToastProps) {
   return (
     <div
       className={`transform transition-all duration-300 ease-in-out ${
-        isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
       }`}
     >
-      <div className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto border ${getBackgroundColor()}`}>
-        <div className="p-4">
-          <div className="flex items-start">
+      <div className={`min-w-max shadow-lg rounded-lg pointer-events-auto border ${getBackgroundColor()}`}>
+        <div className="px-4 py-3">
+          <div className="flex items-center">
             <div className="flex-shrink-0">
               {getIcon()}
             </div>
-            <div className="ml-3 w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900">
+            <div className="ml-3">
+              <p className="text-sm font-medium text-gray-900 whitespace-nowrap">
                 {toast.message}
               </p>
             </div>
-            <div className="ml-4 flex-shrink-0 flex">
+            <div className="ml-4 flex-shrink-0">
               <button
                 className="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 onClick={() => onClose(toast.id)}
@@ -102,7 +102,7 @@ interface ToastContainerProps {
 
 export default function ToastContainer({ toasts, onClose }: ToastContainerProps) {
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 space-y-2">
       {toasts.map((toast) => (
         <ToastComponent key={toast.id} toast={toast} onClose={onClose} />
       ))}

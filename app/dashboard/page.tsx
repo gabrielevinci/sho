@@ -18,6 +18,7 @@ export type LinkFromDB = {
   title: string | null;
   description: string | null;
   click_count: number;
+  unique_click_count: number; // Add unique click count field
   folder_id: string | null;
 };
 
@@ -36,7 +37,7 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
     const { rows } = await sql<LinkFromDB>`
-      SELECT id, short_code, original_url, created_at, title, description, click_count, folder_id
+      SELECT id, short_code, original_url, created_at, title, description, click_count, unique_click_count, folder_id
       FROM links
       WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
       ORDER BY created_at DESC

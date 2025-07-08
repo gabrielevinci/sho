@@ -14,6 +14,7 @@ export interface LinkFromDB {
   title: string | null;
   description: string | null;
   click_count: number;
+  unique_click_count: number; // Add unique click count field
   folder_id: string | null;
 }
 
@@ -25,6 +26,10 @@ interface LinkRowProps {
   onDragStart: (e: React.DragEvent, link: LinkFromDB) => void;
   onDragEnd: () => void;
   onToast?: (message: string, type: 'success' | 'error') => void;
+  // Nuove props per la selezione multipla
+  isSelected?: boolean;
+  onSelect?: (linkId: string, event: React.MouseEvent) => void;
+  selectionMode?: boolean;
 }
 
 export default function LinkRow({ 
@@ -34,7 +39,10 @@ export default function LinkRow({
   isDragging,
   onDragStart,
   onDragEnd,
-  onToast
+  onToast,
+  isSelected = false,
+  onSelect,
+  selectionMode = false
 }: LinkRowProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -95,7 +103,10 @@ export default function LinkRow({
     }
   };
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation(); // Previene la selezione quando si copia
+    }
     try {
       await navigator.clipboard.writeText(text);
       onToast?.('Link copiato negli appunti', 'success');
@@ -115,15 +126,71 @@ export default function LinkRow({
     }).format(new Date(date));
   };
 
+  const handleRowClick = (event: React.MouseEvent) => {
+    if (selectionMode && onSelect) {
+      event.preventDefault();
+      // Se è un click normale (senza modificatori) e non sul checkbox,
+      // seleziona solo questo link deselezionando gli altri
+      if (!event.ctrlKey && !event.shiftKey) {
+        // Crea un evento che non ha Ctrl key ma è riconoscibile
+        // per indicare un click diretto sulla riga
+        const directRowClickEvent = {
+          ...event,
+          ctrlKey: false,
+          shiftKey: false,
+          isRowClick: true // Flag custom per identificare click diretto sulla riga
+        } as React.MouseEvent & { isRowClick: boolean };
+        
+        onSelect(link.id, directRowClickEvent);
+      } else {
+        // Comportamento standard con modificatori (Ctrl o Shift)
+        onSelect(link.id, event);
+      }
+    }
+  };
+
+  const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (onSelect) {
+      // Crea un evento che simula un click con Ctrl per toggle della selezione
+      // Questo garantisce che il checkbox possa sempre toggle la selezione indipendentemente
+      const toggleClickEvent = { 
+        ctrlKey: true, 
+        shiftKey: false,
+        stopPropagation: () => {}
+      } as unknown as React.MouseEvent;
+      onSelect(link.id, toggleClickEvent);
+    }
+  };
+
   return (
     <tr
       className={`bg-white hover:bg-gray-50 transition-colors duration-150 border-b border-gray-200 ${
         isDragging ? 'opacity-50 bg-blue-50' : ''
+      } ${
+        isSelected ? 'bg-blue-50 border-blue-200' : ''
+      } ${
+        selectionMode ? 'cursor-pointer' : ''
       }`}
       draggable
       onDragStart={(e) => onDragStart(e, link)}
       onDragEnd={onDragEnd}
+      onClick={handleRowClick}
     >
+      {/* Checkbox per selezione multipla */}
+      {selectionMode && (
+        <td className="px-6 py-4 w-12">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleCheckboxChange(e);
+            }}
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+          />
+        </td>
+      )}
+      
       {/* Titolo */}
       <td className="px-6 py-4 w-64">
         <div className="flex flex-col">
@@ -147,6 +214,14 @@ export default function LinkRow({
         </div>
       </td>
 
+      {/* Unique Click count */}
+      <td className="px-6 py-4 whitespace-nowrap text-center w-24">
+        <div className="flex items-center justify-center space-x-1">
+          <ChartBarIcon className="h-4 w-4 text-blue-500" />
+          <span className="text-sm text-blue-700">{link.unique_click_count || 0}</span>
+        </div>
+      </td>
+
       {/* Data creazione */}
       <td className="px-6 py-4 whitespace-nowrap w-44">
         <div className="flex items-center space-x-1">
@@ -160,7 +235,7 @@ export default function LinkRow({
         <div className="flex items-center space-x-2">
           <LinkIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
           <button
-            onClick={() => copyToClipboard(shortUrl)}
+            onClick={(e) => copyToClipboard(shortUrl, e)}
             className="text-blue-600 hover:text-blue-800 font-medium text-sm truncate"
             title="Clicca per copiare"
           >
@@ -172,7 +247,7 @@ export default function LinkRow({
       {/* URL originale */}
       <td className="px-6 py-4 max-w-xs">
         <button
-          onClick={() => copyToClipboard(link.original_url)}
+          onClick={(e) => copyToClipboard(link.original_url, e)}
           className="text-gray-600 hover:text-gray-800 text-sm truncate block w-full text-left"
           title="URL originale - Clicca per copiare"
         >
@@ -194,7 +269,10 @@ export default function LinkRow({
           
           {/* Copia link */}
           <button
-            onClick={() => copyToClipboard(shortUrl)}
+            onClick={(e) => {
+              e.stopPropagation();
+              copyToClipboard(shortUrl, e);
+            }}
             className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
             title="Copia Link Breve"
           >
@@ -212,7 +290,10 @@ export default function LinkRow({
           
           {/* QR Code */}
           <button
-            onClick={() => setShowQRModal(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowQRModal(true);
+            }}
             className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
             title="Genera QR Code"
           >
@@ -221,7 +302,10 @@ export default function LinkRow({
           
           {/* Ripristina dati */}
           <button
-            onClick={() => setShowResetModal(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowResetModal(true);
+            }}
             className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Azzera Click"
           >
@@ -230,7 +314,10 @@ export default function LinkRow({
           
           {/* Elimina */}
           <button
-            onClick={() => setShowDeleteModal(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteModal(true);
+            }}
             disabled={isDeleting}
             className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
             title="Elimina Link"

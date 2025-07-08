@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     
     // Esegui query per ottenere i link dell'utente nel workspace specificato
     const { rows } = await sql`
-      SELECT id, short_code, original_url, created_at, title, description, click_count, folder_id
+      SELECT id, short_code, original_url, created_at, title, description, click_count, unique_click_count, folder_id
       FROM links
       WHERE user_id = ${session.userId} AND workspace_id = ${workspaceId}
       ORDER BY created_at DESC
@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
         created_at: new Date(),
         title,
         description,
-        click_count: 0
+        click_count: 0,
+        unique_click_count: 0 // Initialize unique click count
       }
     });
   } catch (error) {

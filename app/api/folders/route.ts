@@ -10,6 +10,7 @@ export interface Folder {
   user_id: string;
   created_at: Date;
   updated_at: Date;
+  position: number; // Add position field for ordering
 }
 
 // GET - Ottenere tutte le cartelle di un workspace
@@ -29,10 +30,10 @@ export async function GET(request: NextRequest) {
     }
     
     const { rows } = await sql<Folder>`
-      SELECT id, name, parent_folder_id, workspace_id, user_id, created_at, updated_at
+      SELECT id, name, parent_folder_id, workspace_id, user_id, created_at, updated_at, position
       FROM folders
       WHERE user_id = ${session.userId} AND workspace_id = ${workspaceId}
-      ORDER BY name ASC
+      ORDER BY position ASC, name ASC
     `;
     
     return NextResponse.json({ folders: rows });
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     const { rows } = await sql<Folder>`
       INSERT INTO folders (name, parent_folder_id, workspace_id, user_id)
       VALUES (${name}, ${parentFolderId || null}, ${workspaceId}, ${session.userId})
-      RETURNING id, name, parent_folder_id, workspace_id, user_id, created_at, updated_at
+      RETURNING id, name, parent_folder_id, workspace_id, user_id, created_at, updated_at, position
     `;
     
     return NextResponse.json({ 
@@ -130,7 +131,7 @@ export async function PUT(request: NextRequest) {
       UPDATE folders 
       SET name = ${name}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ${folderId} AND user_id = ${session.userId}
-      RETURNING id, name, parent_folder_id, workspace_id, user_id, created_at, updated_at
+      RETURNING id, name, parent_folder_id, workspace_id, user_id, created_at, updated_at, position
     `;
     
     return NextResponse.json({ 

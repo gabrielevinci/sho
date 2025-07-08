@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import DeleteFolderModal from './DeleteFolderModal';
 
@@ -12,6 +12,7 @@ export interface Folder {
   user_id: string;
   created_at: Date;
   updated_at: Date;
+  position: number; // Added position field for ordering
 }
 
 interface FolderSidebarProps {
@@ -19,8 +20,10 @@ interface FolderSidebarProps {
   selectedFolderId: string | null;
   onFolderSelect: (folderId: string | null) => void;
   onFoldersChange: () => void;
-  onLinkDrop: (linkId: string, folderId: string | null) => void;
+  onLinkDrop: (linkId: string, folderId: string | null, clearSelection?: () => void) => void;
+  onToast?: (message: string, type: 'success' | 'error') => void;
   folders?: Folder[];
+  onClearSelectionRef?: (func: () => void) => void; // Add the clear selection function reference
 }
 
 interface FolderTreeNode extends Folder {
@@ -34,8 +37,11 @@ export default function FolderSidebar({
   onFolderSelect, 
   onFoldersChange,
   onLinkDrop,
-  folders: propFolders
+  onToast,
+  folders: propFolders,
+  onClearSelectionRef
 }: FolderSidebarProps) {
+  const [folders, setFolders] = useState<Folder[]>(propFolders || []);
   const [folderTree, setFolderTree] = useState<FolderTreeNode[]>([]);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -46,6 +52,19 @@ export default function FolderSidebar({
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<{id: string, name: string} | null>(null);
+  // Get reference to the clearSelectionFunction to call after drag & drop
+  const clearSelectionRef = useRef<(() => void) | null>(null);
+
+  // For folder reordering
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
+  
+  // New states for improved folder drag & drop UX
+  const [folderDropTarget, setFolderDropTarget] = useState<string | null>(null); // For yellow border (move into folder)
+  const [folderInsertPosition, setFolderInsertPosition] = useState<{
+    folderId: string;
+    position: 'before' | 'after';
+  } | null>(null); // For yellow line (reorder between folders)
+  const [invalidDropTarget, setInvalidDropTarget] = useState<string | null>(null); // For red border (invalid operation)
 
   // Gestione del drag and drop
   const handleDragOver = (e: React.DragEvent, folderId: string | null) => {
@@ -58,22 +77,97 @@ export default function FolderSidebar({
     setDragOverFolderId(null);
   };
 
-  const handleDrop = (e: React.DragEvent, folderId: string | null) => {
+  const handleDrop = async (e: React.DragEvent, folderId: string | null) => {
     e.preventDefault();
-    const linkId = e.dataTransfer.getData('text/plain');
+    const data = e.dataTransfer.getData('text/plain');
     setDragOverFolderId(null);
     
-    if (linkId) {
-      onLinkDrop(linkId, folderId);
+    if (data) {
+      try {
+        // Prova a parsare come array di ID (per drag multipli)
+        const linkIds = JSON.parse(data);
+        if (Array.isArray(linkIds)) {
+          // Gestione di link multipli
+          let successCount = 0;
+          let errorCount = 0;
+          
+          for (const linkId of linkIds) {
+            try {
+              await onLinkDrop(linkId, folderId, clearSelectionRef.current || undefined);
+              successCount++;
+            } catch (error) {
+              errorCount++;
+              console.error('Errore durante lo spostamento del link:', error);
+            }
+          }
+          
+          // Mostra un solo toast per l'operazione batch
+          if (successCount > 0) {
+            const folderName = folderId ? 
+              (propFolders?.find((f: Folder) => f.id === folderId)?.name || 'Cartella selezionata') : 
+              'Tutti i link';
+            
+            if (successCount === linkIds.length) {
+              // Tutti i link sono stati spostati con successo
+              if (successCount === 1) {
+                // Un solo link
+                onToast?.(`Link spostato in "${folderName}"`, 'success');
+              } else {
+                // Più link - mostra toast batch specifico
+                onToast?.(`Tutti i link sono stati spostati in "${folderName}"`, 'success');
+              }
+            } else {
+              // Alcuni link hanno avuto errori
+              onToast?.(`${successCount} link su ${linkIds.length} spostati in "${folderName}"`, 'success');
+            }
+            
+            // Deselect all links after dropping
+            if (clearSelectionRef.current) {
+              clearSelectionRef.current();
+            }
+          }
+          
+          if (errorCount > 0) {
+            onToast?.(`Si sono verificati errori durante lo spostamento di ${errorCount} link`, 'error');
+          }
+        } else {
+          // Fallback per singolo link
+          await onLinkDrop(data, folderId, clearSelectionRef.current || undefined);
+          const folderName = folderId ? 
+            (propFolders?.find((f: Folder) => f.id === folderId)?.name || 'Cartella selezionata') : 
+            'Tutti i link';
+          onToast?.(`Link spostato in "${folderName}"`, 'success');
+        }
+      } catch {
+        // Se non è JSON, trattalo come singolo ID
+        await onLinkDrop(data, folderId, clearSelectionRef.current || undefined);
+        const folderName = folderId ? 
+          (propFolders?.find((f: Folder) => f.id === folderId)?.name || 'Cartella selezionata') : 
+          'Tutti i link';
+        onToast?.(`Link spostato in "${folderName}"`, 'success');
+        
+        // Deselect the link after dropping
+        if (clearSelectionRef.current) {
+          clearSelectionRef.current();
+        }
+      }
     }
   };
 
   // Costruisce l'albero delle cartelle
   const buildFolderTree = useCallback((folders: Folder[]) => {
+    // Sort folders by position first, then by name
+    const sortedFolders = [...folders].sort((a, b) => {
+      if (a.position !== b.position) {
+        return a.position - b.position;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    
     const folderMap = new Map<string, FolderTreeNode>();
     
     // Crea nodi per tutte le cartelle
-    folders.forEach(folder => {
+    sortedFolders.forEach(folder => {
       folderMap.set(folder.id, {
         ...folder,
         children: [],
@@ -84,7 +178,7 @@ export default function FolderSidebar({
     const rootNodes: FolderTreeNode[] = [];
     
     // Costruisce l'albero
-    folders.forEach(folder => {
+    sortedFolders.forEach(folder => {
       const node = folderMap.get(folder.id)!;
       
       if (folder.parent_folder_id) {
@@ -103,6 +197,7 @@ export default function FolderSidebar({
   // Usa le cartelle passate come prop se disponibili
   useEffect(() => {
     if (propFolders && propFolders.length > 0) {
+      setFolders(propFolders);
       buildFolderTree(propFolders);
       setLoading(false);
     }
@@ -260,109 +355,504 @@ export default function FolderSidebar({
     };
   };
 
+  // Handle folder drag start
+  const handleFolderDragStart = (e: React.DragEvent, folderId: string) => {
+    e.stopPropagation();
+    setDraggingFolderId(folderId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/folder', folderId);
+  };
+
+  // Handle folder drag over with improved visual feedback and debouncing
+  const handleFolderDragOver = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggingFolderId === folderId) return; // No drop on self
+    
+    // Check if we're dragging a folder
+    const folderData = e.dataTransfer.types.includes('application/folder');
+    
+    if (folderData && draggingFolderId) {
+      // Set the drop effect for folder reordering
+      e.dataTransfer.dropEffect = 'move';
+      
+      const rect = e.currentTarget.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const height = rect.height;
+      
+      // Optimized margins for even better drag experience
+      // Top area: first 20% for "insert before" 
+      // Middle area: 20% to 80% for "move into folder" (60% of height - large zone)
+      // Bottom area: last 20% for "insert after"
+      const topThreshold = height * 0.20;
+      const bottomThreshold = height * 0.80;
+      
+      // Immediate feedback without debounce to avoid flickering
+      if (y < topThreshold) {
+        // Top area - insert before this folder
+        const validation = validateFolderOperation(draggingFolderId, folderId, 'reorder');
+        if (validation.valid) {
+          setFolderInsertPosition({ folderId, position: 'before' });
+          setFolderDropTarget(null);
+          setInvalidDropTarget(null);
+        } else {
+          setFolderInsertPosition(null);
+          setFolderDropTarget(null);
+          setInvalidDropTarget(folderId);
+        }
+      } else if (y > bottomThreshold) {
+        // Bottom area - insert after this folder
+        const validation = validateFolderOperation(draggingFolderId, folderId, 'reorder');
+        if (validation.valid) {
+          setFolderInsertPosition({ folderId, position: 'after' });
+          setFolderDropTarget(null);
+          setInvalidDropTarget(null);
+        } else {
+          setFolderInsertPosition(null);
+          setFolderDropTarget(null);
+          setInvalidDropTarget(folderId);
+        }
+      } else {
+        // Middle area - move into this folder (change parent)
+        const validation = validateFolderOperation(draggingFolderId, folderId, 'move');
+        if (validation.valid) {
+          setFolderDropTarget(folderId);
+          setFolderInsertPosition(null);
+          setInvalidDropTarget(null);
+        } else {
+          setFolderDropTarget(null);
+          setFolderInsertPosition(null);
+          setInvalidDropTarget(folderId);
+        }
+      }
+    } else {
+      // Regular link drag
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverFolderId(folderId);
+    }
+  };
+
+  // Handle folder drag leave with improved boundary detection
+  const handleFolderDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // More precise boundary checking to avoid premature clearing
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    // Add a small buffer to prevent flickering when moving between closely packed elements
+    const buffer = 5;
+    
+    if (x < rect.left - buffer || x > rect.right + buffer || 
+        y < rect.top - buffer || y > rect.bottom + buffer) {
+      // Only clear if we're definitely outside the element
+      setDragOverFolderId(null);
+      setFolderDropTarget(null);
+      setFolderInsertPosition(null);
+      setInvalidDropTarget(null);
+    }
+  };
+
+  // Handle folder drag end
+  const handleFolderDragEnd = () => {
+    setDraggingFolderId(null);
+    setFolderDropTarget(null);
+    setFolderInsertPosition(null);
+    setInvalidDropTarget(null);
+  };
+
+  // Handle folder drop - for reordering with improved algorithm
+  const handleFolderDrop = async (e: React.DragEvent, targetFolderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Check if we're dropping a folder (reordering)
+    const folderData = e.dataTransfer.getData('application/folder');
+    
+    if (folderData && draggingFolderId) {
+      const sourceFolderId = folderData;
+      if (sourceFolderId === targetFolderId) {
+        // Clear visual indicators
+        setFolderDropTarget(null);
+        setFolderInsertPosition(null);
+        setInvalidDropTarget(null);
+        setDraggingFolderId(null);
+        return; // No drop on self
+      }
+      
+      try {
+        // Find the source and target folders
+        const sourceFolder = folders.find(f => f.id === sourceFolderId);
+        const targetFolder = folders.find(f => f.id === targetFolderId);
+        
+        if (!sourceFolder || !targetFolder) {
+          // Clear visual indicators
+          setFolderDropTarget(null);
+          setFolderInsertPosition(null);
+          setInvalidDropTarget(null);
+          setDraggingFolderId(null);
+          return;
+        }
+        
+        // Capture the current visual state before clearing it
+        const currentDropTarget = folderDropTarget;
+        const currentInsertPosition = folderInsertPosition;
+        
+        // Clear visual indicators immediately to prevent flickering
+        setFolderDropTarget(null);
+        setFolderInsertPosition(null);
+        setInvalidDropTarget(null);
+        
+        // Determine operation type based on captured state
+        let operationType: 'move' | 'reorder' = 'reorder';
+        let insertPosition: 'before' | 'after' = 'before';
+        
+        if (currentDropTarget === targetFolderId) {
+          // Move folder inside target folder (change parent)
+          operationType = 'move';
+        } else if (currentInsertPosition?.folderId === targetFolderId) {
+          // Reorder folder at specific position
+          operationType = 'reorder';
+          insertPosition = currentInsertPosition.position;
+        } else {
+          // Fallback: determine operation based on mouse position
+          const rect = e.currentTarget.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+          const height = rect.height;
+          const topThreshold = height * 0.20;
+          const bottomThreshold = height * 0.80;
+          
+          if (y >= topThreshold && y <= bottomThreshold) {
+            operationType = 'move';
+          } else {
+            operationType = 'reorder';
+            insertPosition = y < topThreshold ? 'before' : 'after';
+          }
+        }
+        
+        // Execute the operation
+        if (operationType === 'move') {
+          const validation = validateFolderOperation(sourceFolderId, targetFolderId, 'move');
+          if (validation.valid) {
+            await movefolderToParent(sourceFolderId, targetFolderId);
+          } else {
+            onToast?.(validation.error || 'Operazione non valida', 'error');
+          }
+        } else {
+          const validation = validateFolderOperation(sourceFolderId, targetFolderId, 'reorder');
+          if (validation.valid) {
+            await reorderFolderAtPosition(sourceFolderId, targetFolderId, insertPosition);
+          } else {
+            onToast?.(validation.error || 'Operazione non valida', 'error');
+          }
+        }
+        
+      } catch (error) {
+        console.error('Errore durante lo riordinamento delle cartelle:', error);
+        onToast?.('Errore durante lo riordinamento delle cartelle', 'error');
+      }
+    }
+    
+    // Always clear drag state at the end
+    setDraggingFolderId(null);
+  };
+
+  // Helper function to move a folder to a new parent
+  const movefolderToParent = async (sourceFolderId: string, newParentId: string) => {
+    // Validate the operation
+    const validation = validateFolderOperation(sourceFolderId, newParentId, 'move');
+    if (!validation.valid) {
+      onToast?.(validation.error || 'Operazione non valida', 'error');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/folders/move', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folderId: sourceFolderId,
+          newParentId: newParentId
+        }),
+      });
+      
+      if (response.ok) {
+        // Immediately update local state for responsiveness
+        await handleUpdateFolders();
+        onToast?.('Cartella spostata con successo', 'success');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore durante lo spostamento');
+      }
+    } catch (error) {
+      console.error('Errore durante lo spostamento:', error);
+      onToast?.(`Errore: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`, 'error');
+      // Refresh folders to ensure consistency after error
+      await handleUpdateFolders();
+    }
+  };
+
+  // Helper function to reorder folder at a specific position
+  const reorderFolderAtPosition = async (sourceFolderId: string, targetFolderId: string, position: 'before' | 'after') => {
+    // Validate the operation
+    const validation = validateFolderOperation(sourceFolderId, targetFolderId, 'reorder');
+    if (!validation.valid) {
+      onToast?.(validation.error || 'Operazione non valida', 'error');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/folders/reorder', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folderId: sourceFolderId,
+          targetFolderId: targetFolderId,
+          insertPosition: position
+        }),
+      });
+      
+      if (response.ok) {
+        // Immediately update local state for responsiveness
+        await handleUpdateFolders();
+        onToast?.('Cartella riordinata con successo', 'success');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore durante il riordinamento');
+      }
+    } catch (error) {
+      console.error('Errore durante il riordinamento:', error);
+      onToast?.(`Errore: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`, 'error');
+      // Refresh folders to ensure consistency after error
+      await handleUpdateFolders();
+    }
+  };
+
+  // Debounced update function to avoid too many refresh operations
+  const [updateTimeout, setUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+      }
+    };
+  }, [updateTimeout]);
+
+  // Helper function to update folders from parent with improved debouncing
+  const handleUpdateFolders = async () => {
+    try {
+      // Cancel any pending update
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+        setUpdateTimeout(null);
+      }
+      
+      // Update immediately for better responsiveness
+      onFoldersChange();
+    } catch (error) {
+      console.error('Errore durante l\'aggiornamento delle cartelle:', error);
+    }
+  };
+
+  // Validation function for drag & drop operations
+  const validateFolderOperation = (sourceFolderId: string, targetFolderId: string, operation: 'move' | 'reorder'): { valid: boolean; error?: string } => {
+    const sourceFolder = folders.find(f => f.id === sourceFolderId);
+    const targetFolder = folders.find(f => f.id === targetFolderId);
+    
+    if (!sourceFolder || !targetFolder) {
+      return { valid: false, error: 'Cartelle non trovate' };
+    }
+    
+    // Check if trying to move folder to itself
+    if (sourceFolderId === targetFolderId) {
+      return { valid: false, error: 'Non puoi spostare una cartella su se stessa' };
+    }
+    
+    // Check if folders are in the same workspace
+    if (sourceFolder.workspace_id !== targetFolder.workspace_id) {
+      return { valid: false, error: 'Non puoi spostare cartelle tra workspace diversi' };
+    }
+    
+    if (operation === 'move') {
+      // Check if target folder is a descendant of source folder (would create loop)
+      if (isDescendantOf(targetFolderId, sourceFolderId)) {
+        return { valid: false, error: 'Non puoi spostare una cartella dentro una sua sottocartella' };
+      }
+    }
+    // Removed the restriction for reordering folders at different levels
+    // Now folders can be reordered regardless of their parent level
+    // This allows for maximum flexibility in folder organization
+    
+    return { valid: true };
+  };
+  
+  // Helper function to check if a folder is a descendant of another
+  const isDescendantOf = (folderId: string, ancestorId: string): boolean => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder || !folder.parent_folder_id) return false;
+    
+    if (folder.parent_folder_id === ancestorId) return true;
+    
+    return isDescendantOf(folder.parent_folder_id, ancestorId);
+  };
+
   // Renderizza un nodo dell'albero
   const renderFolderNode = (node: FolderTreeNode, level: number = 0) => {
     const isSelected = selectedFolderId === node.id;
     const isEditing = editingFolderId === node.id;
-    const canDelete = node.name !== 'Tutti i link';
+    const canDelete = node.id !== defaultFolderId;
     const isDragOver = dragOverFolderId === node.id;
+    const isDraggingThis = draggingFolderId === node.id;
+    const isDefaultFolder = node.id === defaultFolderId;
+    
+    // New visual feedback states
+    const isDropTarget = folderDropTarget === node.id; // Yellow border for "move into folder"
+    const isInsertBefore = folderInsertPosition?.folderId === node.id && folderInsertPosition?.position === 'before';
+    const isInsertAfter = folderInsertPosition?.folderId === node.id && folderInsertPosition?.position === 'after';
+    const isInvalidTarget = invalidDropTarget === node.id; // Red border for invalid operations
     
     return (
       <div key={node.id} className="select-none">
+        {/* Yellow line indicator for "insert before" */}
+        {isInsertBefore && (
+          <div className="h-0.5 bg-yellow-400 mx-3 mb-1 rounded-full"></div>
+        )}
+        
         <div 
           className={`group flex items-center py-2 px-3 rounded-lg cursor-pointer hover:bg-gray-100 ${
             isSelected ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-          } ${isDragOver ? 'bg-blue-100 border-2 border-dashed border-blue-400' : ''}`}
+          } ${isDragOver ? 'bg-blue-100 border-2 border-dashed border-blue-400' : ''}
+          ${isDropTarget ? 'bg-yellow-50 border-2 border-yellow-400 ring-2 ring-yellow-200' : ''}
+          ${isInvalidTarget ? 'bg-red-50 border-2 border-red-400 ring-2 ring-red-200' : ''}
+          ${isDraggingThis ? 'opacity-30 scale-95 transform' : ''}`}
           style={{ marginLeft: `${level * 16}px` }}
-          onDragOver={(e) => handleDragOver(e, node.id)}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, node.id)}
+          onDragOver={(e) => {
+            handleDragOver(e, node.id);
+            if (!isDefaultFolder) handleFolderDragOver(e, node.id);
+          }}
+          onDragLeave={(e) => {
+            handleDragLeave();
+            handleFolderDragLeave(e);
+          }}
+          onDrop={(e) => {
+            handleDrop(e, node.id);
+            if (!isDefaultFolder) handleFolderDrop(e, node.id);
+          }}
+          onClick={() => {
+            if (!isEditing) {
+              onFolderSelect(node.id);
+            }
+          }}
+          draggable={!isDefaultFolder}
+          onDragStart={(e) => {
+            if (!isDefaultFolder) {
+              handleFolderDragStart(e, node.id);
+            }
+          }}
+          onDragEnd={handleFolderDragEnd}
         >
-          {node.children.length > 0 && (
+          {/* Folder content */}
+          <div className="flex items-center flex-1">
+            {/* Expand/Collapse icon */}
             <button
-              onClick={() => toggleExpanded(node.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpanded(node.id);
+              }}
               className="mr-1 p-1 hover:bg-gray-200 rounded"
             >
               {node.expanded ? (
-                <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
               ) : (
-                <ChevronRightIcon className="h-4 w-4 text-gray-500" />
+                <ChevronRightIcon className="w-4 h-4 text-gray-500" />
               )}
             </button>
-          )}
-          
-          <div className="flex items-center flex-1 min-w-0">
-            {node.expanded ? (
-              <FolderOpenIcon className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
-            ) : (
-              <FolderIcon className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
-            )}
-            
+
+            {/* Folder icon */}
+            <div className="mr-2">
+              {node.expanded ? (
+                <FolderOpenIcon className="w-5 h-5 text-blue-500" />
+              ) : (
+                <FolderIcon className="w-5 h-5 text-blue-500" />
+              )}
+            </div>
+
+            {/* Folder name */}
             {isEditing ? (
               <input
                 type="text"
                 value={editingName}
                 onChange={(e) => setEditingName(e.target.value)}
+                onBlur={() => {
+                  if (editingName.trim() && editingName !== node.name) {
+                    renameFolder(node.id, editingName.trim());
+                  } else {
+                    setEditingFolderId(null);
+                    setEditingName('');
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    renameFolder(node.id, editingName);
+                    e.currentTarget.blur();
                   } else if (e.key === 'Escape') {
                     setEditingFolderId(null);
                     setEditingName('');
                   }
                 }}
-                onBlur={() => renameFolder(node.id, editingName)}
+                className="flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
-                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             ) : (
-              <span 
-                className="flex-1 truncate text-sm font-medium text-gray-700"
-                onClick={() => onFolderSelect(node.id)}
-              >
+              <span className="flex-1 text-sm font-medium text-gray-700 truncate">
                 {node.name}
               </span>
             )}
-          </div>
-          
-          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100">
-            <button
-              onClick={() => {
-                setParentFolderId(node.id);
-                setIsCreatingFolder(true);
-              }}
-              className="p-1 hover:bg-gray-200 rounded"
-              title="Crea sottocartella"
-            >
-              <PlusIcon className="h-4 w-4 text-gray-500" />
-            </button>
-            {canDelete && (
-              <>
+
+            {/* Actions */}
+            {!isEditing && !isDefaultFolder && (
+              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setEditingFolderId(node.id);
                     setEditingName(node.name);
                   }}
                   className="p-1 hover:bg-gray-200 rounded"
-                  title="Rinomina"
                 >
-                  <PencilIcon className="h-4 w-4 text-gray-500" />
+                  <PencilIcon className="w-4 h-4 text-gray-500" />
                 </button>
-                <button
-                  onClick={() => deleteFolder(node.id, node.name)}
-                  className="p-1 hover:bg-gray-200 rounded"
-                  title="Elimina"
-                >
-                  <TrashIcon className="h-4 w-4 text-red-500" />
-                </button>
-              </>
+                {canDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteFolder(node.id, node.name);
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded"
+                  >
+                    <TrashIcon className="w-4 h-4 text-red-500" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
         
-        {node.expanded && node.children.map(child => 
-          renderFolderNode(child, level + 1)
+        {/* Yellow line indicator for "insert after" */}
+        {isInsertAfter && (
+          <div className="h-0.5 bg-yellow-400 mx-3 mt-1 rounded-full"></div>
         )}
+
+        {/* Render children */}
+        {node.expanded && node.children.map(child => renderFolderNode(child, level + 1))}
       </div>
     );
   };
@@ -372,6 +862,26 @@ export default function FolderSidebar({
       loadFolders();
     }
   }, [workspaceId, loadFolders]);
+
+  // Get default folder ID (usually "All Links")
+  const [defaultFolderId, setDefaultFolderId] = useState<string | null>(null);
+  
+  // Register the clearSelectionRef function
+  useEffect(() => {
+    if (onClearSelectionRef && clearSelectionRef.current) {
+      onClearSelectionRef(() => clearSelectionRef.current);
+    }
+  }, [onClearSelectionRef, clearSelectionRef]);
+  
+  // Find default folder (usually "All Links") when folders change
+  useEffect(() => {
+    if (folders && folders.length > 0) {
+      const defaultFolder = folders.find(f => f.parent_folder_id === null);
+      if (defaultFolder) {
+        setDefaultFolderId(defaultFolder.id);
+      }
+    }
+  }, [folders]);
 
   if (loading) {
     return (
@@ -418,7 +928,7 @@ export default function FolderSidebar({
       
       {/* Modal per creare nuova cartella */}
       {isCreatingFolder && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
             <h3 className="text-lg font-semibold mb-4">
               {parentFolderId ? 'Crea sottocartella' : 'Crea nuova cartella'}
@@ -427,6 +937,15 @@ export default function FolderSidebar({
               type="text"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  createFolder();
+                } else if (e.key === 'Escape') {
+                  setIsCreatingFolder(false);
+                  setNewFolderName('');
+                  setParentFolderId(null);
+                }
+              }}
               placeholder="Nome cartella"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus

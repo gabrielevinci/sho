@@ -36,7 +36,7 @@ function generateUserFingerprint(request: NextRequest, browserName: string, osNa
   return createHash('md5').update(fingerprintData).digest('hex').substring(0, 16);
 }
 
-// Funzione helper per registrare il click (aggiornata con fingerprint)
+// Funzione helper per registrare il click (aggiornata con fingerprint e conteggio click unici)
 async function recordClick(linkId: number, request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   let referrer = request.headers.get('referer') || 'Direct';
@@ -50,31 +50,48 @@ async function recordClick(linkId: number, request: NextRequest) {
     referrer = 'QR Code';
   }
 
+  // Parse user agent info
   const parser = new UAParser(userAgent);
-  const result = parser.getResult();
-  const browserName = result.browser.name || 'Unknown';
-  const osName = result.os.name || 'Unknown';
-  const deviceType = result.device.type || 'desktop';
+  const browserName = parser.getBrowser().name || 'Unknown';
+  const osName = parser.getOS().name || 'Unknown';
+  const deviceType = parser.getDevice().type || 'desktop';
 
-  // Genera il fingerprint unico per questo utente
+  // Generate user fingerprint for unique visit tracking
   const userFingerprint = generateUserFingerprint(request, browserName, osName, deviceType);
 
   try {
-    // Genera timestamp corrente nel fuso orario italiano
+    // Check if this is a unique visitor (based on fingerprint)
+    const uniqueCheck = await sql`
+      SELECT COUNT(*) as count FROM clicks 
+      WHERE link_id = ${linkId} AND user_fingerprint = ${userFingerprint}
+    `;
+    
+    const isUniqueVisit = uniqueCheck.rows[0].count === 0;
+    
+    // Record the click data
     await sql`
-      INSERT INTO clicks (
-        link_id, country, referrer, browser_name, device_type, os_name, 
-        user_fingerprint, clicked_at_rome
-      )
+      INSERT INTO clicks 
+        (link_id, country, referrer, browser_name, device_type, os, user_fingerprint, clicked_at_rome) 
       VALUES (
         ${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, 
         ${osName}, ${userFingerprint}, 
         NOW() AT TIME ZONE 'Europe/Rome'
       )
     `;
-    await sql`
-      UPDATE links SET click_count = click_count + 1 WHERE id = ${linkId}
-    `;
+    
+    // Update click count (always) and unique click count (only if needed)
+    if (isUniqueVisit) {
+      await sql`
+        UPDATE links SET 
+          click_count = click_count + 1,
+          unique_click_count = unique_click_count + 1 
+        WHERE id = ${linkId}
+      `;
+    } else {
+      await sql`
+        UPDATE links SET click_count = click_count + 1 WHERE id = ${linkId}
+      `;
+    }
   } catch (error) {
     console.error("Failed to record click, but proceeding with redirect:", error);
   }

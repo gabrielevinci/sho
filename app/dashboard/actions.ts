@@ -20,20 +20,54 @@ export async function updateWorkspaceName(formData: FormData) {
 
 export async function createWorkspace(formData: FormData) {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.userId) { throw new Error('Not authenticated'); }
+  if (!session.isLoggedIn || !session.userId) { 
+    throw new Error('Not authenticated'); 
+  }
+  
   const name = formData.get('name') as string;
-  if (!name || name.trim().length === 0) { throw new Error('Workspace name cannot be empty'); }
-  await sql`INSERT INTO workspaces (user_id, name) VALUES (${session.userId}, ${name})`;
+  if (!name || name.trim().length === 0) { 
+    throw new Error('Workspace name cannot be empty'); 
+  }
+  
+  // Crea il workspace
+  const { rows } = await sql`
+    INSERT INTO workspaces (user_id, name) 
+    VALUES (${session.userId}, ${name})
+    RETURNING id
+  `;
+  
+  const newWorkspaceId = rows[0].id;
+  
+  // Crea la cartella "Tutti i link" per il nuovo workspace
+  await createDefaultFolder(newWorkspaceId, session.userId);
+  
+  // Cambia automaticamente al nuovo workspace
+  session.workspaceId = newWorkspaceId;
+  await session.save();
+  
   revalidatePath('/dashboard');
+  redirect('/dashboard');
 }
 
 export async function switchWorkspace(workspaceId: string) {
   const session = await getSession();
-  if (!session.isLoggedIn || !session.userId) { throw new Error('Not authenticated'); }
-  const { rows } = await sql`SELECT id FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}`;
-  if (rows.length === 0) { throw new Error('Workspace not found or access denied'); }
+  if (!session.isLoggedIn || !session.userId) { 
+    throw new Error('Not authenticated'); 
+  }
+  
+  // Verifica che il workspace esista e appartenga all'utente
+  const { rows } = await sql`SELECT id, name FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}`;
+  if (rows.length === 0) { 
+    throw new Error('Workspace not found or access denied'); 
+  }
+  
+  // Assicurati che la cartella "Tutti i link" esista per questo workspace
+  await createDefaultFolder(workspaceId, session.userId);
+  
+  // Aggiorna la sessione
   session.workspaceId = workspaceId; 
   await session.save();
+  
   revalidatePath('/dashboard');
   redirect('/dashboard');
 }

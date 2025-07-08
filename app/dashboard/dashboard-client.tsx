@@ -21,6 +21,7 @@ type LinkFromDB = {
   title: string | null;
   description: string | null;
   click_count: number;
+  unique_click_count: number; // Add unique click count field
   folder_id: string | null;
 };
 
@@ -39,12 +40,24 @@ export default function DashboardClient({
   const [defaultFolderId, setDefaultFolderId] = useState<string | null>(null);
   const [links, setLinks] = useState<LinkFromDB[]>(initialLinks);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(initialActiveWorkspace?.id || null);
   const { toasts, removeToast, success, error: showError } = useToast();
   
   // Sincronizza lo stato dei link quando initialLinks cambia
   useEffect(() => {
     setLinks(initialLinks);
   }, [initialLinks]);
+  
+  // Rileva il cambio di workspace e reimposta la selezione della cartella
+  useEffect(() => {
+    if (initialActiveWorkspace?.id && initialActiveWorkspace.id !== currentWorkspaceId) {
+      setCurrentWorkspaceId(initialActiveWorkspace.id);
+      // Reset della selezione della cartella quando cambia workspace
+      setSelectedFolderId(null);
+      setDefaultFolderId(null);
+      setFolders([]);
+    }
+  }, [initialActiveWorkspace?.id, currentWorkspaceId]);
   
   // Trova l'ID della cartella "Tutti i link" al caricamento
   const findDefaultFolderId = useCallback(async () => {
@@ -59,16 +72,14 @@ export default function DashboardClient({
         const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
         if (defaultFolder) {
           setDefaultFolderId(defaultFolder.id);
-          // Se non c'è una cartella selezionata, seleziona quella di default
-          if (selectedFolderId === null) {
-            setSelectedFolderId(defaultFolder.id);
-          }
+          // Seleziona sempre la cartella "Tutti i link" quando viene trovata
+          setSelectedFolderId(defaultFolder.id);
         }
       }
     } catch (error) {
       console.error('Errore durante il caricamento delle cartelle:', error);
     }
-  }, [initialActiveWorkspace, selectedFolderId]);
+  }, [initialActiveWorkspace]);
 
   useEffect(() => {
     findDefaultFolderId();
@@ -100,11 +111,31 @@ export default function DashboardClient({
       
       if (data.folders) {
         setFolders(data.folders);
+        
+        // Mantieni la selezione corrente se la cartella esiste ancora
+        if (selectedFolderId) {
+          const selectedFolderExists = data.folders.some((f: Folder) => f.id === selectedFolderId);
+          if (!selectedFolderExists) {
+            // Se la cartella selezionata non esiste più, seleziona la cartella "Tutti i link"
+            const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
+            if (defaultFolder) {
+              setSelectedFolderId(defaultFolder.id);
+              setDefaultFolderId(defaultFolder.id);
+            }
+          }
+        } else {
+          // Se non c'è selezione, seleziona la cartella "Tutti i link"
+          const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
+          if (defaultFolder) {
+            setSelectedFolderId(defaultFolder.id);
+            setDefaultFolderId(defaultFolder.id);
+          }
+        }
       }
     } catch (error) {
       console.error('Errore durante il caricamento delle cartelle:', error);
     }
-  }, [initialActiveWorkspace]);
+  }, [initialActiveWorkspace, selectedFolderId]);
 
   const handleDeleteLink = useCallback(async (shortCode: string) => {
     try {
@@ -118,7 +149,14 @@ export default function DashboardClient({
     }
   }, [success, showError]);
 
-  const handleLinkDrop = useCallback(async (linkId: string, folderId: string | null) => {
+  const handleFolderSelect = useCallback((folderId: string | null) => {
+    setSelectedFolderId(folderId);
+  }, []);
+
+  // Reference to the clear selection function from FolderizedLinksList
+  const [clearSelectionFunction, setClearSelectionFunction] = useState<(() => void) | null>(null);
+  
+  const handleLinkDrop = useCallback(async (linkId: string, folderId: string | null, clearSelection?: () => void) => {
     try {
       const response = await fetch('/api/links/move', {
         method: 'PUT',
@@ -136,7 +174,15 @@ export default function DashboardClient({
         setLinks(prev => prev.map(link => 
           link.id === linkId ? { ...link, folder_id: folderId } : link
         ));
-        success('Link spostato con successo');
+        
+        // Deselect links after moving - use the passed callback or the stored function
+        const clearFunc = clearSelection || clearSelectionFunction;
+        if (clearFunc) {
+          clearFunc();
+        }
+        
+        // Non mostrare toast qui, sarà gestito da FolderSidebar per operazioni batch
+        // o da altri componenti per operazioni singole
       } else {
         console.error('Errore durante lo spostamento del link');
         showError('Errore durante lo spostamento del link');
@@ -145,7 +191,7 @@ export default function DashboardClient({
       console.error('Errore durante lo spostamento del link:', error);
       showError('Errore durante lo spostamento del link');
     }
-  }, [success, showError]);
+  }, [showError, clearSelectionFunction]);
 
   const handleUpdateLink = useCallback((shortCode: string, updates: Partial<LinkFromDB>) => {
     setLinks(prev => prev.map(link => 
@@ -177,12 +223,14 @@ export default function DashboardClient({
           <div className="flex w-full h-full">
             <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
               <FolderSidebar
-                workspaceId={initialActiveWorkspace.id}
+                workspaceId={initialActiveWorkspace?.id || ''}
                 selectedFolderId={selectedFolderId}
-                onFolderSelect={setSelectedFolderId}
+                onFolderSelect={handleFolderSelect}
                 onFoldersChange={handleUpdateFolders}
                 onLinkDrop={handleLinkDrop}
+                onToast={handleToast}
                 folders={folders}
+                onClearSelectionRef={setClearSelectionFunction} // Pass the clearSelectionRef function
               />
             </div>
             
@@ -202,6 +250,8 @@ export default function DashboardClient({
                   onDeleteLink={handleDeleteLink}
                   onUpdateLink={handleUpdateLink}
                   onToast={handleToast}
+                  folders={folders}
+                  onClearSelectionRef={setClearSelectionFunction}
                 />
               </div>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface DeleteFolderModalProps {
@@ -20,6 +20,24 @@ export default function DeleteFolderModal({
 }: DeleteFolderModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Gestione tasti
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && !isDeleting && !isDefault) {
+        handleConfirm();
+      } else if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose, isDeleting, isDefault]);
+
   const handleConfirm = async () => {
     setIsDeleting(true);
     try {
@@ -33,7 +51,7 @@ export default function DeleteFolderModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
         <div className="flex items-center space-x-3 mb-4">
           <div className="flex-shrink-0">

@@ -6,7 +6,7 @@ import { Toast, ToastType } from '../dashboard/components/Toast';
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: string, type: ToastType = 'info', duration = 3000) => {
+  const addToast = useCallback((message: string, type: ToastType = 'info', duration = 1500) => {
     const id = Date.now().toString();
     const toast: Toast = {
       id,

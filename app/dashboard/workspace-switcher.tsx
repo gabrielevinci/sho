@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { ChevronsUpDown, PlusCircle, Check, Loader2, Pencil, X } from 'lucide-react';
 import { createWorkspace, switchWorkspace, updateWorkspaceName } from './actions';
@@ -23,6 +23,9 @@ function CreateButton() {
 export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { workspaces: Workspace[], activeWorkspace: Workspace | undefined }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [switchingToId, setSwitchingToId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const switcherRef = useRef<HTMLDivElement>(null);
 
   const handleFormSubmit = () => {
     setTimeout(() => setIsOpen(false), 500);
@@ -32,11 +35,75 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
     setEditingId(null);
   };
 
+  const handleWorkspaceSwitch = (workspaceId: string) => {
+    setSwitchingToId(workspaceId);
+    startTransition(async () => {
+      try {
+        await switchWorkspace(workspaceId);
+      } catch (error) {
+        console.error('Errore durante il cambio workspace:', error);
+        setSwitchingToId(null);
+        // Qui potresti aggiungere un toast di errore se hai il sistema di toast
+      }
+    });
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const form = e.currentTarget.closest('form');
+      if (form) {
+        form.requestSubmit();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingId(null);
+    }
+  };
+
+  const handleCreateKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const form = e.currentTarget.closest('form');
+      if (form) {
+        form.requestSubmit();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
+
+  // Close workspace switcher when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (switcherRef.current && !switcherRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   return (
-    <div className="relative">
-      <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2 px-3 py-2 text-lg font-semibold text-gray-800 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50">
+    <div className="relative" ref={switcherRef}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="flex items-center gap-2 px-3 py-2 text-lg font-semibold text-gray-800 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={isPending}
+      >
         <span>{activeWorkspace?.name || 'Seleziona Workspace'}</span>
-        <ChevronsUpDown className="h-4 w-4 text-gray-500" />
+        {isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+        ) : (
+          <ChevronsUpDown className="h-4 w-4 text-gray-500" />
+        )}
       </button>
 
       {isOpen && (
@@ -53,6 +120,7 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
                       name="newName"
                       defaultValue={ws.name}
                       autoFocus
+                      onKeyDown={handleEditKeyDown}
                       className="flex-grow bg-transparent text-sm font-semibold text-gray-900 focus:outline-none"
                     />
                     <button type="submit" className="p-1 text-green-600 hover:text-green-800"><Check className="h-4 w-4" /></button>
@@ -61,11 +129,23 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
                 ) : (
                   // --- VISTA DI VISUALIZZAZIONE ---
                   <div className="flex items-center justify-between px-2 py-2 text-sm text-gray-700">
-                    <button onClick={() => { switchWorkspace(ws.id); setIsOpen(false); }} className="flex-grow text-left flex items-center gap-2">
+                    <button 
+                      onClick={() => handleWorkspaceSwitch(ws.id)} 
+                      className="flex-grow text-left flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={switchingToId === ws.id}
+                    >
                       <span>{ws.name}</span>
-                      {ws.id === activeWorkspace?.id && <Check className="h-4 w-4 text-blue-600" />}
+                      {switchingToId === ws.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                      ) : (
+                        ws.id === activeWorkspace?.id && <Check className="h-4 w-4 text-blue-600" />
+                      )}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setEditingId(ws.id); }} className="p-1 text-gray-400 hover:text-gray-700">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setEditingId(ws.id); }} 
+                      className="p-1 text-gray-400 hover:text-gray-700"
+                      disabled={switchingToId === ws.id}
+                    >
                       <Pencil className="h-4 w-4" />
                     </button>
                   </div>
@@ -75,7 +155,14 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
           </div>
           <div className="border-t border-gray-200 p-2">
             <form action={createWorkspace} onSubmit={handleFormSubmit} className="flex items-center gap-1">
-              <input name="name" placeholder="Nuovo workspace..." required minLength={2} className="flex-grow bg-transparent px-2 py-1 text-sm placeholder-gray-400 text-gray-900 focus:outline-none"/>
+              <input 
+                name="name" 
+                placeholder="Nuovo workspace..." 
+                required 
+                minLength={2} 
+                onKeyDown={handleCreateKeyDown}
+                className="flex-grow bg-transparent px-2 py-1 text-sm placeholder-gray-400 text-gray-900 focus:outline-none"
+              />
               <CreateButton />
             </form>
           </div>
