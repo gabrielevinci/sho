@@ -1,7 +1,7 @@
 import { getSession } from '@/app/lib/session';
 import { redirect } from 'next/navigation';
 import { sql } from '@vercel/postgres';
-import { logout } from './actions';
+import { logout, createDefaultFolder } from './actions';
 import DashboardClient from './dashboard-client';
 import Link from 'next/link';
 
@@ -11,12 +11,14 @@ type Workspace = {
 };
 
 export type LinkFromDB = {
+  id: string;
   short_code: string;
   original_url: string;
   created_at: Date;
   title: string | null;
   description: string | null;
   click_count: number;
+  folder_id: string | null;
 };
 
 async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
@@ -31,11 +33,10 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
   }
 }
 
-// Ripristiniamo la query corretta che include tutti i campi necessari
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
     const { rows } = await sql<LinkFromDB>`
-      SELECT short_code, original_url, created_at, title, description, click_count
+      SELECT id, short_code, original_url, created_at, title, description, click_count, folder_id
       FROM links
       WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
       ORDER BY created_at DESC
@@ -65,13 +66,17 @@ export default async function DashboardPage() {
     ? await getLinksForWorkspace(session.userId, session.workspaceId) 
     : [];
 
+  // Crea automaticamente la cartella "Tutti i link" se non esiste
+  if (session.workspaceId) {
+    await createDefaultFolder(session.workspaceId, session.userId);
+  }
+
   const activeWorkspace = userWorkspaces.find(ws => ws.id === session.workspaceId);
   
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12">
-      <div className="w-full max-w-7xl p-4 md:p-8 space-y-8">
-        
-        <header className="flex justify-between items-center">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+        <div className="flex justify-between items-center">
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
           </div>
@@ -88,8 +93,10 @@ export default async function DashboardPage() {
               </button>
             </form>
           </div>
-        </header>
+        </div>
+      </header>
 
+      <div className="flex-1 flex overflow-hidden">
         <DashboardClient 
           initialWorkspaces={userWorkspaces} 
           initialActiveWorkspace={activeWorkspace}

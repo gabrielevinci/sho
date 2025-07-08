@@ -219,3 +219,204 @@ const AdvancedLinkSchema = z.object({
   utm_term: z.string().optional(),
   utm_content: z.string().optional(),
 });
+
+// --- AZIONI CARTELLE ---
+export async function createDefaultFolder(workspaceId: string, userId: string) {
+  // Crea la cartella "Tutti i link" se non esiste
+  const existing = await sql`
+    SELECT id FROM folders 
+    WHERE workspace_id = ${workspaceId} AND name = 'Tutti i link' AND user_id = ${userId}
+  `;
+  
+  if (existing.rowCount === 0) {
+    await sql`
+      INSERT INTO folders (name, parent_folder_id, workspace_id, user_id)
+      VALUES ('Tutti i link', NULL, ${workspaceId}, ${userId})
+    `;
+  }
+}
+
+export async function createFolder(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) { 
+    throw new Error('Not authenticated'); 
+  }
+
+  const name = formData.get('name') as string;
+  const parentFolderId = formData.get('parentFolderId') as string;
+  const workspaceId = formData.get('workspaceId') as string;
+
+  if (!name || !workspaceId) {
+    throw new Error('Nome cartella e workspace sono obbligatori');
+  }
+
+  // Verifica che il workspace appartenga all'utente
+  const workspaceCheck = await sql`
+    SELECT id FROM workspaces WHERE id = ${workspaceId} AND user_id = ${session.userId}
+  `;
+  
+  if (workspaceCheck.rowCount === 0) {
+    throw new Error('Workspace non trovato');
+  }
+
+  // Se c'è un parent folder, verifica che esista
+  if (parentFolderId) {
+    const parentCheck = await sql`
+      SELECT id FROM folders 
+      WHERE id = ${parentFolderId} AND user_id = ${session.userId} AND workspace_id = ${workspaceId}
+    `;
+    
+    if (parentCheck.rowCount === 0) {
+      throw new Error('Cartella parent non trovata');
+    }
+  }
+
+  await sql`
+    INSERT INTO folders (name, parent_folder_id, workspace_id, user_id)
+    VALUES (${name}, ${parentFolderId || null}, ${workspaceId}, ${session.userId})
+  `;
+  
+  revalidatePath('/dashboard');
+}
+
+export async function renameFolder(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) { 
+    throw new Error('Not authenticated'); 
+  }
+
+  const folderId = formData.get('folderId') as string;
+  const newName = formData.get('newName') as string;
+
+  if (!folderId || !newName) {
+    throw new Error('ID cartella e nome sono obbligatori');
+  }
+
+  // Verifica che la cartella appartenga all'utente
+  const folderCheck = await sql`
+    SELECT id FROM folders WHERE id = ${folderId} AND user_id = ${session.userId}
+  `;
+  
+  if (folderCheck.rowCount === 0) {
+    throw new Error('Cartella non trovata');
+  }
+
+  await sql`
+    UPDATE folders 
+    SET name = ${newName}, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ${folderId} AND user_id = ${session.userId}
+  `;
+  
+  revalidatePath('/dashboard');
+}
+
+export async function deleteFolder(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) { 
+    throw new Error('Not authenticated'); 
+  }
+
+  const folderId = formData.get('folderId') as string;
+
+  if (!folderId) {
+    throw new Error('ID cartella mancante');
+  }
+
+  // Verifica che la cartella appartenga all'utente
+  const folderCheck = await sql`
+    SELECT id, name, workspace_id FROM folders 
+    WHERE id = ${folderId} AND user_id = ${session.userId}
+  `;
+  
+  if (folderCheck.rowCount === 0) {
+    throw new Error('Cartella non trovata');
+  }
+
+  const folder = folderCheck.rows[0];
+
+  // Non permettere l'eliminazione della cartella "Tutti i link"
+  if (folder.name === 'Tutti i link') {
+    throw new Error('Non è possibile eliminare la cartella "Tutti i link"');
+  }
+
+  // Prima di eliminare la cartella, sposta tutti i link nella cartella "Tutti i link"
+  await sql`
+    UPDATE links 
+    SET folder_id = (
+      SELECT f.id FROM folders f 
+      WHERE f.workspace_id = ${folder.workspace_id} 
+      AND f.name = 'Tutti i link'
+    )
+    WHERE folder_id = ${folderId}
+  `;
+
+  // Sposta anche i link delle sottocartelle nella cartella "Tutti i link"
+  await sql`
+    WITH RECURSIVE folder_tree AS (
+      SELECT id FROM folders WHERE id = ${folderId}
+      UNION ALL
+      SELECT f.id FROM folders f
+      INNER JOIN folder_tree ft ON f.parent_folder_id = ft.id
+    )
+    UPDATE links 
+    SET folder_id = (
+      SELECT f.id FROM folders f 
+      WHERE f.workspace_id = ${folder.workspace_id} 
+      AND f.name = 'Tutti i link'
+    )
+    WHERE folder_id IN (SELECT id FROM folder_tree)
+  `;
+
+  // Elimina la cartella (CASCADE eliminerà automaticamente le sottocartelle)
+  await sql`
+    DELETE FROM folders WHERE id = ${folderId} AND user_id = ${session.userId}
+  `;
+  
+  revalidatePath('/dashboard');
+}
+
+export async function moveLinkToFolder(formData: FormData) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId) { 
+    throw new Error('Not authenticated'); 
+  }
+
+  const linkId = formData.get('linkId') as string;
+  const folderId = formData.get('folderId') as string;
+
+  if (!linkId) {
+    throw new Error('ID link obbligatorio');
+  }
+
+  // Verifica che il link appartenga all'utente
+  const linkCheck = await sql`
+    SELECT id, workspace_id FROM links 
+    WHERE id = ${linkId} AND user_id = ${session.userId}
+  `;
+  
+  if (linkCheck.rowCount === 0) {
+    throw new Error('Link non trovato');
+  }
+
+  const link = linkCheck.rows[0];
+
+  // Se folderId è specificato, verifica che la cartella esista
+  if (folderId) {
+    const folderCheck = await sql`
+      SELECT id FROM folders 
+      WHERE id = ${folderId} AND user_id = ${session.userId} AND workspace_id = ${link.workspace_id}
+    `;
+    
+    if (folderCheck.rowCount === 0) {
+      throw new Error('Cartella non trovata');
+    }
+  }
+
+  await sql`
+    UPDATE links 
+    SET folder_id = ${folderId || null}
+    WHERE id = ${linkId} AND user_id = ${session.userId}
+  `;
+  
+  revalidatePath('/dashboard');
+}

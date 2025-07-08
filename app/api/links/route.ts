@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     
     // Esegui query per ottenere i link dell'utente nel workspace specificato
     const { rows } = await sql`
-      SELECT short_code, original_url, created_at, title, description, click_count
+      SELECT id, short_code, original_url, created_at, title, description, click_count, folder_id
       FROM links
       WHERE user_id = ${session.userId} AND workspace_id = ${workspaceId}
       ORDER BY created_at DESC
