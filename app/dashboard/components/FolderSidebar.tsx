@@ -836,10 +836,22 @@ export default function FolderSidebar({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    setParentFolderId(node.id);
+                    setIsCreatingFolder(true);
+                  }}
+                  className="p-1 hover:bg-gray-200 rounded"
+                  title="Crea sottocartella"
+                >
+                  <PlusIcon className="w-4 h-4 text-green-500" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setEditingFolderId(node.id);
                     setEditingName(node.name);
                   }}
                   className="p-1 hover:bg-gray-200 rounded"
+                  title="Rinomina cartella"
                 >
                   <PencilIcon className="w-4 h-4 text-gray-500" />
                 </button>
@@ -850,6 +862,7 @@ export default function FolderSidebar({
                       deleteFolder(node.id, node.name);
                     }}
                     className="p-1 hover:bg-gray-200 rounded"
+                    title="Elimina cartella"
                   >
                     <TrashIcon className="w-4 h-4 text-red-500" />
                   </button>
