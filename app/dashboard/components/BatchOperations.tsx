@@ -13,7 +13,6 @@ interface BatchOperationsProps {
   onBatchMoveToFolder: (linkIds: string[], folderId: string | null) => Promise<void>;
   onClearSelection: () => void;
   onToast?: (message: string, type: 'success' | 'error') => void;
-  links: Array<{id: string, short_code: string}>; // Aggiungiamo i link per ottenere i short codes
 }
 
 export default function BatchOperations({
@@ -23,8 +22,7 @@ export default function BatchOperations({
   onBatchResetClicks,
   onBatchMoveToFolder,
   onClearSelection,
-  onToast,
-  links
+  onToast
 }: BatchOperationsProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
