@@ -200,6 +200,12 @@ export default function FolderSidebar({
       setFolders(propFolders);
       buildFolderTree(propFolders);
       setLoading(false);
+      
+      // Trova e imposta la cartella "Tutti i link" come default
+      const defaultFolder = propFolders.find((f: Folder) => f.name === 'Tutti i link');
+      if (defaultFolder) {
+        setDefaultFolderId(defaultFolder.id);
+      }
     }
   }, [propFolders, buildFolderTree]);
 
@@ -212,7 +218,14 @@ export default function FolderSidebar({
       const data = await response.json();
       
       if (data.folders) {
+        setFolders(data.folders);
         buildFolderTree(data.folders);
+        
+        // Trova e imposta la cartella "Tutti i link" come default
+        const defaultFolder = data.folders.find((f: Folder) => f.name === 'Tutti i link');
+        if (defaultFolder) {
+          setDefaultFolderId(defaultFolder.id);
+        }
       }
     } catch (error) {
       console.error('Errore durante il caricamento delle cartelle:', error);
@@ -919,10 +932,33 @@ export default function FolderSidebar({
         </button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-1">
-          {/* Mostra solo le cartelle dal database - la cartella "Tutti i link" è gestita dal backend */}
-          {folderTree.map(node => renderFolderNode(node))}
+      <div className="flex-1 overflow-y-auto">
+        {/* Sezione fissa "Tutti i link" in alto */}
+        {defaultFolderId && (
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div 
+              className={`flex items-center py-3 px-4 rounded-lg cursor-pointer transition-colors ${
+                selectedFolderId === defaultFolderId ? 'bg-blue-100 border-l-4 border-blue-500 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
+              } ${dragOverFolderId === defaultFolderId ? 'bg-blue-100 border-2 border-dashed border-blue-400' : ''}`}
+              onDragOver={(e) => handleDragOver(e, defaultFolderId)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, defaultFolderId)}
+              onClick={() => onFolderSelect(defaultFolderId)}
+            >
+              <div className="flex items-center flex-1">
+                <FolderIcon className="w-5 h-5 mr-3" />
+                <span className="font-medium">Tutti i link</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Cartelle normali */}
+        <div className="p-4">
+          <div className="space-y-1">
+            {/* Mostra solo le cartelle normali (esclude "Tutti i link") */}
+            {folderTree.filter(node => !defaultFolderId || node.id !== defaultFolderId).map(node => renderFolderNode(node))}
+          </div>
         </div>
       </div>
       
