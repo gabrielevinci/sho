@@ -43,7 +43,7 @@ export default function FolderizedLinksList({
   const [draggedLink, setDraggedLink] = useState<LinkFromDB | null>(null);
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [selectionMode, setSelectionMode] = useState(true); // Always active
+  const [selectionMode, setSelectionMode] = useState(false); // Initially inactive
   const tableRef = useRef<HTMLDivElement>(null);
   
   // Stato per ordinamento e filtri
@@ -151,7 +151,7 @@ export default function FolderizedLinksList({
     setLastSelectedIndex(null);
     setFilters({}); // Reset filters
     setShowFilters(false); // Hide filters panel
-    // Selection mode is always active, no need to reset it
+    setSelectionMode(false); // Disattiva modalità selezione quando si cambia cartella
   }, [selectedFolderId]);
 
   // Gestione delle scorciatoie da tastiera
@@ -354,6 +354,28 @@ export default function FolderizedLinksList({
               <h3 className="text-lg font-semibold text-gray-800">
                 {selectedFolderId === defaultFolderId ? 'Tutti i link' : 'Link in cartella'}
               </h3>
+              
+              {/* Pulsante Seleziona */}
+              <button
+                onClick={() => {
+                  if (selectionMode) {
+                    // Disattiva modalità selezione e cancella selezioni
+                    setSelectionMode(false);
+                    handleClearSelection();
+                  } else {
+                    // Attiva modalità selezione
+                    setSelectionMode(true);
+                  }
+                }}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  selectionMode 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                {selectionMode ? 'Annulla Selezione' : 'Seleziona'}
+              </button>
+              
               {selectionMode && (
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                   Ctrl+A per selezionare tutto • Esc per deselezionare • Ctrl+Click per selezione multipla • Shift+Click per intervallo

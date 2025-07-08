@@ -238,6 +238,30 @@ export default function FolderSidebar({
   const createFolder = async () => {
     if (!newFolderName.trim()) return;
     
+    // Mostra immediatamente la nuova cartella nell'UI per responsività
+    const tempId = `temp-${Date.now()}`;
+    const tempFolder: Folder = {
+      id: tempId,
+      name: newFolderName,
+      parent_folder_id: parentFolderId,
+      workspace_id: workspaceId,
+      user_id: '', // Will be set by backend
+      created_at: new Date(),
+      updated_at: new Date(),
+      position: 999 // Will be corrected by backend
+    };
+    
+    // Aggiorna immediatamente l'UI
+    setFolders(prev => [...prev, tempFolder]);
+    buildFolderTree([...folders, tempFolder]);
+    
+    // Reset form
+    const folderName = newFolderName;
+    const parentId = parentFolderId;
+    setNewFolderName('');
+    setParentFolderId(null);
+    setIsCreatingFolder(false);
+    
     try {
       const response = await fetch('/api/folders', {
         method: 'POST',
@@ -245,36 +269,62 @@ export default function FolderSidebar({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: newFolderName,
-          parentFolderId,
+          name: folderName,
+          parentFolderId: parentId,
           workspaceId
         }),
       });
       
       if (response.ok) {
-        const newFolder = await response.json();
-        setNewFolderName('');
-        setParentFolderId(null);
-        setIsCreatingFolder(false);
+        const result = await response.json();
+        const newFolder = result.folder;
         
-        // Aggiorna lo stato locale se possibile
-        if (propFolders) {
-          // Aggiorna l'albero delle cartelle localmente
-          const updatedFolders = [...propFolders, newFolder.folder];
-          buildFolderTree(updatedFolders);
-        } else {
-          await loadFolders();
+        // Sostituisci la cartella temporanea con quella reale
+        setFolders(prev => prev.map(f => f.id === tempId ? newFolder : f));
+        
+        // Aggiorna l'albero con i dati reali
+        const updatedFolders = folders.filter(f => f.id !== tempId).concat(newFolder);
+        buildFolderTree(updatedFolders);
+        
+        // Aggiorna anche il defaultFolderId se necessario
+        if (newFolder.name === 'Tutti i link') {
+          setDefaultFolderId(newFolder.id);
         }
+        
         onFoldersChange();
+      } else {
+        // Rimuovi la cartella temporanea in caso di errore
+        setFolders(prev => prev.filter(f => f.id !== tempId));
+        buildFolderTree(folders);
+        
+        console.error('Errore durante la creazione della cartella');
+        onToast?.('Errore durante la creazione della cartella', 'error');
       }
     } catch (error) {
+      // Rimuovi la cartella temporanea in caso di errore
+      setFolders(prev => prev.filter(f => f.id !== tempId));
+      buildFolderTree(folders);
+      
       console.error('Errore durante la creazione della cartella:', error);
+      onToast?.('Errore durante la creazione della cartella', 'error');
     }
   };
 
   // Rinomina una cartella
   const renameFolder = async (folderId: string, newName: string) => {
     if (!newName.trim()) return;
+    
+    // Aggiorna immediatamente l'UI per responsività
+    const oldName = folders.find(f => f.id === folderId)?.name;
+    setFolders(prev => prev.map(folder => 
+      folder.id === folderId ? { ...folder, name: newName } : folder
+    ));
+    buildFolderTree(folders.map(folder => 
+      folder.id === folderId ? { ...folder, name: newName } : folder
+    ));
+    
+    setEditingFolderId(null);
+    setEditingName('');
     
     try {
       const response = await fetch('/api/folders', {
@@ -289,22 +339,32 @@ export default function FolderSidebar({
       });
       
       if (response.ok) {
-        setEditingFolderId(null);
-        setEditingName('');
-        
-        // Aggiorna lo stato locale se possibile
-        if (propFolders) {
-          const updatedFolders = propFolders.map(folder => 
-            folder.id === folderId ? { ...folder, name: newName } : folder
-          );
-          buildFolderTree(updatedFolders);
-        } else {
-          await loadFolders();
-        }
         onFoldersChange();
+        onToast?.('Cartella rinominata con successo', 'success');
+      } else {
+        // Ripristina il nome originale in caso di errore
+        if (oldName) {
+          setFolders(prev => prev.map(folder => 
+            folder.id === folderId ? { ...folder, name: oldName } : folder
+          ));
+          buildFolderTree(folders.map(folder => 
+            folder.id === folderId ? { ...folder, name: oldName } : folder
+          ));
+        }
+        onToast?.('Errore durante la rinomina della cartella', 'error');
       }
     } catch (error) {
+      // Ripristina il nome originale in caso di errore
+      if (oldName) {
+        setFolders(prev => prev.map(folder => 
+          folder.id === folderId ? { ...folder, name: oldName } : folder
+        ));
+        buildFolderTree(folders.map(folder => 
+          folder.id === folderId ? { ...folder, name: oldName } : folder
+        ));
+      }
       console.error('Errore durante la rinomina della cartella:', error);
+      onToast?.('Errore durante la rinomina della cartella', 'error');
     }
   };
 
@@ -317,31 +377,49 @@ export default function FolderSidebar({
   const handleConfirmDelete = async () => {
     if (!folderToDelete) return;
     
+    // Aggiorna immediatamente l'UI per responsività
+    const deletedFolderId = folderToDelete.id;
+    const originalFolders = [...folders];
+    
+    // Rimuovi temporaneamente la cartella dall'UI
+    const updatedFolders = folders.filter(folder => folder.id !== deletedFolderId);
+    setFolders(updatedFolders);
+    buildFolderTree(updatedFolders);
+    
+    // Chiudi il modal
+    setDeleteModalOpen(false);
+    setFolderToDelete(null);
+    
+    // Se la cartella eliminata era selezionata, deseleziona
+    if (selectedFolderId === deletedFolderId) {
+      onFolderSelect(defaultFolderId);
+    }
+    
     try {
-      const response = await fetch(`/api/folders?folderId=${folderToDelete.id}`, {
+      const response = await fetch(`/api/folders?folderId=${deletedFolderId}`, {
         method: 'DELETE',
       });
       
       const data = await response.json();
       
       if (response.ok) {
-        // Aggiorna lo stato locale se possibile
-        if (propFolders) {
-          const updatedFolders = propFolders.filter(folder => folder.id !== folderToDelete.id);
-          buildFolderTree(updatedFolders);
-        } else {
-          await loadFolders();
-        }
         onFoldersChange();
-        // Se la cartella eliminata era selezionata, deseleziona
-        if (selectedFolderId === folderToDelete.id) {
-          onFolderSelect(null);
-        }
+        onToast?.('Cartella eliminata con successo', 'success');
       } else {
+        // Ripristina la cartella in caso di errore
+        setFolders(originalFolders);
+        buildFolderTree(originalFolders);
+        
         console.error('Errore:', data.error);
+        onToast?.('Errore durante l\'eliminazione della cartella', 'error');
       }
     } catch (error) {
+      // Ripristina la cartella in caso di errore
+      setFolders(originalFolders);
+      buildFolderTree(originalFolders);
+      
       console.error('Errore durante l\'eliminazione della cartella:', error);
+      onToast?.('Errore durante l\'eliminazione della cartella', 'error');
     }
   };
 
@@ -582,6 +660,17 @@ export default function FolderSidebar({
       return;
     }
     
+    // Aggiorna immediatamente l'UI per responsività
+    const originalFolders = [...folders];
+    const updatedFolders = folders.map(folder => 
+      folder.id === sourceFolderId 
+        ? { ...folder, parent_folder_id: newParentId }
+        : folder
+    );
+    
+    setFolders(updatedFolders);
+    buildFolderTree(updatedFolders);
+    
     try {
       const response = await fetch('/api/folders/move', {
         method: 'PUT',
@@ -595,18 +684,23 @@ export default function FolderSidebar({
       });
       
       if (response.ok) {
-        // Immediately update local state for responsiveness
-        await handleUpdateFolders();
+        onFoldersChange();
         onToast?.('Cartella spostata con successo', 'success');
       } else {
+        // Ripristina lo stato originale in caso di errore
+        setFolders(originalFolders);
+        buildFolderTree(originalFolders);
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Errore durante lo spostamento');
       }
     } catch (error) {
+      // Ripristina lo stato originale in caso di errore
+      setFolders(originalFolders);
+      buildFolderTree(originalFolders);
+      
       console.error('Errore durante lo spostamento:', error);
       onToast?.(`Errore: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`, 'error');
-      // Refresh folders to ensure consistency after error
-      await handleUpdateFolders();
     }
   };
 
@@ -617,6 +711,27 @@ export default function FolderSidebar({
     if (!validation.valid) {
       onToast?.(validation.error || 'Operazione non valida', 'error');
       return;
+    }
+    
+    // Per il riordinamento, aggiorna immediatamente l'UI riorganizzando le posizioni
+    const originalFolders = [...folders];
+    const sourceFolder = folders.find(f => f.id === sourceFolderId);
+    const targetFolder = folders.find(f => f.id === targetFolderId);
+    
+    if (sourceFolder && targetFolder) {
+      const updatedFolders = folders.map(folder => {
+        if (folder.id === sourceFolderId) {
+          // Aggiorna la posizione della cartella sorgente
+          return {
+            ...folder,
+            position: position === 'before' ? targetFolder.position - 0.5 : targetFolder.position + 0.5
+          };
+        }
+        return folder;
+      });
+      
+      setFolders(updatedFolders);
+      buildFolderTree(updatedFolders);
     }
     
     try {
@@ -633,46 +748,23 @@ export default function FolderSidebar({
       });
       
       if (response.ok) {
-        // Immediately update local state for responsiveness
-        await handleUpdateFolders();
+        onFoldersChange();
         onToast?.('Cartella riordinata con successo', 'success');
       } else {
+        // Ripristina lo stato originale in caso di errore
+        setFolders(originalFolders);
+        buildFolderTree(originalFolders);
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Errore durante il riordinamento');
       }
     } catch (error) {
+      // Ripristina lo stato originale in caso di errore
+      setFolders(originalFolders);
+      buildFolderTree(originalFolders);
+      
       console.error('Errore durante il riordinamento:', error);
       onToast?.(`Errore: ${error instanceof Error ? error.message : 'Errore sconosciuto'}`, 'error');
-      // Refresh folders to ensure consistency after error
-      await handleUpdateFolders();
-    }
-  };
-
-  // Debounced update function to avoid too many refresh operations
-  const [updateTimeout, setUpdateTimeout] = useState<NodeJS.Timeout | null>(null);
-  
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (updateTimeout) {
-        clearTimeout(updateTimeout);
-      }
-    };
-  }, [updateTimeout]);
-
-  // Helper function to update folders from parent with improved debouncing
-  const handleUpdateFolders = async () => {
-    try {
-      // Cancel any pending update
-      if (updateTimeout) {
-        clearTimeout(updateTimeout);
-        setUpdateTimeout(null);
-      }
-      
-      // Update immediately for better responsiveness
-      onFoldersChange();
-    } catch (error) {
-      console.error('Errore durante l\'aggiornamento delle cartelle:', error);
     }
   };
 
