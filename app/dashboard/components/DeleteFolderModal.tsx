@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface DeleteFolderModalProps {
@@ -20,7 +20,7 @@ export default function DeleteFolderModal({
 }: DeleteFolderModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleConfirm = async () => {
+  const handleConfirm = useCallback(async () => {
     setIsDeleting(true);
     try {
       await onConfirm();
@@ -28,7 +28,7 @@ export default function DeleteFolderModal({
       setIsDeleting(false);
       onClose();
     }
-  };
+  }, [onConfirm, onClose]);
 
   // Gestione tasti
   useEffect(() => {

@@ -57,7 +57,7 @@ export default function FolderizedLinksList({
     try {
       const urlObj = new URL(url);
       return urlObj.hostname;
-    } catch (e) {
+    } catch {
       return '';
     }
   };

@@ -149,7 +149,7 @@ export default function LinkRow({
     }
   };
 
-  const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCheckboxChange = () => {
     if (onSelect) {
       // Crea un evento che simula un click con Ctrl per toggle della selezione
       // Questo garantisce che il checkbox possa sempre toggle la selezione indipendentemente
@@ -184,7 +184,7 @@ export default function LinkRow({
             checked={isSelected}
             onChange={(e) => {
               e.stopPropagation();
-              handleCheckboxChange(e);
+              handleCheckboxChange();
             }}
             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
           />

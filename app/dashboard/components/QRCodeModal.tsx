@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { XMarkIcon, ArrowDownTrayIcon, ClipboardIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -37,13 +38,7 @@ export default function QRCodeModal({
     };
   }, [isOpen, onClose]);
 
-  useEffect(() => {
-    if (isOpen && url) {
-      generateQRCode();
-    }
-  }, [isOpen, url]);
-
-  const generateQRCode = async () => {
+  const generateQRCode = useCallback(async () => {
     setIsLoading(true);
     try {
       // Usa un servizio gratuito per generare il QR code
@@ -55,7 +50,13 @@ export default function QRCodeModal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [url, onToast]);
+
+  useEffect(() => {
+    if (isOpen && url) {
+      generateQRCode();
+    }
+  }, [isOpen, generateQRCode]);
 
   const downloadQRCode = async () => {
     if (!qrCodeUrl) return;
@@ -115,10 +116,12 @@ export default function QRCodeModal({
           ) : (
             <div className="space-y-4">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <img 
+                <Image 
                   src={qrCodeUrl} 
                   alt="QR Code" 
-                  className="mx-auto w-48 h-48 object-contain"
+                  width={192}
+                  height={192}
+                  className="mx-auto object-contain"
                 />
               </div>
               
