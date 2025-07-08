@@ -68,13 +68,13 @@ async function recordClick(linkId: number, request: NextRequest) {
     
     const isUniqueVisit = uniqueCheck.rows[0].count === 0;
     
-    // Record the click data
+    // Record the click data (without os column for now to avoid database errors)
     await sql`
       INSERT INTO clicks 
-        (link_id, country, referrer, browser_name, device_type, os, user_fingerprint, clicked_at_rome) 
+        (link_id, country, referrer, browser_name, device_type, user_fingerprint, clicked_at_rome) 
       VALUES (
         ${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, 
-        ${osName}, ${userFingerprint}, 
+        ${userFingerprint}, 
         NOW() AT TIME ZONE 'Europe/Rome'
       )
     `;

@@ -1,48 +1,59 @@
 # Database Migration Guide - Add OS Column to Clicks Table
 
-## Issue
-The application is trying to insert data into a column called `os` in the `clicks` table, but this column doesn't exist in the database schema, causing deployment errors.
+## Issue RISOLTO TEMPORANEAMENTE
+Il problema dei click non registrati è stato risolto temporaneamente rimuovendo la colonna `os` dall'INSERT. 
+I click vengono ora registrati correttamente, ma senza informazioni sull'OS.
 
-## Solution
-You need to add the missing `os` column to the `clicks` table.
+## Soluzione Permanente
+Per ripristinare il tracking completo dell'OS, segui questi passaggi:
 
-## Steps to Fix
+### Passo 1: Eseguire la Migrazione Database
+1. Vai al dashboard Vercel
+2. Naviga al tuo progetto
+3. Vai alla tab "Storage"
+4. Clicca sul tuo database Postgres
+5. Vai alla tab "Query"
+6. Copia e incolla il contenuto di `add_os_column_to_clicks.sql`
+7. Esegui la query
 
-### Method 1: Using Vercel Postgres Dashboard
-1. Go to your Vercel dashboard
-2. Navigate to your project
-3. Go to the "Storage" tab
-4. Click on your Postgres database
-5. Go to the "Query" tab
-6. Copy and paste the SQL from `add_os_column_to_clicks.sql`
-7. Execute the query
+### Passo 2: Ripristinare il Codice Completo
+Dopo aver eseguito la migrazione, sostituisci il codice INSERT nella funzione `recordClick` in `app/[shortCode]/route.ts`:
 
-### Method 2: Using psql command line (if you have access)
-```bash
-psql "your-database-connection-string" -f add_os_column_to_clicks.sql
+```typescript
+// Sostituire questo codice temporaneo:
+await sql`
+  INSERT INTO clicks 
+    (link_id, country, referrer, browser_name, device_type, user_fingerprint, clicked_at_rome) 
+  VALUES (
+    ${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, 
+    ${userFingerprint}, 
+    NOW() AT TIME ZONE 'Europe/Rome'
+  )
+`;
+
+// Con questo codice completo:
+await sql`
+  INSERT INTO clicks 
+    (link_id, country, referrer, browser_name, device_type, os, user_fingerprint, clicked_at_rome) 
+  VALUES (
+    ${linkId}, ${country}, ${referrer}, ${browserName}, ${deviceType}, 
+    ${osName}, ${userFingerprint}, 
+    NOW() AT TIME ZONE 'Europe/Rome'
+  )
+`;
 ```
 
-### Method 3: Using any PostgreSQL client
-1. Connect to your database using your preferred PostgreSQL client
-2. Run the SQL commands from `add_os_column_to_clicks.sql`
+### Passo 3: Ridistribuire
+Dopo aver fatto le modifiche, ridistribuisci l'applicazione.
 
-## SQL Script Content
-The script (`add_os_column_to_clicks.sql`) will:
-1. Add the `os` column as VARCHAR(100) to the `clicks` table
-2. Set existing records to have `os = 'Unknown'` as default
-3. Create an index on the `os` column for better performance
+## Stato Attuale
+✅ **I click vengono registrati correttamente** (senza dati OS)
+✅ **I contatori vengono aggiornati**
+✅ **L'applicazione funziona senza errori**
+⏳ **Il tracking dell'OS sarà disponibile dopo la migrazione**
 
-## After Running the Script
-1. The deployment error should be resolved
-2. The application will be able to track operating system information for clicks
-3. Analytics will include OS data in future click tracking
-
-## Verification
-After running the script, you can verify it worked by running:
-```sql
-SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'clicks' AND column_name = 'os';
-```
-
-This should return a row showing the `os` column exists with `character varying` data type.
+## Verifica
+Dopo aver completato tutti i passaggi, verifica che tutto funzioni:
+1. Testa alcuni click sui tuoi link
+2. Controlla che i contatori si aggiornino
+3. Verifica che le analytics mostrino i dati dell'OS
