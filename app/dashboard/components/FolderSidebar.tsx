@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon, HomeIcon, DocumentIcon, Bars3Icon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon, HomeIcon, DocumentIcon, Bars3Icon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import DeleteFolderModal from './DeleteFolderModal';
 import FolderReorderModal from './FolderReorderModal';
 import Portal from './Portal';
@@ -425,6 +425,42 @@ export default function FolderSidebar({
     setFolderTree(prev => prev.map(node => updateNodeExpansion(node, folderId)));
   };
 
+  // Expand all folders
+  const expandAllFolders = () => {
+    const updateAllNodesExpansion = (node: FolderTreeNode, expanded: boolean): FolderTreeNode => {
+      return {
+        ...node,
+        expanded: expanded,
+        children: node.children.map(child => updateAllNodesExpansion(child, expanded))
+      };
+    };
+    
+    setFolderTree(prev => prev.map(node => updateAllNodesExpansion(node, true)));
+  };
+
+  // Collapse all folders
+  const collapseAllFolders = () => {
+    const updateAllNodesExpansion = (node: FolderTreeNode, expanded: boolean): FolderTreeNode => {
+      return {
+        ...node,
+        expanded: expanded,
+        children: node.children.map(child => updateAllNodesExpansion(child, expanded))
+      };
+    };
+    
+    setFolderTree(prev => prev.map(node => updateAllNodesExpansion(node, false)));
+  };
+
+  // Check if all folders are expanded or collapsed
+  const areAllFoldersExpanded = () => {
+    const checkAllExpanded = (node: FolderTreeNode): boolean => {
+      if (!node.expanded && node.children.length > 0) return false;
+      return node.children.every(child => checkAllExpanded(child));
+    };
+    
+    return folderTree.every(node => checkAllExpanded(node));
+  };
+
   // Render folder node
   const renderFolderNode = (node: FolderTreeNode, depth: number = 0) => {
     const isSelected = selectedFolderId === node.id;
@@ -538,6 +574,18 @@ export default function FolderSidebar({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  setParentFolderId(node.id);
+                  setIsCreatingFolder(true);
+                }}
+                className="p-1 hover:bg-gray-200 rounded"
+                title="Crea sottocartella"
+              >
+                <PlusIcon className="w-4 h-4 text-gray-600" />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   setEditingFolderId(node.id);
                   setEditingName(node.name);
                 }}
@@ -559,18 +607,6 @@ export default function FolderSidebar({
                   <TrashIcon className="w-4 h-4 text-red-600" />
                 </button>
               )}
-              
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setParentFolderId(node.id);
-                  setIsCreatingFolder(true);
-                }}
-                className="p-1 hover:bg-gray-200 rounded"
-                title="Crea sottocartella"
-              >
-                <PlusIcon className="w-4 h-4 text-gray-600" />
-              </button>
             </div>
           )}
         </div>
@@ -607,7 +643,22 @@ export default function FolderSidebar({
   return (
     <div className="h-full flex flex-col bg-gray-50">
       <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Cartelle</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">Cartelle</h2>
+          {folderTree.some(node => node.children.length > 0 || folderTree.length > 1) && (
+            <button
+              onClick={areAllFoldersExpanded() ? collapseAllFolders : expandAllFolders}
+              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+              title={areAllFoldersExpanded() ? "Comprimi tutte le cartelle" : "Espandi tutte le cartelle"}
+            >
+              {areAllFoldersExpanded() ? (
+                <ChevronUpIcon className="w-4 h-4 text-gray-600" />
+              ) : (
+                <ChevronDownIcon className="w-4 h-4 text-gray-600" />
+              )}
+            </button>
+          )}
+        </div>
         <div className="space-y-2">
           <button
             onClick={() => {

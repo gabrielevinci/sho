@@ -149,14 +149,19 @@ export default function LinkRow({
     }
   };
 
-  const handleCheckboxChange = () => {
+  const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Il checkbox deve sempre toggle la selezione, indipendentemente da altre selezioni
     if (onSelect) {
+      // Stoppa la propagazione per evitare che attivi anche il click sulla riga
+      event.stopPropagation();
+      
       // Crea un evento che simula un click con Ctrl per toggle della selezione
       // Questo garantisce che il checkbox possa sempre toggle la selezione indipendentemente
       const toggleClickEvent = { 
         ctrlKey: true, 
         shiftKey: false,
-        stopPropagation: () => {}
+        stopPropagation: () => {},
+        preventDefault: () => {}
       } as unknown as React.MouseEvent;
       onSelect(link.id, toggleClickEvent);
     }
@@ -179,15 +184,28 @@ export default function LinkRow({
       {/* Checkbox per selezione multipla */}
       {selectionMode && (
         <td className="px-6 py-4 w-12">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={(e) => {
+          <div 
+            className="flex items-center justify-center p-2 -m-2 rounded hover:bg-gray-100 cursor-pointer transition-colors"
+            onClick={(e) => {
               e.stopPropagation();
-              handleCheckboxChange();
+              // Simula un evento change per mantenere la coerenza
+              const fakeEvent = {
+                stopPropagation: () => {},
+                target: { checked: !isSelected }
+              } as React.ChangeEvent<HTMLInputElement>;
+              handleCheckboxChange(fakeEvent);
             }}
-            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-          />
+            title="Seleziona/Deseleziona questo link"
+          >
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={handleCheckboxChange}
+              onClick={(e) => e.stopPropagation()} // Evita che il click si propaghi alla riga
+              className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer pointer-events-none"
+              readOnly // Rendiamo il checkbox read-only perché gestiamo i click tramite il div contenitore
+            />
+          </div>
         </td>
       )}
       

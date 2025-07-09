@@ -16,10 +16,10 @@ interface FetchError extends Error {
 // Funzione fetcher ottimizzata per le API routes
 const fetcher = async (url: string) => {
   const res = await fetch(url, {
-    // Abilita il caching HTTP
-    cache: 'force-cache',
-    // Rivalida ogni 60 secondi
-    next: { revalidate: 60 }
+    // Configurazione per migliorare le performance
+    headers: {
+      'Cache-Control': 'max-age=60', // Cache HTTP per 1 minuto
+    },
   });
 
   if (!res.ok) {
@@ -42,12 +42,12 @@ export default function SWRProvider({ children }: SWRProviderProps) {
     <SWRConfig
       value={{
         fetcher,
-        // Configurazione cache ottimizzata
-        dedupingInterval: 60000, // 1 minuto di deduplicazione
-        refreshInterval: 300000, // Refresh automatico ogni 5 minuti
-        revalidateOnFocus: false, // Non rivalidare quando la finestra torna in focus
+        // Configurazione cache ottimizzata per il nuovo sistema
+        dedupingInterval: 2000, // 2 secondi di deduplicazione (ridotto per maggiore reattività)
+        refreshInterval: 0, // Disabilitato, gestito dal sistema di cache personalizzato
+        revalidateOnFocus: false, // Gestito dal sistema di cache personalizzato
         revalidateOnReconnect: true, // Rivalidare quando si riconnette
-        revalidateIfStale: true, // Rivalidare se i dati sono stale
+        revalidateIfStale: false, // Gestito dal sistema di cache personalizzato
         // Configurazione errori
         errorRetryCount: 3,
         errorRetryInterval: 5000,

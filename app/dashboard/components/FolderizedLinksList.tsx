@@ -5,6 +5,7 @@ import LinkRow from './LinkRow';
 import { LinkFromDB } from './LinkRow';
 import BatchOperations from './BatchOperations';
 import { Folder } from './FolderSidebar';
+import AdvancedFilters, { FilterOptions } from './AdvancedFilters';
 
 interface FolderizedLinksListProps {
   links: LinkFromDB[];
@@ -18,17 +19,9 @@ interface FolderizedLinksListProps {
   onClearSelectionRef?: (func: () => void) => void; // Add reference to clear selection function
 }
 
-// Tipi per filtri e ordinamento
+// Tipi per ordinamento
 type SortField = 'created_at' | 'click_count' | 'unique_click_count' | 'title' | 'original_url';
 type SortDirection = 'asc' | 'desc';
-type FilterOptions = {
-  dateFrom?: Date;
-  dateTo?: Date;
-  originalDomain?: string;
-  shortDomain?: string;
-  minClicks?: number;
-  maxClicks?: number;
-};
 
 export default function FolderizedLinksList({ 
   links, 
@@ -76,16 +69,59 @@ export default function FolderizedLinksList({
     
     // Poi applica i filtri aggiuntivi
     if (filters) {
-      if (filters.dateFrom) {
-        result = result.filter(link => 
-          new Date(link.created_at) >= filters.dateFrom!
-        );
-      }
-      
-      if (filters.dateTo) {
-        result = result.filter(link => 
-          new Date(link.created_at) <= filters.dateTo!
-        );
+      // Gestione filtri data con preset
+      if (filters.dateRange && filters.dateRange !== 'custom') {
+        const now = new Date();
+        let dateFrom: Date | undefined;
+        let dateTo: Date | undefined;
+
+        switch (filters.dateRange) {
+          case 'today':
+            dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            dateTo = now;
+            break;
+          case 'week':
+            dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            dateTo = now;
+            break;
+          case 'month':
+            dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            dateTo = now;
+            break;
+          case 'currentMonth':
+            dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+            dateTo = now;
+            break;
+          case 'previousMonth':
+            dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            dateTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            break;
+        }
+
+        if (dateFrom) {
+          result = result.filter(link => 
+            new Date(link.created_at) >= dateFrom!
+          );
+        }
+        
+        if (dateTo) {
+          result = result.filter(link => 
+            new Date(link.created_at) <= dateTo!
+          );
+        }
+      } else {
+        // Gestione filtri data personalizzati
+        if (filters.dateFrom) {
+          result = result.filter(link => 
+            new Date(link.created_at) >= filters.dateFrom!
+          );
+        }
+        
+        if (filters.dateTo) {
+          result = result.filter(link => 
+            new Date(link.created_at) <= filters.dateTo!
+          );
+        }
       }
       
       if (filters.originalDomain) {
@@ -103,16 +139,40 @@ export default function FolderizedLinksList({
         );
       }
       
-      if (filters.minClicks !== undefined) {
-        result = result.filter(link => 
-          link.click_count >= filters.minClicks!
-        );
-      }
-      
-      if (filters.maxClicks !== undefined) {
-        result = result.filter(link => 
-          link.click_count <= filters.maxClicks!
-        );
+      // Nuovo filtro click con operatore
+      if (filters.clickOperator && filters.clickValue !== undefined) {
+        result = result.filter(link => {
+          const clickCount = link.click_count;
+          const targetValue = filters.clickValue!;
+          
+          switch (filters.clickOperator) {
+            case 'equal':
+              return clickCount === targetValue;
+            case 'less':
+              return clickCount < targetValue;
+            case 'greater':
+              return clickCount > targetValue;
+            case 'lessEqual':
+              return clickCount <= targetValue;
+            case 'greaterEqual':
+              return clickCount >= targetValue;
+            default:
+              return true;
+          }
+        });
+      } else {
+        // Filtri legacy per compatibilità
+        if (filters.minClicks !== undefined) {
+          result = result.filter(link => 
+            link.click_count >= filters.minClicks!
+          );
+        }
+        
+        if (filters.maxClicks !== undefined) {
+          result = result.filter(link => 
+            link.click_count <= filters.maxClicks!
+          );
+        }
       }
     }
     
@@ -143,6 +203,31 @@ export default function FolderizedLinksList({
     });
   }, [links, selectedFolderId, defaultFolderId, filters, sortField, sortDirection]);
   
+  // Funzione per contare i filtri attivi
+  const countActiveFilters = (filters: FilterOptions) => {
+    let count = 0;
+    // Conteggio corretto dei filtri data
+    if (filters.dateRange && filters.dateRange !== 'custom') {
+      count++; // filtro data con preset
+    } else if (filters.dateFrom || filters.dateTo) {
+      count++; // filtro data personalizzato
+    }
+    if (filters.originalDomain && filters.originalDomain.trim()) count++;
+    if (filters.shortDomain && filters.shortDomain.trim()) count++;
+    
+    // Nuovo filtro click con operatore
+    if (filters.clickOperator && filters.clickValue !== undefined) {
+      count++;
+    } else {
+      // Filtri legacy per compatibilità
+      if (filters.minClicks !== undefined && filters.minClicks > 0) count++;
+      if (filters.maxClicks !== undefined && filters.maxClicks >= 0) count++;
+    }
+    
+    return count;
+  };
+
+  const activeFiltersCount = countActiveFilters(filters);
   const filteredLinks = getFilteredAndSortedLinks();
 
   // Reset selezione e filtri quando cambia la cartella
@@ -178,10 +263,14 @@ export default function FolderizedLinksList({
   }, [selectionMode, filteredLinks]);
 
   // Gestione della selezione con Ctrl e Shift
-  const handleLinkSelection = useCallback((linkId: string, event: React.MouseEvent) => {
+  const handleLinkSelection = useCallback((linkId: string, event: React.MouseEvent & { isRowClick?: boolean }) => {
     const linkIndex = filteredLinks.findIndex(link => link.id === linkId);
     
-    // Handle checkbox click (simulated Ctrl key) or actual Ctrl key
+    // Se è un dispositivo mobile (rilevato dalla mancanza di hover support) 
+    // o se è un click diretto sulla riga, comportati come toggle
+    const isMobileDevice = !window.matchMedia('(hover: hover)').matches;
+    const isDirectRowClick = (event as any).isRowClick;
+    
     if (event.ctrlKey || event.metaKey) {
       // Ctrl+click o click su checkbox: toggle selezione singola
       setSelectedLinks(prev => {
@@ -195,8 +284,8 @@ export default function FolderizedLinksList({
       });
       setLastSelectedIndex(linkIndex);
       setSelectionMode(true);
-    } else if (event.shiftKey && lastSelectedIndex !== null) {
-      // Shift+click: selezione intervallo
+    } else if (event.shiftKey && lastSelectedIndex !== null && !isMobileDevice) {
+      // Shift+click: selezione intervallo (solo su desktop)
       const start = Math.min(lastSelectedIndex, linkIndex);
       const end = Math.max(lastSelectedIndex, linkIndex);
       const rangeIds = filteredLinks.slice(start, end + 1).map(link => link.id);
@@ -207,8 +296,21 @@ export default function FolderizedLinksList({
         return newSet;
       });
       setSelectionMode(true);
+    } else if (isMobileDevice || isDirectRowClick) {
+      // Su mobile o click diretto sulla riga: comportamento toggle per facilità d'uso
+      setSelectedLinks(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(linkId)) {
+          newSet.delete(linkId);
+        } else {
+          newSet.add(linkId);
+        }
+        return newSet;
+      });
+      setLastSelectedIndex(linkIndex);
+      setSelectionMode(true);
     } else {
-      // Click normale sulla riga: selezione singola (deseleziona gli altri)
+      // Click normale sulla riga su desktop: selezione singola (deseleziona gli altri)
       setSelectedLinks(new Set([linkId]));
       setLastSelectedIndex(linkIndex);
       setSelectionMode(true);
@@ -323,11 +425,26 @@ export default function FolderizedLinksList({
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">Nessun link trovato</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {selectedFolderId === defaultFolderId 
+              {activeFiltersCount > 0 
+                ? "I filtri applicati non hanno prodotto risultati." 
+                : selectedFolderId === defaultFolderId 
                 ? "Non hai ancora creato nessun link." 
                 : "Questa cartella è vuota."
               }
             </p>
+            {activeFiltersCount > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setFilters({})}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Azzera filtri
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -376,10 +493,29 @@ export default function FolderizedLinksList({
                 {selectionMode ? 'Annulla Selezione' : 'Seleziona'}
               </button>
               
+              {/* Pulsante Seleziona Tutto - visibile solo in modalità selezione */}
               {selectionMode && (
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  Ctrl+A per selezionare tutto • Esc per deselezionare • Ctrl+Click per selezione multipla • Shift+Click per intervallo
-                </span>
+                <button
+                  onClick={toggleSelectAll}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    selectedLinks.size === filteredLinks.length
+                      ? 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200'
+                      : 'bg-green-100 text-green-700 border border-green-300 hover:bg-green-200'
+                  }`}
+                >
+                  {selectedLinks.size === filteredLinks.length ? 'Deseleziona Tutto' : 'Seleziona Tutto'}
+                </button>
+              )}
+              
+              {selectionMode && (
+                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <span className="hidden md:inline">
+                    Ctrl+A per selezionare tutto • Esc per deselezionare • Ctrl+Click per toggle • Shift+Click per intervallo
+                  </span>
+                  <span className="md:hidden">
+                    Tocca checkbox o riga per toggle selezione • Usa "Seleziona Tutto" per selezionare tutti
+                  </span>
+                </div>
               )}
             </div>
             <div className="flex items-center space-x-2">
@@ -393,17 +529,29 @@ export default function FolderizedLinksList({
               )}
               
               {/* Filtri e ordinamento */}
-              <div className="flex items-center">
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                    showFilters || Object.keys(filters).length > 0 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  onClick={() => setShowFilters(true)}
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors font-medium ${
+                    activeFiltersCount > 0 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
                   }`}
                 >
-                  {Object.keys(filters).length > 0 ? 'Filtri attivi' : 'Filtri'}
+                  {activeFiltersCount > 0 ? `Filtri (${activeFiltersCount})` : 'Filtri avanzati'}
                 </button>
+                
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={() => {
+                      setFilters({});
+                    }}
+                    className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 border border-red-300 transition-colors"
+                    title="Azzera tutti i filtri"
+                  >
+                    Azzera
+                  </button>
+                )}
                 
                 <select
                   value={`${sortField}-${sortDirection}`}
@@ -412,116 +560,37 @@ export default function FolderizedLinksList({
                     setSortField(field as SortField);
                     setSortDirection(direction as SortDirection);
                   }}
-                  className="ml-2 text-xs border border-gray-300 rounded-lg py-1 px-2 bg-white"
+                  className="text-xs border border-gray-300 rounded-lg py-1 px-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="created_at-desc">Data (più recenti)</option>
-                  <option value="created_at-asc">Data (più vecchi)</option>
-                  <option value="click_count-desc">Click (più alto)</option>
-                  <option value="click_count-asc">Click (più basso)</option>
-                  <option value="title-asc">Titolo (A-Z)</option>
-                  <option value="title-desc">Titolo (Z-A)</option>
-                  <option value="original_url-asc">URL (A-Z)</option>
-                  <option value="original_url-desc">URL (Z-A)</option>
+                  <option value="created_at-desc">Più recenti</option>
+                  <option value="created_at-asc">Più vecchi</option>
+                  <option value="click_count-desc">Più cliccati</option>
+                  <option value="click_count-asc">Meno cliccati</option>
+                  <option value="unique_click_count-desc">Più click unici</option>
+                  <option value="unique_click_count-asc">Meno click unici</option>
+                  <option value="title-asc">Titolo A-Z</option>
+                  <option value="title-desc">Titolo Z-A</option>
+                  <option value="original_url-asc">URL A-Z</option>
+                  <option value="original_url-desc">URL Z-A</option>
                 </select>
               </div>
             </div>
           </div>
-          
-          {/* Pannello filtri */}
-          {showFilters && (
-            <div className="mt-4 p-4 bg-white border border-gray-200 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Data da:</label>
-                  <input
-                    type="date"
-                    value={filters.dateFrom?.toISOString().split('T')[0] || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFilters(prev => ({
-                        ...prev,
-                        dateFrom: value ? new Date(value) : undefined
-                      }));
-                    }}
-                    className="w-full text-sm border border-gray-300 rounded-lg p-1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Data a:</label>
-                  <input
-                    type="date"
-                    value={filters.dateTo?.toISOString().split('T')[0] || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFilters(prev => ({
-                        ...prev,
-                        dateTo: value ? new Date(value) : undefined
-                      }));
-                    }}
-                    className="w-full text-sm border border-gray-300 rounded-lg p-1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Dominio originale contiene:</label>
-                  <input
-                    type="text"
-                    value={filters.originalDomain || ''}
-                    onChange={(e) => {
-                      setFilters(prev => ({
-                        ...prev,
-                        originalDomain: e.target.value || undefined
-                      }));
-                    }}
-                    placeholder="es: google.com"
-                    className="w-full text-sm border border-gray-300 rounded-lg p-1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Min. click:</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={filters.minClicks !== undefined ? filters.minClicks : ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseInt(e.target.value) : undefined;
-                      setFilters(prev => ({
-                        ...prev,
-                        minClicks: value
-                      }));
-                    }}
-                    className="w-full text-sm border border-gray-300 rounded-lg p-1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Max. click:</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={filters.maxClicks !== undefined ? filters.maxClicks : ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseInt(e.target.value) : undefined;
-                      setFilters(prev => ({
-                        ...prev,
-                        maxClicks: value
-                      }));
-                    }}
-                    className="w-full text-sm border border-gray-300 rounded-lg p-1"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={() => {
-                      setFilters({});
-                      setShowFilters(false);
-                    }}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded-lg"
-                  >
-                    Reimposta filtri
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Nuovo componente AdvancedFilters */}
+          <AdvancedFilters
+            isOpen={showFilters}
+            onClose={() => setShowFilters(false)}
+            onApply={(newFilters) => {
+              setFilters(newFilters);
+              setShowFilters(false);
+            }}
+            onReset={() => {
+              setFilters({});
+              setShowFilters(false);
+            }}
+            initialFilters={filters}
+            links={links}
+          />
         </div>
         
         <div className="flex-1 overflow-auto" ref={tableRef}>
