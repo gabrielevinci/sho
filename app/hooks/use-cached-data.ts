@@ -13,15 +13,15 @@ interface CacheConfig {
 
 interface CachedDataHook<T> {
   data: T | undefined;
-  error: any;
+  error: unknown;
   isLoading: boolean;
-  mutate: (data?: T | Promise<T> | ((current: T | undefined) => T | Promise<T> | undefined), opts?: any) => Promise<T | undefined>;
+  mutate: (data?: T | Promise<T> | ((current: T | undefined) => T | Promise<T> | undefined), opts?: boolean | { revalidate?: boolean; populateCache?: boolean }) => Promise<T | undefined>;
   revalidate: () => Promise<T | undefined>;
   isValidating: boolean;
 }
 
 // Cache globale per persistere i dati tra navigazioni
-const globalCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const globalCache = new Map<string, { data: unknown; timestamp: number; ttl: number }>();
 
 // TTL predefiniti per diversi tipi di dati (in millisecondi)
 const DEFAULT_TTLS = {
@@ -70,7 +70,7 @@ export function useCachedData<T>(
       return undefined;
     }
     
-    return cached.data;
+    return cached.data as T | undefined;
   }, []);
 
   // Funzione per salvare i dati in cache
@@ -142,7 +142,7 @@ export function useCachedData<T>(
           setCachedData(key, data);
         }
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         console.error(`[Cache Error] Failed to fetch data for: ${key}`, error);
       },
       ...swrOptions
@@ -151,7 +151,7 @@ export function useCachedData<T>(
 
   // Wrapped mutate function per aggiornare anche la cache globale
   const mutate = useCallback(
-    async (data?: T | Promise<T> | ((current: T | undefined) => T | Promise<T> | undefined), opts?: any) => {
+    async (data?: T | Promise<T> | ((current: T | undefined) => T | Promise<T> | undefined), opts?: boolean | { revalidate?: boolean; populateCache?: boolean }) => {
       const result = await swrResult.mutate(data, opts);
       
       // Aggiorna anche la cache globale se disponibile
@@ -161,7 +161,7 @@ export function useCachedData<T>(
       
       return result;
     },
-    [swrResult.mutate, key, setCachedData]
+    [swrResult, key, setCachedData]
   );
 
   return {

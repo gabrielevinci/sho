@@ -14,8 +14,6 @@ interface DataPreloaderProps {
  * Aiuta a ridurre i tempi di caricamento prevedendo le prossime pagine
  */
 export function DataPreloader({ workspaceId, currentPath }: DataPreloaderProps) {
-  const router = useRouter();
-
   useEffect(() => {
     // Pre-carica i dati della dashboard se siamo nelle analytics
     if (currentPath.includes('/analytics/')) {

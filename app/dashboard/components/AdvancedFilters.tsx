@@ -435,10 +435,10 @@ export default function AdvancedFilters({
                       <div>📅 Data: {dateRangeOptions.find(opt => opt.value === filters.dateRange)?.label}</div>
                     )}
                     {filters.originalDomain && (
-                      <div>🌐 Dominio: contiene "{filters.originalDomain}"</div>
+                      <div>🌐 Dominio: contiene &quot;{filters.originalDomain}&quot;</div>
                     )}
                     {filters.shortDomain && (
-                      <div>🔗 Link breve: contiene "{filters.shortDomain}"</div>
+                      <div>🔗 Link breve: contiene &quot;{filters.shortDomain}&quot;</div>
                     )}
                     {filters.clickOperator && filters.clickValue !== undefined && (
                       <div>👆 Click: {

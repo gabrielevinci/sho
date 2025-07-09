@@ -269,7 +269,7 @@ export default function FolderizedLinksList({
     // Se è un dispositivo mobile (rilevato dalla mancanza di hover support) 
     // o se è un click diretto sulla riga, comportati come toggle
     const isMobileDevice = !window.matchMedia('(hover: hover)').matches;
-    const isDirectRowClick = (event as any).isRowClick;
+    const isDirectRowClick = (event as React.MouseEvent & { isRowClick?: boolean }).isRowClick;
     
     if (event.ctrlKey || event.metaKey) {
       // Ctrl+click o click su checkbox: toggle selezione singola
@@ -513,7 +513,7 @@ export default function FolderizedLinksList({
                     Ctrl+A per selezionare tutto • Esc per deselezionare • Ctrl+Click per toggle • Shift+Click per intervallo
                   </span>
                   <span className="md:hidden">
-                    Tocca checkbox o riga per toggle selezione • Usa "Seleziona Tutto" per selezionare tutti
+                    Tocca checkbox o riga per toggle selezione • Usa &quot;Seleziona Tutto&quot; per selezionare tutti
                   </span>
                 </div>
               )}
