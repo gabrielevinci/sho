@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import FolderSidebar, { Folder } from './components/FolderSidebar';
 import FolderizedLinksList from './components/FolderizedLinksList';
 import WorkspaceSwitcher from './workspace-switcher';
@@ -154,7 +154,11 @@ export default function DashboardClient({
   }, []);
 
   // Reference to the clear selection function from FolderizedLinksList
-  const [clearSelectionFunction, setClearSelectionFunction] = useState<(() => void) | null>(null);
+  const clearSelectionRef = useRef<(() => void) | null>(null);
+  
+  const handleClearSelectionRef = useCallback((func: () => void) => {
+    clearSelectionRef.current = func;
+  }, []);
   
   const handleLinkDrop = useCallback(async (linkId: string, folderId: string | null, clearSelection?: () => void) => {
     try {
@@ -176,7 +180,7 @@ export default function DashboardClient({
         ));
         
         // Deselect links after moving - use the passed callback or the stored function
-        const clearFunc = clearSelection || clearSelectionFunction;
+        const clearFunc = clearSelection || clearSelectionRef.current;
         if (clearFunc) {
           clearFunc();
         }
@@ -191,7 +195,7 @@ export default function DashboardClient({
       console.error('Errore durante lo spostamento del link:', error);
       showError('Errore durante lo spostamento del link');
     }
-  }, [showError, clearSelectionFunction]);
+  }, [showError]);
 
   const handleUpdateLink = useCallback((shortCode: string, updates: Partial<LinkFromDB>) => {
     setLinks(prev => prev.map(link => 
@@ -230,7 +234,7 @@ export default function DashboardClient({
                 onLinkDrop={handleLinkDrop}
                 onToast={handleToast}
                 folders={folders}
-                onClearSelectionRef={setClearSelectionFunction} // Pass the clearSelectionRef function
+                onClearSelectionRef={handleClearSelectionRef} // Pass the clearSelectionRef function
               />
             </div>
             
@@ -251,7 +255,7 @@ export default function DashboardClient({
                   onUpdateLink={handleUpdateLink}
                   onToast={handleToast}
                   folders={folders}
-                  onClearSelectionRef={setClearSelectionFunction}
+                  onClearSelectionRef={handleClearSelectionRef}
                 />
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon, PencilIcon, TrashIcon, HomeIcon, DocumentIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import DeleteFolderModal from './DeleteFolderModal';
 import FolderReorderModal from './FolderReorderModal';
+import Portal from './Portal';
 
 export interface Folder {
   id: string;
@@ -681,48 +682,50 @@ export default function FolderSidebar({
       
       {/* Modal per creare nuova cartella */}
       {isCreatingFolder && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">
-              {parentFolderId ? 'Crea sottocartella' : 'Crea nuova cartella'}
-            </h3>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  createFolder();
-                } else if (e.key === 'Escape') {
-                  setIsCreatingFolder(false);
-                  setNewFolderName('');
-                  setParentFolderId(null);
-                }
-              }}
-              placeholder="Nome cartella"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
-              autoFocus
-            />
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                onClick={() => {
-                  setIsCreatingFolder(false);
-                  setNewFolderName('');
-                  setParentFolderId(null);
+        <Portal>
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg p-6 w-96 shadow-xl relative">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                {parentFolderId ? 'Crea sottocartella' : 'Crea nuova cartella'}
+              </h3>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    createFolder();
+                  } else if (e.key === 'Escape') {
+                    setIsCreatingFolder(false);
+                    setNewFolderName('');
+                    setParentFolderId(null);
+                  }
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={createFolder}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-              >
-                Crea
-              </button>
+                placeholder="Nome cartella"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                autoFocus
+              />
+              <div className="flex justify-end space-x-2 mt-4">
+                <button
+                  onClick={() => {
+                    setIsCreatingFolder(false);
+                    setNewFolderName('');
+                    setParentFolderId(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={createFolder}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Crea
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
       
       {/* Modal per eliminazione cartella */}

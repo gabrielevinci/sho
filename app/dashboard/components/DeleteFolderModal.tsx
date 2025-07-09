@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import Portal from './Portal';
 
 interface DeleteFolderModalProps {
   isOpen: boolean;
@@ -51,12 +52,13 @@ export default function DeleteFolderModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="flex-shrink-0">
-            <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
-          </div>
+    <Portal>
+      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+        <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl relative">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="flex-shrink-0">
+              <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
+            </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
               {isDefault ? 'Azione non consentita' : 'Elimina cartella'}
@@ -117,6 +119,7 @@ export default function DeleteFolderModal({
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </Portal>
   );
 }

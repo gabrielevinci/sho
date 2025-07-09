@@ -257,3 +257,24 @@ textarea::placeholder {
 .pulse-glow {
   animation: pulse-glow 2s infinite;
 }
+
+/* Modal z-index fix */
+.modal-overlay {
+  z-index: 9999 !important;
+}
+
+/* Ensure modals are always on top */
+div[class*="fixed inset-0"] {
+  z-index: 9999 !important;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Ensure modal content is properly positioned */
+.modal-content {
+  position: relative;
+  z-index: 10000;
+}

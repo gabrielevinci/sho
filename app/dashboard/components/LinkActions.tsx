@@ -6,6 +6,7 @@ import { deleteLink, resetLinkStats } from '../analytics/[shortCode]/actions';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import Image from 'next/image';
+import Portal from './Portal';
 
 interface LinkActionsProps {
   shortCode: string;
@@ -176,11 +177,12 @@ export default function LinkActions({
 
       {/* Modal di conferma eliminazione */}
       {showConfirmDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Conferma eliminazione
-            </h3>
+        <Portal>
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Conferma eliminazione
+              </h3>
             <p className="text-gray-600 mb-6">
               Sei sicuro di voler eliminare questo link? Questa azione non può essere annullata.
             </p>
@@ -201,16 +203,18 @@ export default function LinkActions({
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </Portal>
       )}
 
       {/* Modal di conferma reset statistiche */}
       {showConfirmReset && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Conferma reset statistiche
-            </h3>
+        <Portal>
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Conferma reset statistiche
+              </h3>
             <p className="text-gray-600 mb-6">
               Sei sicuro di voler resettare tutte le statistiche di questo link? Tutti i dati dei click verranno eliminati permanentemente.
             </p>
@@ -231,19 +235,21 @@ export default function LinkActions({
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </Portal>
       )}
 
       {/* Modal QR Code */}
       {showQrModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
-                QR Code del Link
-              </h3>
-              <button
-                onClick={() => setShowQrModal(false)}
+        <Portal>
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">
+                  QR Code del Link
+                </h3>
+                <button
+                  onClick={() => setShowQrModal(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-6 w-6" />
@@ -281,7 +287,8 @@ export default function LinkActions({
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </Portal>
       )}
     </>
   );
