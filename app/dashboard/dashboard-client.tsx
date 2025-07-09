@@ -221,7 +221,7 @@ export default function DashboardClient({
       <div className="flex-1 flex overflow-hidden">
         {initialActiveWorkspace && (
           <div className="flex w-full h-full">
-            <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col h-full">
               <FolderSidebar
                 workspaceId={initialActiveWorkspace?.id || ''}
                 selectedFolderId={selectedFolderId}
