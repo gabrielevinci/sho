@@ -111,7 +111,7 @@ async function getLinksForWorkspace(userId: string, workspaceId: string): Promis
     });
 
     // Combina i dati
-    const linksWithFolders = links.map((link: any) => ({
+    const linksWithFolders = (links as LinkFromDB[]).map((link) => ({
       ...link,
       folders: foldersByLink.get(String(link.id)) || []
     })) as LinkFromDB[];

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { XMarkIcon, ArrowDownTrayIcon, ClipboardIcon, CogIcon } from '@heroicons/react/24/outline';
+import NextImage from 'next/image';
 import Portal from './Portal';
 
 interface QRCodeModalProps {
@@ -395,9 +396,21 @@ export default function QRCodeModal({
                     {qrCodeUrl ? (
                       <div className="flex justify-center">
                         <div className="bg-white p-4 rounded-lg shadow-lg">
-                          <img 
+                          <NextImage 
                             src={qrCodeUrl} 
                             alt="QR Code" 
+                            width={
+                              size === '200' ? 192 :
+                              size === '300' ? 256 :
+                              size === '400' ? 288 :
+                              320
+                            }
+                            height={
+                              size === '200' ? 192 :
+                              size === '300' ? 256 :
+                              size === '400' ? 288 :
+                              320
+                            }
                             className={`object-contain rounded ${
                               size === '200' ? 'w-48 h-48' :
                               size === '300' ? 'w-64 h-64' :
