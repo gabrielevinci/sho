@@ -37,15 +37,23 @@ export default function FolderReorderModal({
   const [availableTargets, setAvailableTargets] = useState<FolderTreeNode[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Costruisce l'albero delle cartelle gerarchico
+  // Costruisce l'albero delle cartelle gerarchico - COERENTE CON SIDEBAR
   const buildFolderTree = (folders: Folder[]): FolderTreeNode[] => {
     const filteredFolders = folders.filter(folder => folder.name !== 'Tutti i link');
+    
+    // IMPORTANTE: Usa la stessa logica di ordinamento della sidebar
+    const sortedFolders = [...filteredFolders].sort((a, b) => {
+      if (a.position !== b.position) {
+        return a.position - b.position;
+      }
+      return a.name.localeCompare(b.name);
+    });
     
     // Crea un map per accesso rapido
     const folderMap = new Map<string, FolderTreeNode>();
     
     // Inizializza tutti i nodi
-    filteredFolders.forEach(folder => {
+    sortedFolders.forEach(folder => {
       folderMap.set(folder.id, {
         id: folder.id,
         name: folder.name,
@@ -70,8 +78,8 @@ export default function FolderReorderModal({
       return parentLevel + 1;
     };
     
-    // Organizza i nodi nell'albero
-    filteredFolders.forEach(folder => {
+    // Organizza i nodi nell'albero usando l'ordinamento già fatto
+    sortedFolders.forEach(folder => {
       const node = folderMap.get(folder.id)!;
       node.level = calculateLevel(folder.id);
       
@@ -85,9 +93,14 @@ export default function FolderReorderModal({
       }
     });
     
-    // Ordina i nodi per posizione
+    // Ordina ricorsivamente i nodi per posizione - COERENTE CON SIDEBAR
     const sortNodes = (nodes: FolderTreeNode[]) => {
-      nodes.sort((a, b) => a.position - b.position);
+      nodes.sort((a, b) => {
+        if (a.position !== b.position) {
+          return a.position - b.position;
+        }
+        return a.name.localeCompare(b.name);
+      });
       nodes.forEach(node => sortNodes(node.children));
     };
     
@@ -554,7 +567,7 @@ export default function FolderReorderModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="folder-modal-title">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="folder-modal-title">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -669,7 +682,7 @@ export default function FolderReorderModal({
       {/* Modal di spostamento */}
       {showMoveModal && selectedFolder && (
         <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[10000] p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[10000] p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-auto max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
               <div className="flex items-center justify-between">

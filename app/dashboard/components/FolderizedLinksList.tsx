@@ -3,9 +3,56 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import LinkRow from './LinkRow';
 import { LinkFromDB } from './LinkRow';
-import BatchOperations from './BatchOperations';
 import { Folder } from './FolderSidebar';
 import AdvancedFilters, { FilterOptions } from './AdvancedFilters';
+import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import MultiFolderSelector from './MultiFolderSelector';
+
+interface FolderCardProps {
+  folder: Folder;
+  onFolderSelect: (folderId: string) => void;
+  linkCount: number;
+  subfolderCount: number;
+}
+
+function FolderCard({ folder, onFolderSelect, linkCount, subfolderCount }: FolderCardProps) {
+  const handleClick = () => {
+    onFolderSelect(folder.id);
+  };
+
+  return (
+    <div 
+      className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+      onClick={handleClick}
+    >
+      <div className="flex items-center space-x-3">
+        <div className="flex-shrink-0">
+          <FolderIcon className="h-8 w-8 text-blue-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-900 truncate">{folder.name}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {linkCount > 0 && (
+              <span>{linkCount} link{linkCount !== 1 ? 's' : ''}</span>
+            )}
+            {linkCount > 0 && subfolderCount > 0 && <span> • </span>}
+            {subfolderCount > 0 && (
+              <span>{subfolderCount} cartel{subfolderCount !== 1 ? 'le' : 'la'}</span>
+            )}
+            {linkCount === 0 && subfolderCount === 0 && (
+              <span>Vuota</span>
+            )}
+          </div>
+        </div>
+        <div className="flex-shrink-0">
+          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface FolderizedLinksListProps {
   links: LinkFromDB[];
@@ -16,7 +63,10 @@ interface FolderizedLinksListProps {
   onUpdateLink?: (shortCode: string, updates: Partial<LinkFromDB>) => void;
   onToast?: (message: string, type: 'success' | 'error') => void;
   folders: Folder[];
-  onClearSelectionRef?: (func: () => void) => void; // Add reference to clear selection function
+  onClearSelectionRef?: (func: () => void) => void;
+  onFolderSelect?: (folderId: string) => void;
+  enableMultipleFolders?: boolean;
+  showMultipleFoldersColumn?: boolean;
 }
 
 // Tipi per ordinamento
@@ -27,16 +77,20 @@ export default function FolderizedLinksList({
   links, 
   selectedFolderId, 
   defaultFolderId,
+  onUpdateLinks,
   onDeleteLink,
   onUpdateLink,
   onToast,
   folders,
-  onClearSelectionRef
+  onClearSelectionRef,
+  onFolderSelect,
+  enableMultipleFolders = true,
+  showMultipleFoldersColumn = false
 }: FolderizedLinksListProps) {
   const [draggedLink, setDraggedLink] = useState<LinkFromDB | null>(null);
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [selectionMode, setSelectionMode] = useState(false); // Initially inactive
+  const [selectionMode, setSelectionMode] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
   
   // Stato per ordinamento e filtri
@@ -44,188 +98,119 @@ export default function FolderizedLinksList({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filters, setFilters] = useState<FilterOptions>({});
   const [showFilters, setShowFilters] = useState(false);
-
-  // Funzioni di utilità per filtri
-  const getDomainFromUrl = (url: string): string => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname;
-    } catch {
-      return '';
-    }
-  };
   
-  // Applica filtri e ordinamento
-  const getFilteredAndSortedLinks = useCallback(() => {
-    // Prima filtra per cartella
-    let result = links.filter(link => {
-      // Se è selezionata la cartella "Tutti i link", mostra tutti i link
-      if (selectedFolderId === defaultFolderId) {
-        return true;
+  // Stati per cartelle multiple
+  const [showMultiFolderModal, setShowMultiFolderModal] = useState(false);
+  const [selectedLinkForFolders, setSelectedLinkForFolders] = useState<LinkFromDB | null>(null);
+  
+  // Stati per batch operations integrate
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+
+  // Funzioni di utilità per filtraggio e ordinamento
+  const applyFilters = useCallback((links: LinkFromDB[], filters: FilterOptions): LinkFromDB[] => {
+    return links.filter(link => {
+      // Filtro per titolo
+      if (filters.title && !(link.title?.toLowerCase() || '').includes(filters.title.toLowerCase())) {
+        return false;
       }
-      // Altrimenti mostra solo i link della cartella specifica
-      return link.folder_id === selectedFolderId;
+      
+      // Filtro per URL
+      if (filters.url && !link.original_url.toLowerCase().includes(filters.url.toLowerCase())) {
+        return false;
+      }
+      
+      // Filtro per range di click
+      if (filters.clicksMin !== undefined && link.click_count < filters.clicksMin) {
+        return false;
+      }
+      if (filters.clicksMax !== undefined && link.click_count > filters.clicksMax) {
+        return false;
+      }
+      
+      // Filtro per data
+      if (filters.dateFrom) {
+        const linkDate = new Date(link.created_at);
+        const filterDate = new Date(filters.dateFrom);
+        if (linkDate < filterDate) return false;
+      }
+      if (filters.dateTo) {
+        const linkDate = new Date(link.created_at);
+        const filterDate = new Date(filters.dateTo);
+        if (linkDate > filterDate) return false;
+      }
+      
+      return true;
     });
-    
-    // Poi applica i filtri aggiuntivi
-    if (filters) {
-      // Gestione filtri data con preset
-      if (filters.dateRange && filters.dateRange !== 'custom') {
-        const now = new Date();
-        let dateFrom: Date | undefined;
-        let dateTo: Date | undefined;
+  }, []);
 
-        switch (filters.dateRange) {
-          case 'today':
-            dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            dateTo = now;
-            break;
-          case 'week':
-            dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            dateTo = now;
-            break;
-          case 'month':
-            dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-            dateTo = now;
-            break;
-          case 'currentMonth':
-            dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-            dateTo = now;
-            break;
-          case 'previousMonth':
-            dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            dateTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-            break;
-        }
-
-        if (dateFrom) {
-          result = result.filter(link => 
-            new Date(link.created_at) >= dateFrom!
-          );
-        }
-        
-        if (dateTo) {
-          result = result.filter(link => 
-            new Date(link.created_at) <= dateTo!
-          );
-        }
-      } else {
-        // Gestione filtri data personalizzati
-        if (filters.dateFrom) {
-          result = result.filter(link => 
-            new Date(link.created_at) >= filters.dateFrom!
-          );
-        }
-        
-        if (filters.dateTo) {
-          result = result.filter(link => 
-            new Date(link.created_at) <= filters.dateTo!
-          );
-        }
-      }
+  const applySorting = useCallback((links: LinkFromDB[], field: SortField, direction: SortDirection): LinkFromDB[] => {
+    return [...links].sort((a, b) => {
+      let valueA: string | number;
+      let valueB: string | number;
       
-      if (filters.originalDomain) {
-        const domain = filters.originalDomain.toLowerCase();
-        result = result.filter(link => 
-          getDomainFromUrl(link.original_url).toLowerCase().includes(domain)
-        );
-      }
-      
-      if (filters.shortDomain && typeof window !== 'undefined') {
-        const domain = filters.shortDomain.toLowerCase();
-        const origin = window.location.origin;
-        result = result.filter(link => 
-          `${origin}/${link.short_code}`.toLowerCase().includes(domain)
-        );
-      }
-      
-      // Nuovo filtro click con operatore
-      if (filters.clickOperator && filters.clickValue !== undefined) {
-        result = result.filter(link => {
-          const clickCount = link.click_count;
-          const targetValue = filters.clickValue!;
-          
-          switch (filters.clickOperator) {
-            case 'equal':
-              return clickCount === targetValue;
-            case 'less':
-              return clickCount < targetValue;
-            case 'greater':
-              return clickCount > targetValue;
-            case 'lessEqual':
-              return clickCount <= targetValue;
-            case 'greaterEqual':
-              return clickCount >= targetValue;
-            default:
-              return true;
-          }
-        });
-      } else {
-        // Filtri legacy per compatibilità
-        if (filters.minClicks !== undefined) {
-          result = result.filter(link => 
-            link.click_count >= filters.minClicks!
-          );
-        }
-        
-        if (filters.maxClicks !== undefined) {
-          result = result.filter(link => 
-            link.click_count <= filters.maxClicks!
-          );
-        }
-      }
-    }
-    
-    // Infine ordina
-    return result.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortField) {
-        case 'title':
-          comparison = (a.title || '').localeCompare(b.title || '');
-          break;
-        case 'original_url':
-          comparison = a.original_url.localeCompare(b.original_url);
+      switch (field) {
+        case 'created_at':
+          valueA = new Date(a.created_at).getTime();
+          valueB = new Date(b.created_at).getTime();
           break;
         case 'click_count':
-          comparison = a.click_count - b.click_count;
+          valueA = a.click_count;
+          valueB = b.click_count;
           break;
         case 'unique_click_count':
-          comparison = (a.unique_click_count || 0) - (b.unique_click_count || 0);
+          valueA = a.unique_click_count;
+          valueB = b.unique_click_count;
           break;
-        case 'created_at':
+        case 'title':
+          valueA = (a.title || '').toLowerCase();
+          valueB = (b.title || '').toLowerCase();
+          break;
+        case 'original_url':
+          valueA = a.original_url.toLowerCase();
+          valueB = b.original_url.toLowerCase();
+          break;
         default:
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          break;
+          return 0;
       }
       
-      return sortDirection === 'asc' ? comparison : -comparison;
+      if (direction === 'asc') {
+        return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
+      } else {
+        return valueA > valueB ? -1 : valueA < valueB ? 1 : 0;
+      }
     });
-  }, [links, selectedFolderId, defaultFolderId, filters, sortField, sortDirection]);
-  
-  // Funzione per contare i filtri attivi
-  const countActiveFilters = (filters: FilterOptions) => {
+  }, []);
+
+  const countActiveFilters = useCallback((filters: FilterOptions): number => {
     let count = 0;
-    // Conteggio corretto dei filtri data
-    if (filters.dateRange && filters.dateRange !== 'custom') {
-      count++; // filtro data con preset
-    } else if (filters.dateFrom || filters.dateTo) {
-      count++; // filtro data personalizzato
-    }
-    if (filters.originalDomain && filters.originalDomain.trim()) count++;
-    if (filters.shortDomain && filters.shortDomain.trim()) count++;
-    
-    // Nuovo filtro click con operatore
-    if (filters.clickOperator && filters.clickValue !== undefined) {
-      count++;
-    } else {
-      // Filtri legacy per compatibilità
-      if (filters.minClicks !== undefined && filters.minClicks > 0) count++;
-      if (filters.maxClicks !== undefined && filters.maxClicks >= 0) count++;
-    }
-    
+    if (filters.title) count++;
+    if (filters.url) count++;
+    if (filters.clicksMin !== undefined) count++;
+    if (filters.clicksMax !== undefined) count++;
+    if (filters.dateFrom) count++;
+    if (filters.dateTo) count++;
     return count;
-  };
+  }, []);
+
+  // Filtra i link per la cartella selezionata
+  const getFilteredLinksForFolder = useCallback((): LinkFromDB[] => {
+    if (selectedFolderId === defaultFolderId || selectedFolderId === null) {
+      return links;
+    }
+    
+    const filtered = links.filter(link => 
+      link.folders && link.folders.some(folder => folder.id === selectedFolderId)
+    );
+    
+    return filtered;
+  }, [links, selectedFolderId, defaultFolderId]);
+
+  const getFilteredAndSortedLinks = useCallback((): LinkFromDB[] => {
+    const folderFilteredLinks = getFilteredLinksForFolder();
+    const filteredLinks = applyFilters(folderFilteredLinks, filters);
+    return applySorting(filteredLinks, sortField, sortDirection);
+  }, [getFilteredLinksForFolder, applyFilters, filters, applySorting, sortField, sortDirection]);
 
   const activeFiltersCount = countActiveFilters(filters);
   const filteredLinks = getFilteredAndSortedLinks();
@@ -234,45 +219,19 @@ export default function FolderizedLinksList({
   useEffect(() => {
     setSelectedLinks(new Set());
     setLastSelectedIndex(null);
-    setFilters({}); // Reset filters
-    setShowFilters(false); // Hide filters panel
-    setSelectionMode(false); // Disattiva modalità selezione quando si cambia cartella
+    setFilters({});
+    setShowFilters(false);
+    setSelectionMode(false);
   }, [selectedFolderId]);
-
-  // Gestione delle scorciatoie da tastiera
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (selectionMode && filteredLinks.length > 0) {
-        if (event.ctrlKey && event.key === 'a') {
-          event.preventDefault();
-          setSelectedLinks(new Set(filteredLinks.map(link => link.id)));
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          handleClearSelection();
-        }
-      }
-    };
-
-    if (selectionMode) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [selectionMode, filteredLinks]);
 
   // Gestione della selezione con Ctrl e Shift
   const handleLinkSelection = useCallback((linkId: string, event: React.MouseEvent & { isRowClick?: boolean }) => {
     const linkIndex = filteredLinks.findIndex(link => link.id === linkId);
     
-    // Se è un dispositivo mobile (rilevato dalla mancanza di hover support) 
-    // o se è un click diretto sulla riga, comportati come toggle
     const isMobileDevice = !window.matchMedia('(hover: hover)').matches;
     const isDirectRowClick = (event as React.MouseEvent & { isRowClick?: boolean }).isRowClick;
     
     if (event.ctrlKey || event.metaKey) {
-      // Ctrl+click o click su checkbox: toggle selezione singola
       setSelectedLinks(prev => {
         const newSet = new Set(prev);
         if (newSet.has(linkId)) {
@@ -285,7 +244,6 @@ export default function FolderizedLinksList({
       setLastSelectedIndex(linkIndex);
       setSelectionMode(true);
     } else if (event.shiftKey && lastSelectedIndex !== null && !isMobileDevice) {
-      // Shift+click: selezione intervallo (solo su desktop)
       const start = Math.min(lastSelectedIndex, linkIndex);
       const end = Math.max(lastSelectedIndex, linkIndex);
       const rangeIds = filteredLinks.slice(start, end + 1).map(link => link.id);
@@ -297,7 +255,6 @@ export default function FolderizedLinksList({
       });
       setSelectionMode(true);
     } else if (isMobileDevice || isDirectRowClick) {
-      // Su mobile o click diretto sulla riga: comportamento toggle per facilità d'uso
       setSelectedLinks(prev => {
         const newSet = new Set(prev);
         if (newSet.has(linkId)) {
@@ -310,7 +267,6 @@ export default function FolderizedLinksList({
       setLastSelectedIndex(linkIndex);
       setSelectionMode(true);
     } else {
-      // Click normale sulla riga su desktop: selezione singola (deseleziona gli altri)
       setSelectedLinks(new Set([linkId]));
       setLastSelectedIndex(linkIndex);
       setSelectionMode(true);
@@ -322,7 +278,6 @@ export default function FolderizedLinksList({
     setDraggedLink(link);
     e.dataTransfer.effectAllowed = 'move';
     
-    // Se il link è selezionato, trascina tutti i link selezionati
     if (selectedLinks.has(link.id)) {
       e.dataTransfer.setData('text/plain', JSON.stringify([...selectedLinks]));
     } else {
@@ -334,70 +289,99 @@ export default function FolderizedLinksList({
     setDraggedLink(null);
   };
 
-  // Operazioni batch
-  const handleBatchDelete = useCallback(async (linkIds: string[]) => {
-    const linksToDelete = links.filter(link => linkIds.includes(link.id));
-    
-    // Elimina i link uno per volta
-    for (const link of linksToDelete) {
-      try {
-        await onDeleteLink(link.short_code);
-      } catch (error) {
-        console.error('Errore durante l\'eliminazione del link:', link.short_code, error);
-        throw error; // Rilancia l'errore per gestirlo nel BatchOperations
-      }
-    }
-  }, [links, onDeleteLink]);
-
-  const handleBatchResetClicks = useCallback(async (linkIds: string[]) => {
-    const linksToReset = links.filter(link => linkIds.includes(link.id));
-    
-    for (const link of linksToReset) {
-      const response = await fetch(`/api/links/reset-clicks`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shortCode: link.short_code
-        }),
-      });
-
-      if (response.ok && onUpdateLink) {
-        onUpdateLink(link.short_code, { click_count: 0 });
-      }
-    }
-  }, [links, onUpdateLink]);
-
+  // Funzione per batch move
   const handleBatchMoveToFolder = useCallback(async (linkIds: string[], folderId: string | null) => {
-    for (const linkId of linkIds) {
-      const response = await fetch('/api/links/move', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          linkId,
-          folderId
-        }),
-      });
+    const response = await fetch('/api/links/batch-move', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        linkIds,
+        folderId,
+        sourceFolderId: selectedFolderId === defaultFolderId ? null : selectedFolderId
+      }),
+    });
 
-      if (response.ok) {
-        // Aggiorna lo stato locale
-        if (onUpdateLink) {
-          const link = links.find(l => l.id === linkId);
-          if (link) {
-            onUpdateLink(link.short_code, { folder_id: folderId });
+    if (response.ok) {
+      onUpdateLinks();
+    } else {
+      const errorData = await response.json();
+      console.error('❌ Errore API batch-move:', errorData);
+      throw new Error(errorData.error || 'Errore durante lo spostamento');
+    }
+  }, [selectedFolderId, defaultFolderId, onUpdateLinks]);
+
+  // Crea la lista piatta delle cartelle per il dropdown
+  const buildFlatFolderList = (folders: Folder[]): Array<{folder: Folder, depth: number}> => {
+    type FolderWithChildren = Folder & {children: FolderWithChildren[]};
+    const folderMap = new Map<string, FolderWithChildren>();
+    
+    folders.forEach(folder => {
+      if (folder.name !== 'Tutti i link') {
+        folderMap.set(folder.id, { ...folder, children: [] });
+      }
+    });
+    
+    const rootFolders: FolderWithChildren[] = [];
+    
+    folders.forEach(folder => {
+      if (folder.name !== 'Tutti i link') {
+        const folderWithChildren = folderMap.get(folder.id)!;
+        
+        if (folder.parent_folder_id) {
+          const parent = folderMap.get(folder.parent_folder_id);
+          if (parent) {
+            parent.children.push(folderWithChildren);
           }
+        } else {
+          rootFolders.push(folderWithChildren);
         }
       }
+    });
+    
+    const flattenTree = (folder: FolderWithChildren, depth: number = 0): Array<{folder: Folder, depth: number}> => {
+      const result = [{ folder: folder as Folder, depth }];
+      
+      if (folder.children) {
+        folder.children.forEach((child: FolderWithChildren) => {
+          result.push(...flattenTree(child, depth + 1));
+        });
+      }
+      
+      return result;
+    };
+    
+    const flatList: Array<{folder: Folder, depth: number}> = [];
+    rootFolders.forEach(root => {
+      flatList.push(...flattenTree(root));
+    });
+    
+    return flatList;
+  };
+
+  const flatFolderList = buildFlatFolderList(folders);
+
+  // Chiudi dropdown quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowFolderDropdown(false);
+      }
+    };
+
+    if (showFolderDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
-  }, [links, onUpdateLink]);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFolderDropdown]);
 
   const handleClearSelection = () => {
     setSelectedLinks(new Set());
     setLastSelectedIndex(null);
-    // Selection mode stays active
   };
   
   // Expose clear selection function via ref
@@ -415,7 +399,83 @@ export default function FolderizedLinksList({
     }
   };
 
-  if (filteredLinks.length === 0) {
+  // Ottiene le sottocartelle della cartella corrente
+  const getSubfolders = useCallback(() => {
+    if (!selectedFolderId || selectedFolderId === defaultFolderId) {
+      return [];
+    }
+    
+    return folders.filter(folder => folder.parent_folder_id === selectedFolderId);
+  }, [folders, selectedFolderId, defaultFolderId]);
+
+  // Calcola il numero di link e sottocartelle per ogni cartella
+  const getFolderStats = useCallback((folderId: string) => {
+    const linkCount = links.filter(link => 
+      link.folders && link.folders.some(folder => folder.id === folderId)
+    ).length;
+    const subfolderCount = folders.filter(folder => folder.parent_folder_id === folderId).length;
+    return { linkCount, subfolderCount };
+  }, [links, folders]);
+
+  // Funzioni per gestione cartelle multiple
+  const handleManageFolders = useCallback((link: LinkFromDB) => {
+    setSelectedLinkForFolders(link);
+    setShowMultiFolderModal(true);
+  }, []);
+
+  const handleSaveFolderAssociations = useCallback(async (linkId: string, selectedFolderIds: string[]) => {
+    try {
+      const response = await fetch(`/api/link-folder-associations?linkId=${linkId}`);
+      const data = await response.json();
+      const currentFolderIds = data.associations?.map((assoc: { folder_id: string }) => assoc.folder_id) || [];
+
+      const foldersToAdd = selectedFolderIds.filter(id => !currentFolderIds.includes(id));
+      const foldersToRemove = currentFolderIds.filter((id: string) => !selectedFolderIds.includes(id));
+
+      if (foldersToAdd.length > 0) {
+        await fetch('/api/link-folder-associations/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            linkIds: [linkId],
+            folderIds: foldersToAdd
+          })
+        });
+      }
+
+      if (foldersToRemove.length > 0) {
+        await fetch('/api/link-folder-associations/batch', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            linkIds: [linkId],
+            folderIds: foldersToRemove
+          })
+        });
+      }
+
+      if (onUpdateLink && selectedLinkForFolders) {
+        const updatedFolders = folders.filter(folder => selectedFolderIds.includes(folder.id))
+          .map(folder => ({
+            id: folder.id,
+            name: folder.name,
+            parent_folder_id: folder.parent_folder_id
+          }));
+        
+        onUpdateLink(selectedLinkForFolders.short_code, { folders: updatedFolders });
+      }
+
+      setShowMultiFolderModal(false);
+      setSelectedLinkForFolders(null);
+    } catch (error) {
+      console.error('Errore durante l\'aggiornamento delle associazioni:', error);
+      throw error;
+    }
+  }, [folders, onUpdateLink, selectedLinkForFolders]);
+
+  const subfolders = getSubfolders();
+
+  if (filteredLinks.length === 0 && subfolders.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md h-full flex items-center justify-center">
         <div className="text-center py-12">
@@ -453,17 +513,6 @@ export default function FolderizedLinksList({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Operazioni batch */}
-      <BatchOperations
-        selectedLinks={[...selectedLinks]}
-        folders={folders}
-        onBatchDelete={handleBatchDelete}
-        onBatchResetClicks={handleBatchResetClicks}
-        onBatchMoveToFolder={handleBatchMoveToFolder}
-        onClearSelection={handleClearSelection}
-        onToast={onToast}
-      />
-      
       <div className="bg-white rounded-lg shadow-md h-full flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -476,11 +525,9 @@ export default function FolderizedLinksList({
               <button
                 onClick={() => {
                   if (selectionMode) {
-                    // Disattiva modalità selezione e cancella selezioni
                     setSelectionMode(false);
                     handleClearSelection();
                   } else {
-                    // Attiva modalità selezione
                     setSelectionMode(true);
                   }
                 }}
@@ -506,16 +553,111 @@ export default function FolderizedLinksList({
                   {selectedLinks.size === filteredLinks.length ? 'Deseleziona Tutto' : 'Seleziona Tutto'}
                 </button>
               )}
-              
-              {selectionMode && (
-                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  <span className="hidden md:inline">
-                    Ctrl+A per selezionare tutto • Esc per deselezionare • Ctrl+Click per toggle • Shift+Click per intervallo
-                  </span>
-                  <span className="md:hidden">
-                    Tocca checkbox o riga per toggle selezione • Usa &quot;Seleziona Tutto&quot; per selezionare tutti
-                  </span>
-                </div>
+
+              {/* Pulsanti batch operations integrate */}
+              {selectionMode && selectedLinks.size > 0 && (
+                <>
+                  {/* Sposta in cartella */}
+                  <div className="relative" ref={dropdownRef}>
+                    <button
+                      onClick={() => setShowFolderDropdown(!showFolderDropdown)}
+                      className="flex items-center space-x-1 px-3 py-1 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <FolderIcon className="h-4 w-4" />
+                      <span>Sposta in</span>
+                      <ChevronDownIcon className="h-4 w-4" />
+                    </button>
+                    
+                    {showFolderDropdown && (
+                      <div className="absolute top-full mt-1 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                        <div className="py-1 max-h-64 overflow-y-auto">
+                          {/* Opzione "Tutti i link" */}
+                          <button
+                            onClick={async () => {
+                              await handleBatchMoveToFolder(Array.from(selectedLinks), null);
+                              setShowFolderDropdown(false);
+                              handleClearSelection();
+                              onToast?.(`Tutti i link sono stati spostati in "Tutti i link"`, 'success');
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            Tutti i link
+                          </button>
+                          {flatFolderList.map(({ folder, depth }) => (
+                            <button
+                              key={folder.id}
+                              onClick={async () => {
+                                await handleBatchMoveToFolder(Array.from(selectedLinks), folder.id);
+                                setShowFolderDropdown(false);
+                                handleClearSelection();
+                                onToast?.(`Tutti i link sono stati spostati in "${folder.name}"`, 'success');
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                              style={{ paddingLeft: `${16 + depth * 20}px` }}
+                            >
+                              <span>{folder.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Azzera click */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const selectedLinkArray = Array.from(selectedLinks);
+                        for (const linkId of selectedLinkArray) {
+                          const response = await fetch('/api/links/reset-clicks', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ linkId }),
+                          });
+                          if (!response.ok) {
+                            throw new Error('Failed to reset clicks');
+                          }
+                        }
+                        handleClearSelection();
+                        onToast?.(`Click azzerati per ${selectedLinkArray.length} link`, 'success');
+                        onUpdateLinks();
+                      } catch (error) {
+                        console.error('Errore durante l\'azzeramento batch:', error);
+                        onToast?.('Errore durante l\'azzeramento dei click', 'error');
+                      }
+                    }}
+                    className="flex items-center space-x-1 px-3 py-1 bg-white border border-gray-300 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                  >
+                    <ArrowPathIcon className="h-4 w-4" />
+                    <span>Azzera click</span>
+                  </button>
+                  
+                  {/* Elimina */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const selectedLinkArray = Array.from(selectedLinks);
+                        for (const linkId of selectedLinkArray) {
+                          const link = links.find(l => l.id === linkId);
+                          if (link) {
+                            await onDeleteLink(link.short_code);
+                          }
+                        }
+                        handleClearSelection();
+                        onToast?.(`${selectedLinkArray.length} link eliminati`, 'success');
+                      } catch (error) {
+                        console.error('Errore durante l\'eliminazione batch:', error);
+                        onToast?.('Errore durante l\'eliminazione dei link', 'error');
+                      }
+                    }}
+                    className="flex items-center space-x-1 px-3 py-1 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                    <span>Elimina</span>
+                  </button>
+                </>
               )}
             </div>
             <div className="flex items-center space-x-2">
@@ -576,7 +718,7 @@ export default function FolderizedLinksList({
               </div>
             </div>
           </div>
-          {/* Nuovo componente AdvancedFilters */}
+          {/* Componente AdvancedFilters */}
           <AdvancedFilters
             isOpen={showFilters}
             onClose={() => setShowFilters(false)}
@@ -592,6 +734,29 @@ export default function FolderizedLinksList({
             links={links}
           />
         </div>
+        
+        {/* Sezione Cartelle - mostrata sopra la tabella dei link */}
+        {subfolders.length > 0 && (
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-25">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">
+              Cartelle ({subfolders.length})
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {subfolders.map((folder) => {
+                const stats = getFolderStats(folder.id);
+                return (
+                  <FolderCard
+                    key={`folder-${folder.id}`}
+                    folder={folder}
+                    onFolderSelect={onFolderSelect || (() => {})}
+                    linkCount={stats.linkCount}
+                    subfolderCount={stats.subfolderCount}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
         
         <div className="flex-1 overflow-auto" ref={tableRef}>
           <table className="min-w-full divide-y divide-gray-200">
@@ -625,6 +790,11 @@ export default function FolderizedLinksList({
                     )}
                   </div>
                 </th>
+                {showMultipleFoldersColumn && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-56">
+                    Cartelle
+                  </th>
+                )}
                 <th 
                   className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100"
                   onClick={() => {
@@ -719,12 +889,31 @@ export default function FolderizedLinksList({
                   isSelected={selectedLinks.has(link.id)}
                   onSelect={handleLinkSelection}
                   selectionMode={selectionMode}
+                  onManageFolders={enableMultipleFolders ? handleManageFolders : undefined}
+                  showMultipleFolders={showMultipleFoldersColumn}
                 />
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Modal per gestione cartelle multiple */}
+      {enableMultipleFolders && (
+        <MultiFolderSelector
+          isOpen={showMultiFolderModal}
+          onClose={() => {
+            setShowMultiFolderModal(false);
+            setSelectedLinkForFolders(null);
+          }}
+          linkId={selectedLinkForFolders?.id || ''}
+          linkTitle={selectedLinkForFolders?.title || selectedLinkForFolders?.short_code}
+          currentFolders={selectedLinkForFolders?.folders || []}
+          availableFolders={folders}
+          onSave={handleSaveFolderAssociations}
+          onToast={onToast}
+        />
+      )}
     </div>
   );
 }

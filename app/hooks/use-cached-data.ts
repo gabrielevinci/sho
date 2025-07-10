@@ -179,7 +179,7 @@ export function useCachedData<T>(
  */
 export function useCachedLinks(workspaceId: string | null) {
   return useCachedData(
-    workspaceId ? `/api/links?workspaceId=${workspaceId}` : null,
+    workspaceId ? `/api/links-with-folders?workspaceId=${workspaceId}` : null,
     undefined,
     {
       cacheType: 'links',

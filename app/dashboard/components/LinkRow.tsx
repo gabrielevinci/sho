@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LinkIcon, CalendarIcon, ChartBarIcon, PencilIcon, TrashIcon, ClipboardIcon, QrCodeIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, CalendarIcon, ChartBarIcon, PencilIcon, TrashIcon, ClipboardIcon, QrCodeIcon, ArrowPathIcon, FolderIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import ConfirmationModal from './ConfirmationModal';
 import QRCodeModal from './QRCodeModal';
@@ -15,7 +15,13 @@ export interface LinkFromDB {
   description: string | null;
   click_count: number;
   unique_click_count: number; // Add unique click count field
-  folder_id: string | null;
+  folder_id: string | null; // Manteniamo per compatibilità
+  // Nuove proprietà per cartelle multiple
+  folders?: Array<{
+    id: string;
+    name: string;
+    parent_folder_id: string | null;
+  }>;
 }
 
 interface LinkRowProps {
@@ -30,6 +36,9 @@ interface LinkRowProps {
   isSelected?: boolean;
   onSelect?: (linkId: string, event: React.MouseEvent) => void;
   selectionMode?: boolean;
+  // Props per la gestione delle cartelle multiple
+  onManageFolders?: (link: LinkFromDB) => void;
+  showMultipleFolders?: boolean;
 }
 
 export default function LinkRow({ 
@@ -42,7 +51,9 @@ export default function LinkRow({
   onToast,
   isSelected = false,
   onSelect,
-  selectionMode = false
+  selectionMode = false,
+  onManageFolders,
+  showMultipleFolders = false
 }: LinkRowProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -224,6 +235,53 @@ export default function LinkRow({
         </div>
       </td>
 
+      {/* Cartelle - visualizzazione multipla se abilitata */}
+      {showMultipleFolders && (
+        <td className="px-6 py-4 w-56">
+          <div className="flex flex-col space-y-1">
+            {link.folders && link.folders.length > 0 ? (
+              <>
+                {link.folders.slice(0, 2).map((folder) => (
+                  <div key={folder.id} className="flex items-center text-xs">
+                    <FolderIcon className="h-3 w-3 text-blue-500 mr-1 flex-shrink-0" />
+                    <span className="text-gray-700 truncate">{folder.name}</span>
+                  </div>
+                ))}
+                {link.folders.length > 2 && (
+                  <div className="text-xs text-gray-500">
+                    +{link.folders.length - 2} altre
+                  </div>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onManageFolders?.(link);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 text-left"
+                  title="Gestisci cartelle"
+                >
+                  Gestisci ({link.folders.length})
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center text-xs text-gray-500">
+                <FolderIcon className="h-3 w-3 mr-1" />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onManageFolders?.(link);
+                  }}
+                  className="text-blue-600 hover:text-blue-800"
+                  title="Aggiungi a cartelle"
+                >
+                  Aggiungi a cartelle
+                </button>
+              </div>
+            )}
+          </div>
+        </td>
+      )}
+
       {/* Click count */}
       <td className="px-6 py-4 whitespace-nowrap text-center w-24">
         <div className="flex items-center justify-center space-x-1">
@@ -235,8 +293,8 @@ export default function LinkRow({
       {/* Unique Click count */}
       <td className="px-6 py-4 whitespace-nowrap text-center w-24">
         <div className="flex items-center justify-center space-x-1">
-          <ChartBarIcon className="h-4 w-4 text-blue-500" />
-          <span className="text-sm text-blue-700">{link.unique_click_count || 0}</span>
+          <ChartBarIcon className="h-4 w-4 text-gray-500" />
+          <span className="text-sm text-gray-700">{link.unique_click_count || 0}</span>
         </div>
       </td>
 
@@ -305,6 +363,20 @@ export default function LinkRow({
           >
             <PencilIcon className="h-4 w-4" />
           </Link>
+          
+          {/* Gestisci Cartelle - solo se la colonna non è visualizzata */}
+          {!showMultipleFolders && onManageFolders && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onManageFolders(link);
+              }}
+              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Gestisci Cartelle"
+            >
+              <FolderIcon className="h-4 w-4" />
+            </button>
+          )}
           
           {/* QR Code */}
           <button

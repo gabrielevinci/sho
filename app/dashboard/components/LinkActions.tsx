@@ -1,31 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Edit, Trash2, RotateCcw, QrCode, Download, X } from 'lucide-react';
+import { Copy, Edit, Trash2, RotateCcw, QrCode } from 'lucide-react';
 import { deleteLink, resetLinkStats } from '../analytics/[shortCode]/actions';
 import { useRouter } from 'next/navigation';
-import QRCode from 'qrcode';
-import Image from 'next/image';
 import Portal from './Portal';
+import QRCodeModal from './QRCodeModal';
 
 interface LinkActionsProps {
   shortCode: string;
   showInline?: boolean; // Per mostrare i pulsanti in linea nella dashboard
   onUpdate?: () => void; // Callback per aggiornare i dati dopo le modifiche
+  onToast?: (message: string, type: 'success' | 'error') => void; // Callback per toast messages
 }
 
 export default function LinkActions({ 
   shortCode, 
   showInline = false,
-  onUpdate 
+  onUpdate,
+  onToast
 }: LinkActionsProps) {
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [generatingQr, setGeneratingQr] = useState(false);
 
   const router = useRouter();
 
@@ -36,45 +35,16 @@ export default function LinkActions({
       await navigator.clipboard.writeText(shortUrl);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
+      onToast?.('Link copiato negli appunti!', 'success');
     } catch (error) {
       console.error('Errore durante la copia:', error);
+      onToast?.('Errore durante la copia del link', 'error');
     }
   };
 
-  // Funzione per generare il QR code
-  const generateQRCode = async () => {
-    setGeneratingQr(true);
-    try {
-      const shortUrl = `${window.location.origin}/${shortCode}`;
-      const qrUrl = `${shortUrl}?qr=1`;
-      const qrDataUrl = await QRCode.toDataURL(qrUrl, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        }
-      });
-      setQrCodeUrl(qrDataUrl);
-      setShowQrModal(true);
-    } catch (error) {
-      console.error('Errore durante la generazione del QR code:', error);
-      alert('Errore durante la generazione del QR code');
-    } finally {
-      setGeneratingQr(false);
-    }
-  };
-
-  // Funzione per scaricare il QR code
-  const downloadQRCode = () => {
-    if (qrCodeUrl) {
-      const link = document.createElement('a');
-      link.href = qrCodeUrl;
-      link.download = `qr-code-${shortCode}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+  // Funzione per aprire il modal QR Code
+  const handleQRCode = () => {
+    setShowQrModal(true);
   };
 
   // Funzione per eliminare il link
@@ -144,10 +114,10 @@ export default function LinkActions({
           <Edit className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {/* 3. Pulsante QR Code */}
+        {        /* 3. Pulsante QR Code */}
         <button
-          onClick={generateQRCode}
-          disabled={loading || generatingQr}
+          onClick={handleQRCode}
+          disabled={loading}
           className={`${buttonBaseClass} border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50`}
           title="Genera QR Code"
         >
@@ -178,7 +148,7 @@ export default function LinkActions({
       {/* Modal di conferma eliminazione */}
       {showConfirmDelete && (
         <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
             <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Conferma eliminazione
@@ -210,7 +180,7 @@ export default function LinkActions({
       {/* Modal di conferma reset statistiche */}
       {showConfirmReset && (
         <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
             <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Conferma reset statistiche
@@ -239,56 +209,15 @@ export default function LinkActions({
         </Portal>
       )}
 
-      {/* Modal QR Code */}
+      {      /* Modal QR Code */}
       {showQrModal && (
-        <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  QR Code del Link
-                </h3>
-                <button
-                  onClick={() => setShowQrModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            
-            <div className="text-center mb-4">
-              <p className="text-sm text-gray-600 mb-4">
-                Scansiona questo QR code per accedere al link
-              </p>
-              {qrCodeUrl && (
-                <Image 
-                  src={qrCodeUrl} 
-                  alt="QR Code" 
-                  width={200}
-                  height={200}
-                  className="mx-auto border border-gray-200 rounded-lg"
-                />
-              )}
-            </div>
-            
-            <div className="flex justify-center space-x-3">
-              <button
-                onClick={downloadQRCode}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Scarica PNG
-              </button>
-              <button
-                onClick={() => setShowQrModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Chiudi
-              </button>
-            </div>
-          </div>
-          </div>
-        </Portal>
+        <QRCodeModal
+          isOpen={showQrModal}
+          onClose={() => setShowQrModal(false)}
+          url={`${typeof window !== 'undefined' ? window.location.origin : ''}/${shortCode}`}
+          title={`QR Code per ${shortCode}`}
+          onToast={onToast}
+        />
       )}
     </>
   );

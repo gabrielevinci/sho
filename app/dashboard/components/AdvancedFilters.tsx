@@ -13,6 +13,10 @@ export interface FilterOptions {
   maxClicks?: number;
   clickOperator?: 'equal' | 'less' | 'greater' | 'lessEqual' | 'greaterEqual';
   clickValue?: number;
+  title?: string;
+  url?: string;
+  clicksMin?: number;
+  clicksMax?: number;
 }
 
 export interface LinkFromDB {
@@ -177,7 +181,7 @@ export default function AdvancedFilters({
   const activeFiltersCount = countActiveFilters(filters);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">

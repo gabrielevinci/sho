@@ -19,10 +19,10 @@ export function DataPreloader({ workspaceId, currentPath }: DataPreloaderProps) 
     if (currentPath.includes('/analytics/')) {
       const preloadDashboardData = async () => {
         try {
-          // Pre-carica i link del workspace
+          // Pre-carica i link del workspace con supporto cartelle multiple
           await preloadData(
-            `/api/links?workspaceId=${workspaceId}`,
-            () => fetch(`/api/links?workspaceId=${workspaceId}`).then(res => res.json()),
+            `/api/links-with-folders?workspaceId=${workspaceId}`,
+            () => fetch(`/api/links-with-folders?workspaceId=${workspaceId}`).then(res => res.json()),
             5 * 60 * 1000 // TTL di 5 minuti
           );
 

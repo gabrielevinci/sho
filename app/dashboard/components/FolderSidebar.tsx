@@ -734,7 +734,7 @@ export default function FolderSidebar({
       {/* Modal per creare nuova cartella */}
       {isCreatingFolder && (
         <Portal>
-          <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
             <div className="bg-white rounded-lg p-6 w-96 shadow-xl relative">
               <h3 className="text-lg font-semibold mb-4 text-gray-900">
                 {parentFolderId ? 'Crea sottocartella' : 'Crea nuova cartella'}

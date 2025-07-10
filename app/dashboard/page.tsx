@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { sql } from '@vercel/postgres';
 import { logout, createDefaultFolder } from './actions';
 import DashboardClient from './dashboard-client';
+import WorkspaceSwitcher from './workspace-switcher';
 import Link from 'next/link';
 
 type Workspace = {
@@ -20,6 +21,12 @@ export type LinkFromDB = {
   click_count: number;
   unique_click_count: number; // Add unique click count field
   folder_id: string | null;
+  // Nuove proprietà per cartelle multiple
+  folders?: Array<{
+    id: string;
+    name: string;
+    parent_folder_id: string | null;
+  }>;
 };
 
 async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
@@ -36,26 +43,80 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
-    // Usa la stessa logica delle analytics per calcolare i click reali
-    const { rows } = await sql<LinkFromDB>`
+    // Query base per ottenere i link con conteggi dei click
+    const { rows: links } = await sql`
       SELECT 
-        l.id, 
-        l.short_code, 
-        l.original_url, 
-        l.created_at, 
-        l.title, 
-        l.description, 
+        l.id,
+        l.short_code,
+        l.original_url,
+        l.title,
+        l.description,
+        l.created_at,
         l.folder_id,
-        -- Calcola i click reali dalla tabella clicks (stesso calcolo delle analytics)
         COALESCE(COUNT(c.id), 0)::integer as click_count,
         COALESCE(COUNT(DISTINCT c.user_fingerprint), 0)::integer as unique_click_count
       FROM links l
       LEFT JOIN clicks c ON c.link_id = l.id
       WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
-      GROUP BY l.id, l.short_code, l.original_url, l.created_at, l.title, l.description, l.folder_id
+      GROUP BY l.id, l.short_code, l.original_url, l.title, l.description, l.created_at, l.folder_id
       ORDER BY l.created_at DESC
     `;
-    return rows;
+
+    // Se non ci sono link, restituisci array vuoto
+    if (links.length === 0) {
+      return [];
+    }
+
+    // Ottieni tutte le associazioni cartelle per questi link
+    const linkIds = links.map(link => link.id);
+    const linkPlaceholders = linkIds.map((_, index) => `$${index + 1}`).join(', ');
+    
+    const associationsQuery = `
+      SELECT 
+        lfa.link_id,
+        f.id as folder_id,
+        f.name as folder_name,
+        f.parent_folder_id
+      FROM link_folder_associations lfa
+      JOIN folders f ON lfa.folder_id = f.id
+      WHERE lfa.link_id IN (${linkPlaceholders})
+        AND lfa.user_id = $${linkIds.length + 1}
+        AND lfa.workspace_id = $${linkIds.length + 2}
+      ORDER BY f.name ASC
+    `;
+
+    const { rows: associations } = await sql.query(associationsQuery, [
+      ...linkIds,
+      userId,
+      workspaceId
+    ]);
+
+    // Raggruppa le associazioni per link
+    const foldersByLink = new Map<string, Array<{
+      id: string;
+      name: string;
+      parent_folder_id: string | null;
+    }>>();
+
+    associations.forEach(assoc => {
+      const linkIdString = String(assoc.link_id);
+      if (!foldersByLink.has(linkIdString)) {
+        foldersByLink.set(linkIdString, []);
+      }
+      foldersByLink.get(linkIdString)!.push({
+        id: assoc.folder_id,
+        name: assoc.folder_name,
+        parent_folder_id: assoc.parent_folder_id
+      });
+    });
+
+    // Combina i dati
+    const linksWithFolders = links.map((link: any) => ({
+      ...link,
+      folders: foldersByLink.get(String(link.id)) || []
+    })) as LinkFromDB[];
+
+    return linksWithFolders;
   } catch (error) {
     console.error("Failed to fetch links:", error);
     return [];
@@ -91,9 +152,6 @@ export default async function DashboardPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex justify-between items-center">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-          </div>
           <div className="flex items-center space-x-4">
             <Link 
               href="/dashboard/create"
@@ -101,6 +159,12 @@ export default async function DashboardPage() {
             >
               Crea Link
             </Link>
+          </div>
+          <div className="flex items-center space-x-4">
+            <WorkspaceSwitcher 
+              workspaces={userWorkspaces} 
+              activeWorkspace={activeWorkspace}
+            />
             <form action={logout}>
               <button type="submit" className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">
                 Logout
@@ -112,7 +176,6 @@ export default async function DashboardPage() {
 
       <div className="flex-1 flex overflow-hidden">
         <DashboardClient 
-          initialWorkspaces={userWorkspaces} 
           initialActiveWorkspace={activeWorkspace}
           initialLinks={userLinks}
         />

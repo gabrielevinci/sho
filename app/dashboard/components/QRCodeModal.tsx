@@ -197,7 +197,7 @@ export default function QRCodeModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4">
         <div className={`bg-white rounded-2xl shadow-2xl w-full mx-4 overflow-hidden ${
           showAdvanced ? 'max-w-3xl max-h-[85vh] overflow-y-auto' : 'max-w-2xl'
         }`}>

@@ -3,7 +3,6 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import FolderSidebar, { Folder } from './components/FolderSidebar';
 import FolderizedLinksList from './components/FolderizedLinksList';
-import WorkspaceSwitcher from './workspace-switcher';
 import { deleteLink } from './analytics/[shortCode]/actions';
 import ToastContainer from './components/Toast';
 import { useToast } from '../hooks/use-toast';
@@ -22,17 +21,21 @@ type LinkFromDB = {
   description: string | null;
   click_count: number;
   unique_click_count: number; // Add unique click count field
-  folder_id: string | null;
+  folder_id: string | null; // Manteniamo per compatibilità
+  // Nuove proprietà per cartelle multiple
+  folders?: Array<{
+    id: string;
+    name: string;
+    parent_folder_id: string | null;
+  }>;
 };
 
 interface DashboardClientProps {
-  initialWorkspaces: Workspace[];
   initialActiveWorkspace: Workspace | undefined;
   initialLinks: LinkFromDB[];
 }
 
 export default function DashboardClient({ 
-  initialWorkspaces, 
   initialActiveWorkspace, 
   initialLinks 
 }: DashboardClientProps) {
@@ -86,18 +89,37 @@ export default function DashboardClient({
   }, [findDefaultFolderId]);
   
   const handleUpdateLinks = useCallback(async () => {
+    console.log('🔄 handleUpdateLinks chiamato...');
     // Ricarica solo i link senza refreshare la pagina
     if (!initialActiveWorkspace) return;
     
     try {
-      const response = await fetch(`/api/links?workspaceId=${initialActiveWorkspace.id}`);
+      // Usa sempre l'API con supporto per cartelle multiple
+      const apiUrl = `/api/links-with-folders?workspaceId=${initialActiveWorkspace.id}`;
+      console.log('📥 Caricando link da:', apiUrl);
+      
+      const response = await fetch(apiUrl);
       const data = await response.json();
       
       if (data.links) {
+        console.log(`✅ Caricati ${data.links.length} link, aggiornando stato...`);
+        
+        // Debug: Mostra le prime associazioni per verificare
+        if (data.links.length > 0) {
+          const sampleLink = data.links[0];
+          console.log('� Debug - Primo link:', {
+            id: sampleLink.id,
+            title: sampleLink.title || sampleLink.original_url,
+            folders: sampleLink.folders?.length || 0,
+            folderNames: sampleLink.folders?.map((f: { name: string }) => f.name) || []
+          });
+        }
+        
         setLinks(data.links);
+        console.log('✅ Stato link aggiornato');
       }
     } catch (error) {
-      console.error('Errore durante il caricamento dei link:', error);
+      console.error('❌ Errore durante il caricamento dei link:', error);
     }
   }, [initialActiveWorkspace]);
 
@@ -161,23 +183,27 @@ export default function DashboardClient({
   }, []);
   
   const handleLinkDrop = useCallback(async (linkId: string, folderId: string | null, clearSelection?: () => void) => {
+    console.log('🔄 handleLinkDrop chiamato:', { linkId, folderId, selectedFolderId });
     try {
-      const response = await fetch('/api/links/move', {
+      // Usa l'API batch-move anche per un singolo link per uniformare il comportamento
+      const response = await fetch('/api/links/batch-move', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          linkId,
-          folderId
+          linkIds: [linkId],
+          folderId,
+          sourceFolderId: selectedFolderId === 'all' ? null : selectedFolderId // Passa la cartella di origine
         }),
       });
 
       if (response.ok) {
-        // Aggiorna lo stato locale del link
-        setLinks(prev => prev.map(link => 
-          link.id === linkId ? { ...link, folder_id: folderId } : link
-        ));
+        console.log('✅ API batch-move (drag&drop) completata con successo, chiamando handleUpdateLinks...');
+        // IMPORTANTE: Ricarica tutti i link per avere le associazioni multiple aggiornate
+        // Non aggiornare lo stato locale, ma ricarica dal server
+        await handleUpdateLinks();
+        console.log('✅ handleUpdateLinks completato per drag&drop');
         
         // Deselect links after moving - use the passed callback or the stored function
         const clearFunc = clearSelection || clearSelectionRef.current;
@@ -188,19 +214,30 @@ export default function DashboardClient({
         // Non mostrare toast qui, sarà gestito da FolderSidebar per operazioni batch
         // o da altri componenti per operazioni singole
       } else {
-        console.error('Errore durante lo spostamento del link');
+        const errorData = await response.json();
+        console.error('❌ Errore API batch-move (drag&drop):', errorData);
         showError('Errore durante lo spostamento del link');
       }
     } catch (error) {
-      console.error('Errore durante lo spostamento del link:', error);
+      console.error('❌ Errore durante lo spostamento del link (drag&drop):', error);
       showError('Errore durante lo spostamento del link');
     }
-  }, [showError]);
+  }, [showError, selectedFolderId, handleUpdateLinks]);
 
   const handleUpdateLink = useCallback((shortCode: string, updates: Partial<LinkFromDB>) => {
-    setLinks(prev => prev.map(link => 
-      link.short_code === shortCode ? { ...link, ...updates } : link
-    ));
+    setLinks(prev => prev.map(link => {
+      if (link.short_code === shortCode) {
+        // Preserviamo i riferimenti alle cartelle multiple anche quando si aggiorna il link
+        // così non perdiamo le associazioni multiple quando si sposta un link
+        return { 
+          ...link, 
+          ...updates,
+          // Se si sta impostando un nuovo folder_id ma il link ha già folders, manteniamoli
+          folders: updates.folders || link.folders
+        };
+      }
+      return link;
+    }));
   }, []);
 
   const handleToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -214,13 +251,6 @@ export default function DashboardClient({
   return (
     <div className="w-full h-full flex flex-col">
       <ToastContainer toasts={toasts} onClose={removeToast} />
-      
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <WorkspaceSwitcher 
-          workspaces={initialWorkspaces} 
-          activeWorkspace={initialActiveWorkspace}
-        />
-      </div>
 
       <div className="flex-1 flex overflow-hidden">
         {initialActiveWorkspace && (
@@ -256,6 +286,8 @@ export default function DashboardClient({
                   onToast={handleToast}
                   folders={folders}
                   onClearSelectionRef={handleClearSelectionRef}
+                  onFolderSelect={handleFolderSelect}
+                  enableMultipleFolders={true}
                 />
               </div>
             </div>

@@ -39,6 +39,7 @@ export default function LinkHeader({ linkData, shortCode }: LinkHeaderProps) {
             <LinkActions
               shortCode={shortCode}
               onUpdate={() => window.location.reload()}
+              showInline={false}
             />
           </div>
 

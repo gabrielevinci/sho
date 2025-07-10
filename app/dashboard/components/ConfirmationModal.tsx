@@ -71,7 +71,7 @@ export default function ConfirmationModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
         <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
           <div className="flex items-center space-x-3 mb-4">
             <div className="flex-shrink-0">
