@@ -5,7 +5,7 @@ import LinkRow from './LinkRow';
 import { LinkFromDB } from './LinkRow';
 import { Folder } from './FolderSidebar';
 import AdvancedFilters, { FilterOptions } from './AdvancedFilters';
-import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import MultiFolderSelector from './MultiFolderSelector';
 import { useClickOutside } from '../hooks/useClickOutside';
 
