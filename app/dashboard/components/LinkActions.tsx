@@ -2,23 +2,26 @@
 
 import { useState } from 'react';
 import { Copy, Edit, Trash2, RotateCcw, QrCode } from 'lucide-react';
-import { deleteLink, resetLinkStats } from '../analytics/[shortCode]/actions';
+import { deleteLink } from '../analytics/[shortCode]/actions';
 import { useRouter } from 'next/navigation';
 import Portal from './Portal';
 import QRCodeModal from './QRCodeModal';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface LinkActionsProps {
   shortCode: string;
   showInline?: boolean; // Per mostrare i pulsanti in linea nella dashboard
   onUpdate?: () => void; // Callback per aggiornare i dati dopo le modifiche
   onToast?: (message: string, type: 'success' | 'error') => void; // Callback per toast messages
+  onClearSelection?: () => void; // Callback per cancellare la selezione
 }
 
 export default function LinkActions({ 
   shortCode, 
   showInline = false,
   onUpdate,
-  onToast
+  onToast,
+  onClearSelection
 }: LinkActionsProps) {
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -27,6 +30,15 @@ export default function LinkActions({
   const [showQrModal, setShowQrModal] = useState(false);
 
   const router = useRouter();
+
+  // Hook per click-outside dei modali
+  const deleteModalRef = useClickOutside<HTMLDivElement>(() => {
+    setShowConfirmDelete(false);
+  }, showConfirmDelete);
+
+  const resetModalRef = useClickOutside<HTMLDivElement>(() => {
+    setShowConfirmReset(false);
+  }, showConfirmReset);
 
   // Funzione per copiare il link
   const handleCopyLink = async () => {
@@ -52,6 +64,12 @@ export default function LinkActions({
     setLoading(true);
     try {
       await deleteLink(shortCode);
+      
+      // Cancella la selezione se presente
+      if (onClearSelection) {
+        onClearSelection();
+      }
+      
       if (onUpdate) {
         onUpdate();
       } else {
@@ -69,17 +87,45 @@ export default function LinkActions({
   const handleResetStats = async () => {
     setLoading(true);
     try {
-      await resetLinkStats(shortCode);
-      if (onUpdate) {
-        onUpdate();
+      console.log('🔄 Tentativo azzera click per:', shortCode);
+      
+      const response = await fetch('/api/links/reset-clicks', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ shortCode }),
+      });
+
+      console.log('📊 Risposta API:', response.status, response.statusText);
+
+      if (response.ok) {
+        console.log('✅ Reset click completato con successo');
+        
+        // Cancella la selezione se presente
+        if (onClearSelection) {
+          onClearSelection();
+        }
+
+        onToast?.('Click azzerati con successo', 'success');
+        if (onUpdate) {
+          onUpdate();
+        } else {
+          // Force refresh per vedere i cambiamenti
+          window.location.reload();
+        }
       } else {
-        window.location.reload();
+        const errorData = await response.text();
+        console.error('❌ Errore API:', response.status, errorData);
+        throw new Error(`Errore ${response.status}: ${errorData}`);
       }
     } catch (error) {
-      console.error('Errore durante il reset:', error);
-      alert('Errore durante il reset delle statistiche');
+      console.error('❌ Errore durante il reset:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+      onToast?.(`Errore durante il reset delle statistiche: ${errorMessage}`, 'error');
     } finally {
       setLoading(false);
+      setShowConfirmReset(false);
     }
   };
 
@@ -149,7 +195,7 @@ export default function LinkActions({
       {showConfirmDelete && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+            <div ref={deleteModalRef} className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Conferma eliminazione
               </h3>
@@ -181,7 +227,7 @@ export default function LinkActions({
       {showConfirmReset && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+            <div ref={resetModalRef} className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Conferma reset statistiche
               </h3>

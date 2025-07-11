@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { XMarkIcon, ArrowDownTrayIcon, ClipboardIcon, CogIcon } from '@heroicons/react/24/outline';
 import NextImage from 'next/image';
 import Portal from './Portal';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -33,6 +34,13 @@ export default function QRCodeModal({
   const [backgroundColor, setBackgroundColor] = useState('ffffff');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const qrCacheRef = useRef<Map<string, string>>(new Map());
+
+  // Click esterno per chiudere il modal
+  const modalRef = useClickOutside<HTMLDivElement>(() => {
+    if (!isLoading) {
+      onClose();
+    }
+  }, isOpen);
 
   // Funzione per resettare le opzioni avanzate ai valori predefiniti
   const resetAdvancedOptions = useCallback(() => {
@@ -199,7 +207,7 @@ export default function QRCodeModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4">
-        <div className={`bg-white rounded-2xl shadow-2xl w-full mx-4 overflow-hidden ${
+        <div ref={modalRef} className={`bg-white rounded-2xl shadow-2xl w-full mx-4 overflow-hidden ${
           showAdvanced ? 'max-w-3xl max-h-[85vh] overflow-y-auto' : 'max-w-2xl'
         }`}>
           {/* Header */}

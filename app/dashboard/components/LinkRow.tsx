@@ -36,6 +36,7 @@ interface LinkRowProps {
   isSelected?: boolean;
   onSelect?: (linkId: string, event: React.MouseEvent) => void;
   selectionMode?: boolean;
+  onClearSelection?: () => void; // Callback per cancellare la selezione
   // Props per la gestione delle cartelle multiple
   onManageFolders?: (link: LinkFromDB) => void;
   showMultipleFolders?: boolean;
@@ -52,6 +53,7 @@ export default function LinkRow({
   isSelected = false,
   onSelect,
   selectionMode = false,
+  onClearSelection,
   onManageFolders,
   showMultipleFolders = false
 }: LinkRowProps) {
@@ -74,6 +76,12 @@ export default function LinkRow({
     try {
       await onDelete(link.short_code);
       setShowDeleteModal(false);
+      
+      // Cancella la selezione se presente
+      if (onClearSelection) {
+        onClearSelection();
+      }
+      
       onToast?.('Link eliminato con successo', 'success');
     } catch (error) {
       console.error('Errore durante l\'eliminazione:', error);
@@ -86,6 +94,8 @@ export default function LinkRow({
   const handleResetClicks = async () => {
     setIsResetting(true);
     try {
+      console.log('🔄 Tentativo reset click per:', link.short_code);
+      
       const response = await fetch(`/api/links/reset-clicks`, {
         method: 'PUT',
         headers: {
@@ -96,19 +106,35 @@ export default function LinkRow({
         }),
       });
 
+      console.log('📊 Risposta API reset:', response.status, response.statusText);
+
       if (response.ok) {
+        console.log('✅ Reset completato con successo');
         setShowResetModal(false);
+        
+        // Cancella la selezione se presente
+        if (onClearSelection) {
+          onClearSelection();
+        }
+        
         onToast?.('Click azzerati con successo', 'success');
-        // Aggiorna il link localmente invece di ricaricare la pagina
+        
+        // Aggiorna il link localmente con click_count e unique_click_count = 0
         if (onUpdateLink) {
-          onUpdateLink(link.short_code, { click_count: 0 });
+          onUpdateLink(link.short_code, { 
+            click_count: 0, 
+            unique_click_count: 0 
+          });
         }
       } else {
-        throw new Error('Errore durante l\'azzeramento dei click');
+        const errorData = await response.text();
+        console.error('❌ Errore API reset:', response.status, errorData);
+        throw new Error(`Errore ${response.status}: ${errorData}`);
       }
     } catch (error) {
-      console.error('Errore durante l\'azzeramento dei click:', error);
-      onToast?.('Errore durante l\'azzeramento dei click', 'error');
+      console.error('❌ Errore durante l\'azzeramento dei click:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
+      onToast?.(`Errore durante l'azzeramento dei click: ${errorMessage}`, 'error');
     } finally {
       setIsResetting(false);
     }

@@ -5,8 +5,9 @@ import LinkRow from './LinkRow';
 import { LinkFromDB } from './LinkRow';
 import { Folder } from './FolderSidebar';
 import AdvancedFilters, { FilterOptions } from './AdvancedFilters';
-import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import MultiFolderSelector from './MultiFolderSelector';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface FolderCardProps {
   folder: Folder;
@@ -106,6 +107,9 @@ export default function FolderizedLinksList({
   // Stati per batch operations integrate
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+
+  // Stato per la visibilità delle sottocartelle
+  const [showSubfolders, setShowSubfolders] = useState(true);
 
   // Funzioni di utilità per filtraggio e ordinamento
   const applyFilters = useCallback((links: LinkFromDB[], filters: FilterOptions): LinkFromDB[] => {
@@ -378,6 +382,22 @@ export default function FolderizedLinksList({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showFolderDropdown]);
+
+  // Event listener per il tasto ESC per annullare la modalità selezione
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectionMode) {
+        setSelectionMode(false);
+        handleClearSelection();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectionMode]);
 
   const handleClearSelection = () => {
     setSelectedLinks(new Set());
@@ -737,23 +757,45 @@ export default function FolderizedLinksList({
         
         {/* Sezione Cartelle - mostrata sopra la tabella dei link */}
         {subfolders.length > 0 && (
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-25">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">
-              Cartelle ({subfolders.length})
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {subfolders.map((folder) => {
-                const stats = getFolderStats(folder.id);
-                return (
-                  <FolderCard
-                    key={`folder-${folder.id}`}
-                    folder={folder}
-                    onFolderSelect={onFolderSelect || (() => {})}
-                    linkCount={stats.linkCount}
-                    subfolderCount={stats.subfolderCount}
-                  />
-                );
-              })}
+          <div className="px-6 py-4 border-b border-gray-200 bg-blue-50 relative">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                <span className="bg-blue-100 p-1 rounded-md text-blue-700 mr-2">
+                  <FolderIcon className="h-4 w-4 inline-block" />
+                </span>
+                <span>Cartelle interne ({subfolders.length})</span>
+              </h4>
+              
+              {/* Toggle per nascondere/mostrare le sottocartelle */}
+              <button
+                onClick={() => setShowSubfolders(!showSubfolders)}
+                className="absolute -top-3 right-6 bg-white rounded-full p-2 shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                title={showSubfolders ? "Nascondi cartelle" : "Mostra cartelle"}
+              >
+                {showSubfolders ? (
+                  <EyeSlashIcon className="h-4 w-4 text-gray-600" />
+                ) : (
+                  <EyeIcon className="h-4 w-4 text-gray-600" />
+                )}
+              </button>
+            </div>
+            
+            {/* Griglia delle cartelle con transizione */}
+            <div className={`transition-all duration-300 overflow-hidden ${showSubfolders ? 'opacity-100 max-h-none' : 'opacity-0 max-h-0'}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {subfolders.map((folder) => {
+                  const stats = getFolderStats(folder.id);
+                  return (
+                    <FolderCard
+                      key={`folder-${folder.id}`}
+                      folder={folder}
+                      onFolderSelect={onFolderSelect || (() => {})}
+                      linkCount={stats.linkCount}
+                      subfolderCount={stats.subfolderCount}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

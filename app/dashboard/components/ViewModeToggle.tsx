@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FolderIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface ViewModeToggleProps {
   enableMultipleFolders: boolean;
@@ -18,8 +19,13 @@ export default function ViewModeToggle({
 }: ViewModeToggleProps) {
   const [showOptions, setShowOptions] = useState(false);
 
+  // Click esterno per chiudere il dropdown
+  const dropdownRef = useClickOutside<HTMLDivElement>(() => {
+    setShowOptions(false);
+  }, showOptions);
+
   return (
-    <div className="relative">
+    <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setShowOptions(!showOptions)}
         className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -119,12 +125,11 @@ export default function ViewModeToggle({
         </div>
       )}
 
-      {/* Overlay per chiudere il menu */}
+      {/* Overlay per chiudere il menu - Non più necessario con useClickOutside */}
       {showOptions && (
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setShowOptions(false)}
-        />
+        <div className="sr-only">
+          {/* Overlay rimosso perché gestito da useClickOutside */}
+        </div>
       )}
     </div>
   );

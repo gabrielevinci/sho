@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { ExclamationTriangleIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import Portal from './Portal';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -27,6 +28,13 @@ export default function ConfirmationModal({
   type = 'warning',
   isLoading = false
 }: ConfirmationModalProps) {
+  // Click esterno per chiudere il modal
+  const modalRef = useClickOutside<HTMLDivElement>(() => {
+    if (!isLoading) {
+      onClose();
+    }
+  }, isOpen);
+
   // Gestione tasti
   useEffect(() => {
     if (!isOpen) return;
@@ -72,7 +80,7 @@ export default function ConfirmationModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-        <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
+        <div ref={modalRef} className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
           <div className="flex items-center space-x-3 mb-4">
             <div className="flex-shrink-0">
               {getIcon()}

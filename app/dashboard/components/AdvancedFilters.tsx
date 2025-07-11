@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { CalendarIcon, FunnelIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 export interface FilterOptions {
   dateRange?: 'today' | 'week' | 'month' | 'currentMonth' | 'previousMonth' | 'custom';
@@ -60,6 +61,11 @@ export default function AdvancedFilters({
   const [filters, setFilters] = useState<FilterOptions>(initialFilters);
   const [domainSearch, setDomainSearch] = useState('');
   const [showDomainDropdown, setShowDomainDropdown] = useState(false);
+
+  // Hook per click-outside
+  const modalRef = useClickOutside<HTMLDivElement>(() => {
+    onClose();
+  }, isOpen);
 
   // Estrai tutti i domini unici dai link
   const availableDomains = useMemo(() => {
@@ -182,7 +188,7 @@ export default function AdvancedFilters({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div ref={modalRef} className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
           <div className="flex items-center justify-between">

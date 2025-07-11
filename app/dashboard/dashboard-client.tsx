@@ -44,6 +44,11 @@ export default function DashboardClient({
   const [links, setLinks] = useState<LinkFromDB[]>(initialLinks);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(initialActiveWorkspace?.id || null);
+  
+  // Stati per la cronologia di navigazione
+  const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
+  const [navigationIndex, setNavigationIndex] = useState<number>(-1);
+  
   const { toasts, removeToast, success, error: showError } = useToast();
   
   // Sincronizza lo stato dei link quando initialLinks cambia
@@ -59,6 +64,9 @@ export default function DashboardClient({
       setSelectedFolderId(null);
       setDefaultFolderId(null);
       setFolders([]);
+      // Reset della cronologia di navigazione
+      setNavigationHistory([]);
+      setNavigationIndex(-1);
     }
   }, [initialActiveWorkspace?.id, currentWorkspaceId]);
   
@@ -77,6 +85,9 @@ export default function DashboardClient({
           setDefaultFolderId(defaultFolder.id);
           // Seleziona sempre la cartella "Tutti i link" quando viene trovata
           setSelectedFolderId(defaultFolder.id);
+          // Inizializza la cronologia di navigazione
+          setNavigationHistory([defaultFolder.id]);
+          setNavigationIndex(0);
         }
       }
     } catch (error) {
@@ -89,14 +100,12 @@ export default function DashboardClient({
   }, [findDefaultFolderId]);
   
   const handleUpdateLinks = useCallback(async () => {
-    console.log('🔄 handleUpdateLinks chiamato...');
     // Ricarica solo i link senza refreshare la pagina
     if (!initialActiveWorkspace) return;
     
     try {
       // Usa sempre l'API con supporto per cartelle multiple
       const apiUrl = `/api/links-with-folders?workspaceId=${initialActiveWorkspace.id}`;
-      console.log('📥 Caricando link da:', apiUrl);
       
       const response = await fetch(apiUrl);
       const data = await response.json();
@@ -173,6 +182,35 @@ export default function DashboardClient({
 
   const handleFolderSelect = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId);
+    
+    // Gestione della cronologia di navigazione
+    const targetId = folderId || '';
+    
+    setNavigationHistory(prev => {
+      // Rimuovi tutto quello che viene dopo l'indice corrente
+      const newHistory = prev.slice(0, navigationIndex + 1);
+      // Aggiungi la nuova cartella solo se diversa dall'ultima
+      if (newHistory.length === 0 || newHistory[newHistory.length - 1] !== targetId) {
+        newHistory.push(targetId);
+      }
+      return newHistory;
+    });
+    
+    setNavigationIndex(prev => {
+      // Se la cronologia è vuota o l'ultima voce è diversa, incrementa l'indice
+      if (navigationHistory.length === 0 || 
+          navigationIndex < 0 || 
+          navigationHistory[navigationIndex] !== targetId) {
+        return prev + 1;
+      }
+      return prev;
+    });
+  }, [navigationHistory, navigationIndex]);
+  
+  // Funzione per gestire i cambi di navigazione dai pulsanti
+  const handleNavigationChange = useCallback((history: string[], index: number) => {
+    setNavigationHistory(history);
+    setNavigationIndex(index);
   }, []);
 
   // Reference to the clear selection function from FolderizedLinksList
@@ -183,7 +221,6 @@ export default function DashboardClient({
   }, []);
   
   const handleLinkDrop = useCallback(async (linkId: string, folderId: string | null, clearSelection?: () => void) => {
-    console.log('🔄 handleLinkDrop chiamato:', { linkId, folderId, selectedFolderId });
     try {
       // Usa l'API batch-move anche per un singolo link per uniformare il comportamento
       const response = await fetch('/api/links/batch-move', {
@@ -199,11 +236,9 @@ export default function DashboardClient({
       });
 
       if (response.ok) {
-        console.log('✅ API batch-move (drag&drop) completata con successo, chiamando handleUpdateLinks...');
         // IMPORTANTE: Ricarica tutti i link per avere le associazioni multiple aggiornate
         // Non aggiornare lo stato locale, ma ricarica dal server
         await handleUpdateLinks();
-        console.log('✅ handleUpdateLinks completato per drag&drop');
         
         // Deselect links after moving - use the passed callback or the stored function
         const clearFunc = clearSelection || clearSelectionRef.current;
@@ -288,6 +323,9 @@ export default function DashboardClient({
                   onClearSelectionRef={handleClearSelectionRef}
                   onFolderSelect={handleFolderSelect}
                   enableMultipleFolders={true}
+                  navigationHistory={navigationHistory}
+                  navigationIndex={navigationIndex}
+                  onNavigationChange={handleNavigationChange}
                 />
               </div>
             </div>

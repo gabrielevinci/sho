@@ -26,45 +26,49 @@ export async function POST(request: NextRequest) {
     }
 
     // Verifica che tutti i link appartengano all'utente
-    const linkPlaceholders = linkIds.map((_, index) => `$${index + 4}`).join(', ');
-    const linkCheckQuery = `
-      SELECT COUNT(*) as count FROM links 
-      WHERE id IN (${linkPlaceholders}) 
-        AND user_id = $1 
-        AND workspace_id = $2
-    `;
-    
-    const linkCheck = await sql.query(linkCheckQuery, [
-      session.userId, 
-      session.workspaceId, 
-      ...linkIds
-    ]);
-    
-    if (linkCheck.rows[0].count !== linkIds.length) {
-      return NextResponse.json({ 
-        error: 'Alcuni link non sono stati trovati o non appartengono all\'utente' 
-      }, { status: 404 });
+    if (linkIds.length > 0) {
+      let validLinkCount = 0;
+      for (const linkId of linkIds) {
+        const linkCheck = await sql`
+          SELECT id FROM links 
+          WHERE id = ${linkId}
+            AND user_id = ${session.userId}
+            AND workspace_id = ${session.workspaceId}
+        `;
+        
+        if (linkCheck.rowCount && linkCheck.rowCount > 0) {
+          validLinkCount++;
+        }
+      }
+      
+      if (validLinkCount !== linkIds.length) {
+        return NextResponse.json({ 
+          error: 'Alcuni link non sono stati trovati o non appartengono all\'utente' 
+        }, { status: 404 });
+      }
     }
 
     // Verifica che tutte le cartelle appartengano all'utente
-    const folderPlaceholders = folderIds.map((_, index) => `$${index + 3 + linkIds.length}`).join(', ');
-    const folderCheckQuery = `
-      SELECT COUNT(*) as count FROM folders 
-      WHERE id IN (${folderPlaceholders}) 
-        AND user_id = $1 
-        AND workspace_id = $2
-    `;
-    
-    const folderCheck = await sql.query(folderCheckQuery, [
-      session.userId, 
-      session.workspaceId, 
-      ...folderIds
-    ]);
-    
-    if (folderCheck.rows[0].count !== folderIds.length) {
-      return NextResponse.json({ 
-        error: 'Alcune cartelle non sono state trovate o non appartengono all\'utente' 
-      }, { status: 404 });
+    if (folderIds.length > 0) {
+      let validFolderCount = 0;
+      for (const folderId of folderIds) {
+        const folderCheck = await sql`
+          SELECT id FROM folders 
+          WHERE id = ${folderId}
+            AND user_id = ${session.userId}
+            AND workspace_id = ${session.workspaceId}
+        `;
+        
+        if (folderCheck.rowCount && folderCheck.rowCount > 0) {
+          validFolderCount++;
+        }
+      }
+      
+      if (validFolderCount !== folderIds.length) {
+        return NextResponse.json({ 
+          error: 'Alcune cartelle non sono state trovate o non appartengono all\'utente' 
+        }, { status: 404 });
+      }
     }
 
     let createdCount = 0;
@@ -118,7 +122,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getSession();
     
-    if (!session?.isLoggedIn || !session?.userId) {
+    if (!session?.isLoggedIn || !session?.userId || !session?.workspaceId) {
       return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 });
     }
 
@@ -136,27 +140,32 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Rimuovi tutte le associazioni che corrispondono ai criteri
-    const linkPlaceholders = linkIds.map((_, index) => `$${index + 3}`).join(', ');
-    const folderPlaceholders = folderIds.map((_, index) => `$${index + 3 + linkIds.length}`).join(', ');
+    // Rimuovi le associazioni una per volta per evitare problemi con i parametri dinamici
+    let removedCount = 0;
     
-    const deleteQuery = `
-      DELETE FROM link_folder_associations 
-      WHERE link_id IN (${linkPlaceholders}) 
-        AND folder_id IN (${folderPlaceholders})
-        AND user_id = $1
-    `;
-
-    const result = await sql.query(deleteQuery, [
-      session.userId,
-      ...linkIds,
-      ...folderIds
-    ]);
+    for (const linkId of linkIds) {
+      for (const folderId of folderIds) {
+        try {
+          const result = await sql`
+            DELETE FROM link_folder_associations 
+            WHERE link_id = ${linkId}
+              AND folder_id = ${folderId}
+              AND user_id = ${session.userId}
+              AND workspace_id = ${session.workspaceId}
+          `;
+          
+          removedCount += result.rowCount || 0;
+        } catch (error) {
+          console.error(`Errore rimuovendo associazione ${linkId}-${folderId}:`, error);
+          // Continua con le altre associazioni anche se una fallisce
+        }
+      }
+    }
 
     return NextResponse.json({ 
       success: true,
-      message: `${result.rowCount || 0} associazioni rimosse con successo`,
-      removed: result.rowCount || 0
+      message: `${removedCount} associazioni rimosse con successo`,
+      removed: removedCount
     });
   } catch (error) {
     console.error('Errore durante la rimozione batch:', error);

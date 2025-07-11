@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { XMarkIcon, FolderIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Folder } from './FolderSidebar';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface MultiFolderSelectorProps {
   isOpen: boolean;
@@ -32,6 +33,13 @@ export default function MultiFolderSelector({
   const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Click esterno per chiudere il modal
+  const modalRef = useClickOutside<HTMLDivElement>(() => {
+    if (!isLoading) {
+      onClose();
+    }
+  }, isOpen);
 
   // Inizializza le cartelle selezionate quando il modal si apre
   useEffect(() => {
@@ -147,7 +155,7 @@ export default function MultiFolderSelector({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col">
+      <div ref={modalRef} className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col">
         {/* Header migliorato */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
           <div>

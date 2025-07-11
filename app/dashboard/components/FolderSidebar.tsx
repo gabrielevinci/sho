@@ -5,6 +5,7 @@ import { ChevronRightIcon, ChevronDownIcon, FolderIcon, FolderOpenIcon, PlusIcon
 import DeleteFolderModal from './DeleteFolderModal';
 import FolderReorderModal from './FolderReorderModal';
 import Portal from './Portal';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 export interface Folder {
   id: string;
@@ -59,6 +60,13 @@ export default function FolderSidebar({
   
   // Get reference to the clearSelectionFunction to call after drag & drop
   const clearSelectionRef = useRef<(() => void) | null>(null);
+
+  // Click esterno per chiudere il modal "Nuova Cartella"
+  const newFolderModalRef = useClickOutside<HTMLDivElement>(() => {
+    setIsCreatingFolder(false);
+    setNewFolderName('');
+    setParentFolderId(null);
+  }, isCreatingFolder);
 
   // Set up the clear selection reference
   useEffect(() => {
@@ -645,19 +653,6 @@ export default function FolderSidebar({
       <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-800">Cartelle</h2>
-          {folderTree.some(node => node.children.length > 0 || folderTree.length > 1) && (
-            <button
-              onClick={areAllFoldersExpanded() ? collapseAllFolders : expandAllFolders}
-              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-              title={areAllFoldersExpanded() ? "Comprimi tutte le cartelle" : "Espandi tutte le cartelle"}
-            >
-              {areAllFoldersExpanded() ? (
-                <ChevronUpIcon className="w-4 h-4 text-gray-600" />
-              ) : (
-                <ChevronDownIcon className="w-4 h-4 text-gray-600" />
-              )}
-            </button>
-          )}
         </div>
         <div className="space-y-2">
           <button
@@ -722,8 +717,21 @@ export default function FolderSidebar({
         
         {/* Sezione Cartelle */}
         <div className="p-4">
-          <div className="mb-3">
+          <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cartelle</h3>
+            {folderTree.some(node => node.children.length > 0 || folderTree.length > 1) && (
+              <button
+                onClick={areAllFoldersExpanded() ? collapseAllFolders : expandAllFolders}
+                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                title={areAllFoldersExpanded() ? "Comprimi tutte le cartelle" : "Espandi tutte le cartelle"}
+              >
+                {areAllFoldersExpanded() ? (
+                  <ChevronUpIcon className="w-4 h-4 text-gray-600" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4 text-gray-600" />
+                )}
+              </button>
+            )}
           </div>
           <div className="space-y-1 group">
             {folderTree.filter(node => !defaultFolderId || node.id !== defaultFolderId).map(node => renderFolderNode(node))}
@@ -735,7 +743,7 @@ export default function FolderSidebar({
       {isCreatingFolder && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div className="bg-white rounded-lg p-6 w-96 shadow-xl relative">
+            <div ref={newFolderModalRef} className="bg-white rounded-lg p-6 w-96 shadow-xl relative">
               <h3 className="text-lg font-semibold mb-4 text-gray-900">
                 {parentFolderId ? 'Crea sottocartella' : 'Crea nuova cartella'}
               </h3>

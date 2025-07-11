@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ChevronUpIcon, ChevronDownIcon, FolderIcon, HomeIcon, ChevronRightIcon, ArrowRightIcon, PlusIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { Folder } from './FolderSidebar';
 import Portal from './Portal';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface FolderReorderModalProps {
   isOpen: boolean;
@@ -36,6 +37,20 @@ export default function FolderReorderModal({
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [availableTargets, setAvailableTargets] = useState<FolderTreeNode[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Click esterno per chiudere il modal principale
+  const mainModalRef = useClickOutside<HTMLDivElement>(() => {
+    if (!showMoveModal) {
+      onClose();
+    }
+  }, isOpen && !showMoveModal);
+
+  // Click esterno per chiudere il modal di spostamento
+  const moveModalRef = useClickOutside<HTMLDivElement>(() => {
+    setShowMoveModal(false);
+    setSelectedFolder(null);
+    setSearchTerm('');
+  }, showMoveModal);
 
   // Costruisce l'albero delle cartelle gerarchico - COERENTE CON SIDEBAR
   const buildFolderTree = (folders: Folder[]): FolderTreeNode[] => {
@@ -568,7 +583,7 @@ export default function FolderReorderModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="folder-modal-title">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+      <div ref={mainModalRef} className="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center justify-between">
@@ -683,7 +698,7 @@ export default function FolderReorderModal({
       {showMoveModal && selectedFolder && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[10000] p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-auto max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-200">
+          <div ref={moveModalRef} className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-auto max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
               <div className="flex items-center justify-between">
                 <div>

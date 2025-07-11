@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Portal from './Portal';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 interface DeleteFolderModalProps {
   isOpen: boolean;
@@ -20,6 +21,13 @@ export default function DeleteFolderModal({
   isDefault = false
 }: DeleteFolderModalProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Click esterno per chiudere il modal
+  const modalRef = useClickOutside<HTMLDivElement>(() => {
+    if (!isDeleting) {
+      onClose();
+    }
+  }, isOpen);
 
   const handleConfirm = useCallback(async () => {
     setIsDeleting(true);
@@ -54,7 +62,7 @@ export default function DeleteFolderModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-        <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl relative">
+        <div ref={modalRef} className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl relative">
           <div className="flex items-center space-x-3 mb-4">
             <div className="flex-shrink-0">
               <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
