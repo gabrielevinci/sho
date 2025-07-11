@@ -67,6 +67,9 @@ interface FolderizedLinksListProps {
   onFolderSelect?: (folderId: string) => void;
   enableMultipleFolders?: boolean;
   showMultipleFoldersColumn?: boolean;
+  navigationHistory?: string[];
+  navigationIndex?: number;
+  onNavigationChange?: (history: string[], index: number) => void;
 }
 
 // Tipi per ordinamento
@@ -85,7 +88,13 @@ export default function FolderizedLinksList({
   onClearSelectionRef,
   onFolderSelect,
   enableMultipleFolders = true,
-  showMultipleFoldersColumn = false
+  showMultipleFoldersColumn = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  navigationHistory,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  navigationIndex,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onNavigationChange
 }: FolderizedLinksListProps) {
   const [draggedLink, setDraggedLink] = useState<LinkFromDB | null>(null);
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set());
