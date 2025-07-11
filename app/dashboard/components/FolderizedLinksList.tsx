@@ -7,7 +7,6 @@ import { Folder } from './FolderSidebar';
 import AdvancedFilters, { FilterOptions } from './AdvancedFilters';
 import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import MultiFolderSelector from './MultiFolderSelector';
-import { useClickOutside } from '../hooks/useClickOutside';
 
 interface FolderCardProps {
   folder: Folder;
