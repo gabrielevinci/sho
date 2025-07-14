@@ -110,6 +110,27 @@ export async function getLinkByShortCode(shortCode: string) {
   return rows[0];
 }
 
+// --- FUNZIONE PER RECUPERARE LE CARTELLE ASSOCIATE A UN LINK ---
+export async function getLinkFolders(shortCode: string) {
+  const session = await getSession();
+  if (!session.isLoggedIn || !session.userId || !session.workspaceId) {
+    throw new Error('Not authenticated');
+  }
+
+  const { rows } = await sql`
+    SELECT f.id, f.name, f.parent_folder_id
+    FROM folders f
+    JOIN link_folder_associations lfa ON f.id = lfa.folder_id
+    JOIN links l ON lfa.link_id = l.id
+    WHERE l.short_code = ${shortCode} 
+      AND l.user_id = ${session.userId} 
+      AND l.workspace_id = ${session.workspaceId}
+    ORDER BY f.name
+  `;
+
+  return rows;
+}
+
 // --- SCHEMA E FUNZIONI PER LA MODIFICA DEL LINK ---
 export interface UpdateLinkState {
   message: string;
@@ -144,6 +165,9 @@ export async function updateAdvancedLink(
   const { originalUrl, title, description, utm_source, utm_medium, utm_campaign, utm_term, utm_content } = validatedFields.data;
   let shortCode = validatedFields.data.shortCode;
 
+  // Recupera le cartelle selezionate
+  const selectedFolderIds = formData.getAll('selectedFolderIds') as string[];
+
   // Se non è stato fornito un nuovo short code, mantieni quello attuale
   if (!shortCode) {
     shortCode = currentShortCode;
@@ -158,7 +182,8 @@ export async function updateAdvancedLink(
   }
   
   try {
-    await sql`
+    // Aggiorna il link
+    const linkResult = await sql`
       UPDATE links 
       SET 
         original_url = ${originalUrl},
@@ -171,7 +196,40 @@ export async function updateAdvancedLink(
         utm_term = ${utm_term},
         utm_content = ${utm_content}
       WHERE short_code = ${currentShortCode} AND user_id = ${userId} AND workspace_id = ${workspaceId}
+      RETURNING id
     `;
+
+    if (linkResult.rowCount === 0) {
+      return { success: false, message: '', errors: { general: "Link non trovato." } };
+    }
+
+    const linkId = linkResult.rows[0].id;
+
+    // Aggiorna le associazioni con le cartelle
+    // Prima rimuovi tutte le associazioni esistenti
+    await sql`
+      DELETE FROM link_folder_associations 
+      WHERE link_id = ${linkId} AND user_id = ${userId} AND workspace_id = ${workspaceId}
+    `;
+
+    // Poi crea le nuove associazioni
+    if (selectedFolderIds.length > 0) {
+      for (const folderId of selectedFolderIds) {
+        // Verifica che la cartella appartenga all'utente
+        const folderCheck = await sql`
+          SELECT id FROM folders 
+          WHERE id = ${folderId} AND user_id = ${userId} AND workspace_id = ${workspaceId}
+        `;
+        
+        if (folderCheck.rowCount && folderCheck.rowCount > 0) {
+          await sql`
+            INSERT INTO link_folder_associations (link_id, folder_id, user_id, workspace_id)
+            VALUES (${linkId}, ${folderId}, ${userId}, ${workspaceId})
+            ON CONFLICT (link_id, folder_id) DO NOTHING
+          `;
+        }
+      }
+    }
   } catch (error) {
     console.error("Database error during link update:", error);
     return { success: false, message: '', errors: { general: "Si è verificato un errore del database. Riprova." } };
@@ -207,6 +265,9 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   const { originalUrl, title, description, utm_source, utm_medium, utm_campaign, utm_term, utm_content } = validatedFields.data;
   let shortCode = validatedFields.data.shortCode;
 
+  // Recupera le cartelle selezionate
+  const selectedFolderIds = formData.getAll('selectedFolderIds') as string[];
+
   if (shortCode) {
     const { rows } = await sql`SELECT id FROM links WHERE short_code = ${shortCode}`;
     if (rows.length > 0) {
@@ -217,7 +278,8 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   }
   
   try {
-    await sql`
+    // Inserisci il link
+    const linkResult = await sql`
       INSERT INTO links (
         user_id, workspace_id, original_url, short_code, title, description, 
         utm_source, utm_medium, utm_campaign, utm_term, utm_content
@@ -226,7 +288,29 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
         ${userId}, ${workspaceId}, ${originalUrl}, ${shortCode}, ${title}, ${description},
         ${utm_source}, ${utm_medium}, ${utm_campaign}, ${utm_term}, ${utm_content}
       )
+      RETURNING id
     `;
+
+    const linkId = linkResult.rows[0].id;
+
+    // Se ci sono cartelle selezionate, crea le associazioni
+    if (selectedFolderIds.length > 0) {
+      for (const folderId of selectedFolderIds) {
+        // Verifica che la cartella appartenga all'utente
+        const folderCheck = await sql`
+          SELECT id FROM folders 
+          WHERE id = ${folderId} AND user_id = ${userId} AND workspace_id = ${workspaceId}
+        `;
+        
+        if (folderCheck.rowCount && folderCheck.rowCount > 0) {
+          await sql`
+            INSERT INTO link_folder_associations (link_id, folder_id, user_id, workspace_id)
+            VALUES (${linkId}, ${folderId}, ${userId}, ${workspaceId})
+            ON CONFLICT (link_id, folder_id) DO NOTHING
+          `;
+        }
+      }
+    }
   } catch (error) {
     console.error("Database error during advanced link creation:", error);
     return { success: false, message: '', errors: { general: "Si è verificato un errore del database. Riprova." } };

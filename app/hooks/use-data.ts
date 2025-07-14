@@ -1,6 +1,7 @@
 'use client';
 
 import { useCachedLinks, useCachedFolders, useCachedWorkspaces, useCachedAnalytics } from './use-cached-data';
+import { useState, useEffect } from 'react';
 
 // Tipi per le risposte delle API
 interface LinksResponse {
@@ -35,6 +36,36 @@ interface WorkspacesResponse {
     id: string;
     name: string;
   }>;
+}
+
+/**
+ * Hook per ottenere l'ID del workspace attivo dalla sessione
+ */
+export function useActiveWorkspaceId() {
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    async function fetchWorkspaceId() {
+      try {
+        const response = await fetch('/api/session/workspace');
+        if (!response.ok) {
+          throw new Error('Errore nel recupero del workspace attivo');
+        }
+        const data = await response.json();
+        setWorkspaceId(data.workspaceId);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Errore sconosciuto'));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchWorkspaceId();
+  }, []);
+
+  return { workspaceId, isLoading, error };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getLinkByShortCode } from '@/app/dashboard/actions';
+import { getLinkByShortCode, getLinkFolders } from '@/app/dashboard/actions';
 import EditLinkForm from './edit-link-form';
 
 interface LinkData {
@@ -16,6 +16,12 @@ interface LinkData {
   created_at: string | Date;
 }
 
+interface LinkFolder {
+  id: string;
+  name: string;
+  parent_folder_id: string | null;
+}
+
 interface EditLinkPageProps {
   params: Promise<{
     shortCode: string;
@@ -26,7 +32,10 @@ export default async function EditLinkPage({ params }: EditLinkPageProps) {
   const { shortCode } = await params;
   
   try {
-    const linkData = await getLinkByShortCode(shortCode);
+    const [linkData, linkFolders] = await Promise.all([
+      getLinkByShortCode(shortCode),
+      getLinkFolders(shortCode)
+    ]);
     
     if (!linkData) {
       redirect('/dashboard');
@@ -34,6 +43,7 @@ export default async function EditLinkPage({ params }: EditLinkPageProps) {
 
     // Cast del tipo per garantire compatibilità
     const typedLinkData = linkData as LinkData;
+    const typedLinkFolders = linkFolders as LinkFolder[];
 
     return (
       <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12">
@@ -52,7 +62,7 @@ export default async function EditLinkPage({ params }: EditLinkPageProps) {
           </header>
 
           <main className="p-8 bg-white rounded-lg shadow-md">
-            <EditLinkForm linkData={typedLinkData} />
+            <EditLinkForm linkData={typedLinkData} linkFolders={typedLinkFolders} />
           </main>
           
         </div>

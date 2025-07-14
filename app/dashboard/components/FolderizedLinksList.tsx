@@ -502,37 +502,124 @@ export default function FolderizedLinksList({
   }, [folders, onUpdateLink, selectedLinkForFolders]);
 
   const subfolders = getSubfolders();
+  const selectedFolder = folders.find(f => f.id === selectedFolderId);
+  const currentFolderName = selectedFolderId === defaultFolderId ? 'Tutti i link' : selectedFolder?.name || 'Cartella sconosciuta';
 
   if (filteredLinks.length === 0 && subfolders.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md h-full flex items-center justify-center">
-        <div className="text-center py-12">
-          <div className="text-gray-500">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Nessun link trovato</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {activeFiltersCount > 0 
-                ? "I filtri applicati non hanno prodotto risultati." 
-                : selectedFolderId === defaultFolderId 
-                ? "Non hai ancora creato nessun link." 
-                : "Questa cartella è vuota."
-              }
-            </p>
-            {activeFiltersCount > 0 && (
-              <div className="mt-4">
+      <div className="h-full flex flex-col">
+        <div className="bg-white rounded-lg shadow-md h-full flex flex-col overflow-hidden">
+          {/* Header con informazioni della cartella */}
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {currentFolderName}
+                </h3>
+                
+                {/* Pulsante Seleziona (disabilitato quando vuoto) */}
                 <button
-                  onClick={() => setFilters({})}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled
+                  className="px-3 py-1 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed"
                 >
-                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Azzera filtri
+                  Seleziona
                 </button>
               </div>
-            )}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">
+                  0 links
+                </span>
+                
+                {/* Filtri e ordinamento */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowFilters(true)}
+                    className={`px-3 py-1 text-sm rounded-lg transition-colors font-medium ${
+                      activeFiltersCount > 0 
+                        ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+                    }`}
+                  >
+                    {activeFiltersCount > 0 ? `Filtri (${activeFiltersCount})` : 'Filtri avanzati'}
+                  </button>
+                  
+                  {activeFiltersCount > 0 && (
+                    <button
+                      onClick={() => {
+                        setFilters({});
+                      }}
+                      className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 border border-red-300 transition-colors"
+                      title="Azzera tutti i filtri"
+                    >
+                      Azzera
+                    </button>
+                  )}
+                  
+                  <select
+                    value={`${sortField}-${sortDirection}`}
+                    onChange={(e) => {
+                      const [field, direction] = e.target.value.split('-');
+                      setSortField(field as SortField);
+                      setSortDirection(direction as SortDirection);
+                    }}
+                    className="text-xs border border-gray-300 rounded-lg py-1 px-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="created_at-desc">Più recenti</option>
+                    <option value="created_at-asc">Più vecchi</option>
+                    <option value="click_count-desc">Più cliccati</option>
+                    <option value="click_count-asc">Meno cliccati</option>
+                    <option value="unique_click_count-desc">Più click unici</option>
+                    <option value="unique_click_count-asc">Meno click unici</option>
+                    <option value="title-asc">Titolo A-Z</option>
+                    <option value="title-desc">Titolo Z-A</option>
+                    <option value="original_url-asc">URL A-Z</option>
+                    <option value="original_url-desc">URL Z-A</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            {/* Componente AdvancedFilters */}
+            <AdvancedFilters
+              isOpen={showFilters}
+              onClose={() => setShowFilters(false)}
+              onApply={setFilters}
+              onReset={() => setFilters({})}
+              initialFilters={filters}
+              links={links}
+            />
+          </div>
+          
+          {/* Area vuota con messaggio */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center py-12">
+              <div className="text-gray-500">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">Nessun link trovato</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {activeFiltersCount > 0 
+                    ? "I filtri applicati non hanno prodotto risultati." 
+                    : selectedFolderId === defaultFolderId 
+                    ? "Non hai ancora creato nessun link." 
+                    : "Questa cartella è vuota."
+                  }
+                </p>
+                {activeFiltersCount > 0 && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => setFilters({})}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Azzera filtri
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

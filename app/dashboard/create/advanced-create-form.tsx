@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { createAdvancedLink, CreateAdvancedLinkState } from '@/app/dashboard/actions';
 import { SITE_URL } from '@/app/lib/config';
+import { useFolders, useActiveWorkspaceId } from '@/app/hooks/use-data';
+import { FolderIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 // Componente per il bottone di submit (invariato e corretto)
 function SubmitButton() {
@@ -52,17 +54,297 @@ function UtmFields() {
   );
 }
 
+// Componente per la selezione delle cartelle
+interface FolderSelectorProps {
+  selectedFolders: Array<{id: string, name: string}>;
+  onFoldersChange: (folders: Array<{id: string, name: string}>) => void;
+  availableFolders: Array<{id: string, name: string, parent_folder_id: string | null, position: number}>;
+}
+
+interface HierarchicalFolder {
+  id: string;
+  name: string;
+  parent_folder_id: string | null;
+  position: number;
+  level: number;
+  children: HierarchicalFolder[];
+}
+
+// Funzione per costruire la gerarchia delle cartelle
+function buildFolderHierarchy(folders: Array<{id: string, name: string, parent_folder_id: string | null, position: number}>): HierarchicalFolder[] {
+  const folderMap = new Map<string, HierarchicalFolder>();
+  const rootFolders: HierarchicalFolder[] = [];
+
+  // Crea la mappa delle cartelle
+  folders.forEach(folder => {
+    folderMap.set(folder.id, {
+      ...folder,
+      level: 0,
+      children: []
+    });
+  });
+
+  // Costruisce la gerarchia
+  folders.forEach(folder => {
+    const folderNode = folderMap.get(folder.id)!;
+    
+    if (folder.parent_folder_id) {
+      const parent = folderMap.get(folder.parent_folder_id);
+      if (parent) {
+        folderNode.level = parent.level + 1;
+        parent.children.push(folderNode);
+      } else {
+        // Se il genitore non esiste, tratta come cartella root
+        rootFolders.push(folderNode);
+      }
+    } else {
+      rootFolders.push(folderNode);
+    }
+  });
+
+  // Ordina le cartelle per posizione
+  const sortFolders = (folders: HierarchicalFolder[]) => {
+    folders.sort((a, b) => a.position - b.position);
+    folders.forEach(folder => sortFolders(folder.children));
+  };
+
+  sortFolders(rootFolders);
+  return rootFolders;
+}
+
+// Funzione per appiattire la gerarchia mantenendo l'ordine e l'indentazione
+function flattenHierarchy(hierarchy: HierarchicalFolder[]): Array<HierarchicalFolder> {
+  const result: HierarchicalFolder[] = [];
+  
+  const addToResult = (folders: HierarchicalFolder[]) => {
+    folders.forEach(folder => {
+      result.push(folder);
+      if (folder.children.length > 0) {
+        addToResult(folder.children);
+      }
+    });
+  };
+  
+  addToResult(hierarchy);
+  return result;
+}
+
+function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: FolderSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Chiudi dropdown quando si clicca fuori
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+  
+  // Verifica se ci sono cartelle disponibili (escludendo "Tutti i link")
+  const filteredAvailableFolders = availableFolders ? availableFolders.filter(folder => folder.name !== 'Tutti i link') : [];
+  const hasAvailableFolders = filteredAvailableFolders.length > 0;
+  
+  // Costruisce la gerarchia delle cartelle solo se ci sono cartelle disponibili
+  const folderHierarchy = hasAvailableFolders ? buildFolderHierarchy(filteredAvailableFolders) : [];
+  const flattenedFolders = hasAvailableFolders ? flattenHierarchy(folderHierarchy) : [];
+  
+  // Filtra le cartelle in base al termine di ricerca
+  const filteredFolders = flattenedFolders.filter((folder) =>
+    folder.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleFolder = (folder: {id: string, name: string}) => {
+    const isSelected = selectedFolders.some(f => f.id === folder.id);
+    if (isSelected) {
+      onFoldersChange(selectedFolders.filter(f => f.id !== folder.id));
+    } else {
+      onFoldersChange([...selectedFolders, folder]);
+    }
+  };
+
+  const removeFolder = (folderId: string) => {
+    onFoldersChange(selectedFolders.filter(f => f.id !== folderId));
+  };
+
+  // Genera l'indentazione per la gerarchia
+  const getIndentation = (level: number) => {
+    return '  '.repeat(level); // Due spazi per ogni livello
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="block text-sm font-medium text-gray-600">
+        Cartelle (Opzionale)
+      </label>
+      
+      {/* Cartelle selezionate */}
+      {selectedFolders.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedFolders.map(folder => (
+            <span
+              key={folder.id}
+              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-md"
+            >
+              <FolderIcon className="w-4 h-4" />
+              {folder.name}
+              <button
+                type="button"
+                onClick={() => removeFolder(folder.id)}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input per aprire il selettore */}
+      <div className="relative" ref={dropdownRef}>
+        <button
+          type="button"
+          onClick={() => hasAvailableFolders && setIsOpen(!isOpen)}
+          disabled={!hasAvailableFolders}
+          className={`w-full px-3 py-2 text-left border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white flex items-center justify-between ${
+            !hasAvailableFolders ? 'cursor-not-allowed bg-gray-50' : 'cursor-pointer'
+          }`}
+        >
+          <span className="text-gray-700">
+            {selectedFolders.length > 0 
+              ? `${selectedFolders.length} cartelle selezionate`
+              : hasAvailableFolders 
+                ? `Seleziona cartelle... (${filteredAvailableFolders.length} disponibili)`
+                : 'Nessuna cartella disponibile'
+            }
+          </span>
+          <svg
+            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+              isOpen ? 'transform rotate-180' : ''
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Dropdown */}
+        {isOpen && hasAvailableFolders && (
+          <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+            <div className="p-2">
+              <input
+                type="text"
+                placeholder="Cerca cartelle..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div className="max-h-40 overflow-y-auto">
+              {filteredFolders.length > 0 ? (
+                filteredFolders.map((folder) => {
+                  const isSelected = selectedFolders.some(f => f.id === folder.id);
+                  return (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      onClick={() => toggleFolder({id: folder.id, name: folder.name})}
+                      className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-900 ${
+                        isSelected ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                      style={{ paddingLeft: `${12 + folder.level * 16}px` }}
+                    >
+                      <FolderIcon className="w-4 h-4 flex-shrink-0" />
+                      <span className="flex-1">
+                        {folder.level > 0 && (
+                          <span className="text-gray-400 mr-1 font-mono text-xs">
+                            {'│  '.repeat(folder.level - 1)}{'├─ '}
+                          </span>
+                        )}
+                        <span className={isSelected ? 'text-blue-700' : 'text-gray-900'}>
+                          {folder.name}
+                        </span>
+                        {folder.children.length > 0 && (
+                          <span className="text-gray-400 text-xs ml-1">
+                            ({folder.children.length})
+                          </span>
+                        )}
+                      </span>
+                      {isSelected && (
+                        <span className="text-blue-600 flex-shrink-0">✓</span>
+                      )}
+                    </button>
+                  );
+                })
+              ) : searchTerm ? (
+                <div className="px-3 py-2 text-gray-600 text-sm">
+                  Nessuna cartella trovata per "{searchTerm}"
+                </div>
+              ) : (
+                <div className="px-3 py-2 text-gray-600 text-sm">
+                  Nessuna cartella trovata
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Messaggio informativo quando non ci sono cartelle */}
+      {!hasAvailableFolders && (
+        <div className="text-sm text-gray-500 flex items-center gap-2">
+          <FolderIcon className="w-4 h-4" />
+          <span>
+            Nessuna cartella trovata.{' '}
+            <a href="/dashboard" className="text-blue-600 hover:underline">
+              Vai alla dashboard per creare la tua prima cartella
+            </a>
+          </span>
+        </div>
+      )}
+
+      {/* Hidden inputs per i form data */}
+      {selectedFolders.map(folder => (
+        <input
+          key={folder.id}
+          type="hidden"
+          name="selectedFolderIds"
+          value={folder.id}
+        />
+      ))}
+    </div>
+  );
+}
+
 // Form principale con struttura HTML valida
 export default function AdvancedCreateForm() {
   const initialState: CreateAdvancedLinkState = { message: '', errors: {}, success: false };
   const [state, formAction] = useFormState(createAdvancedLink, initialState);
   const [showUtm, setShowUtm] = useState(false);
+  const [selectedFolders, setSelectedFolders] = useState<Array<{id: string, name: string}>>([]);
   const formRef = useRef<HTMLFormElement>(null);
+  
+  // Ottieni l'ID del workspace attivo
+  const { workspaceId, isLoading: isLoadingWorkspaceId } = useActiveWorkspaceId();
+  
+  // Passa l'ID del workspace attivo all'hook useFolders
+  const { folders: availableFolders, isLoading: isLoadingFolders, error: foldersError } = useFolders(workspaceId);
 
   useEffect(() => {
     if (state.success) {
       formRef.current?.reset();
       setShowUtm(false);
+      setSelectedFolders([]);
     }
   }, [state]);
 
@@ -91,6 +373,42 @@ export default function AdvancedCreateForm() {
           </div>
           {state.errors?.shortCode && <p className="mt-1 text-sm text-red-600">{state.errors.shortCode}</p>}
         </div>
+        
+        {/* Selettore cartelle */}
+        {isLoadingWorkspaceId ? (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-600">
+              Cartelle (Opzionale)
+            </label>
+            <div className="px-3 py-2 text-gray-500 text-sm">
+              Caricamento workspace...
+            </div>
+          </div>
+        ) : isLoadingFolders ? (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-600">
+              Cartelle (Opzionale)
+            </label>
+            <div className="px-3 py-2 text-gray-500 text-sm">
+              Caricamento cartelle...
+            </div>
+          </div>
+        ) : foldersError ? (
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-600">
+              Cartelle (Opzionale)
+            </label>
+            <div className="px-3 py-2 text-red-500 text-sm">
+              Errore nel caricamento delle cartelle: {foldersError instanceof Error ? foldersError.message : 'Errore sconosciuto'}
+            </div>
+          </div>
+        ) : (
+          <FolderSelector 
+            selectedFolders={selectedFolders}
+            onFoldersChange={setSelectedFolders}
+            availableFolders={availableFolders}
+          />
+        )}
       </div>
 
       <div>

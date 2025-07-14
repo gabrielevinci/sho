@@ -195,7 +195,13 @@ export function useCachedLinks(workspaceId: string | null) {
 export function useCachedFolders(workspaceId: string | null) {
   return useCachedData(
     workspaceId ? `/api/folders?workspaceId=${workspaceId}` : null,
-    undefined,
+    async (url: string) => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error('Failed to fetch folders');
+      }
+      return res.json();
+    },
     {
       cacheType: 'folders',
       revalidateOnFocus: false,
