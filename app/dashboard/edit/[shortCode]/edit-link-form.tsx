@@ -357,7 +357,7 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
   const formRef = useRef<HTMLFormElement>(null);
   
   // Ottieni l'ID del workspace attivo
-  const { workspaceId, isLoading: isLoadingWorkspaceId } = useActiveWorkspaceId();
+  const { workspaceId } = useActiveWorkspaceId();
   
   // Passa l'ID del workspace attivo all'hook useFolders
   const foldersData = useFolders(workspaceId);

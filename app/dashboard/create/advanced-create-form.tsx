@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
+import Link from 'next/link';
 import { createAdvancedLink, CreateAdvancedLinkState } from '@/app/dashboard/actions';
 import { SITE_URL } from '@/app/lib/config';
 import { useFolders, useActiveWorkspaceId } from '@/app/hooks/use-data';
@@ -174,11 +175,6 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
     onFoldersChange(selectedFolders.filter(f => f.id !== folderId));
   };
 
-  // Genera l'indentazione per la gerarchia
-  const getIndentation = (level: number) => {
-    return '  '.repeat(level); // Due spazi per ogni livello
-  };
-
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-gray-600">
@@ -288,7 +284,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
                 })
               ) : searchTerm ? (
                 <div className="px-3 py-2 text-gray-600 text-sm">
-                  Nessuna cartella trovata per "{searchTerm}"
+                  Nessuna cartella trovata per &ldquo;{searchTerm}&rdquo;
                 </div>
               ) : (
                 <div className="px-3 py-2 text-gray-600 text-sm">
@@ -306,9 +302,9 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
           <FolderIcon className="w-4 h-4" />
           <span>
             Nessuna cartella trovata.{' '}
-            <a href="/dashboard" className="text-blue-600 hover:underline">
+            <Link href="/dashboard" className="text-blue-600 hover:underline">
               Vai alla dashboard per creare la tua prima cartella
-            </a>
+            </Link>
           </span>
         </div>
       )}
