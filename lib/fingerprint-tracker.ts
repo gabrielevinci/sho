@@ -119,7 +119,7 @@ class ClickTracker {
 }
 
 // Global function to initialize tracking
-(window as any).initAdvancedTracking = (shortCode: string) => {
+(window as { initAdvancedTracking?: (shortCode: string) => void }).initAdvancedTracking = (shortCode: string) => {
   const tracker = new ClickTracker(shortCode);
   
   // Collect fingerprint immediately
@@ -135,6 +135,6 @@ class ClickTracker {
 document.addEventListener('DOMContentLoaded', () => {
   const metaTag = document.querySelector('meta[name="short-code"]') as HTMLMetaElement;
   if (metaTag && metaTag.content) {
-    (window as any).initAdvancedTracking(metaTag.content);
+    (window as { initAdvancedTracking?: (shortCode: string) => void }).initAdvancedTracking?.(metaTag.content);
   }
 });

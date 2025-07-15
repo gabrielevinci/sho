@@ -143,7 +143,7 @@ export class AdvancedFingerprintCollector {
 
   private async collectAudioFingerprint(): Promise<void> {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const analyser = audioContext.createAnalyser();
       const gainNode = audioContext.createGain();
@@ -164,7 +164,7 @@ export class AdvancedFingerprintCollector {
       
       oscillator.stop();
       audioContext.close();
-    } catch (error) {
+    } catch {
       this.fingerprint.audioFingerprint = 'unavailable';
     }
   }
@@ -197,7 +197,7 @@ export class AdvancedFingerprintCollector {
       ctx.fillRect(0, 25, 200, 25);
 
       this.fingerprint.canvasFingerprint = canvas.toDataURL();
-    } catch (error) {
+    } catch {
       this.fingerprint.canvasFingerprint = 'unavailable';
     }
   }
@@ -209,8 +209,8 @@ export class AdvancedFingerprintCollector {
       
       if (gl) {
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        this.fingerprint.webglVendor = debugInfo ? gl.getParameter((debugInfo as any).UNMASKED_VENDOR_WEBGL) : 'unknown';
-        this.fingerprint.webglRenderer = debugInfo ? gl.getParameter((debugInfo as any).UNMASKED_RENDERER_WEBGL) : 'unknown';
+        this.fingerprint.webglVendor = debugInfo ? gl.getParameter((debugInfo as { UNMASKED_VENDOR_WEBGL: number }).UNMASKED_VENDOR_WEBGL) : 'unknown';
+        this.fingerprint.webglRenderer = debugInfo ? gl.getParameter((debugInfo as { UNMASKED_RENDERER_WEBGL: number }).UNMASKED_RENDERER_WEBGL) : 'unknown';
         
         // Create WebGL fingerprint
         const vertex = gl.createShader(gl.VERTEX_SHADER);
@@ -249,7 +249,7 @@ export class AdvancedFingerprintCollector {
         this.fingerprint.webglRenderer = 'unavailable';
         this.fingerprint.webglFingerprint = 'unavailable';
       }
-    } catch (error) {
+    } catch {
       this.fingerprint.webglVendor = 'error';
       this.fingerprint.webglRenderer = 'error';
       this.fingerprint.webglFingerprint = 'error';
@@ -303,11 +303,13 @@ export class AdvancedFingerprintCollector {
     this.fingerprint.localStorage = !!window.localStorage;
     this.fingerprint.sessionStorage = !!window.sessionStorage;
     this.fingerprint.indexedDB = !!window.indexedDB;
-    this.fingerprint.webSQL = !!(window as any).openDatabase;
+    this.fingerprint.webSQL = !!(window as { openDatabase?: unknown }).openDatabase;
   }
 
   private collectNetworkInfo(): void {
-    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    const connection = (navigator as { connection?: { effectiveType?: string; downlink?: number }; mozConnection?: { effectiveType?: string; downlink?: number }; webkitConnection?: { effectiveType?: string; downlink?: number } }).connection || 
+                      (navigator as { mozConnection?: { effectiveType?: string; downlink?: number } }).mozConnection || 
+                      (navigator as { webkitConnection?: { effectiveType?: string; downlink?: number } }).webkitConnection;
     if (connection) {
       this.fingerprint.connectionType = connection.effectiveType || 'unknown';
       this.fingerprint.connectionSpeed = connection.downlink ? connection.downlink.toString() : 'unknown';
@@ -319,12 +321,12 @@ export class AdvancedFingerprintCollector {
 
   private async collectBatteryInfo(): Promise<void> {
     try {
-      const battery = await (navigator as any).getBattery?.();
+      const battery = await (navigator as { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.();
       if (battery) {
         this.fingerprint.batteryLevel = battery.level;
         this.fingerprint.batteryCharging = battery.charging;
       }
-    } catch (error) {
+    } catch {
       // Battery API not available
     }
   }
@@ -337,14 +339,14 @@ export class AdvancedFingerprintCollector {
       } else {
         this.fingerprint.mediaDevices = [];
       }
-    } catch (error) {
+    } catch {
       this.fingerprint.mediaDevices = [];
     }
   }
 
   private collectPerformanceInfo(): void {
-    if (performance && performance.memory) {
-      const memory = (performance as any).memory;
+    if (performance && (performance as unknown as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory) {
+      const memory = (performance as unknown as { memory: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
       this.fingerprint.performanceFingerprint = [
         memory.usedJSHeapSize,
         memory.totalJSHeapSize,
@@ -376,7 +378,7 @@ export class AdvancedFingerprintCollector {
         if (testElement.style.length > 0) {
           features.push(test.split(':')[0].trim());
         }
-      } catch (error) {
+      } catch {
         // Feature not supported
       }
     });
@@ -388,9 +390,9 @@ export class AdvancedFingerprintCollector {
     const features: string[] = [];
     
     const jsTests = {
-      'WebGL': () => !!(window as any).WebGLRenderingContext,
+      'WebGL': () => !!(window as { WebGLRenderingContext?: unknown }).WebGLRenderingContext,
       'Worker': () => !!window.Worker,
-      'SharedWorker': () => !!(window as any).SharedWorker,
+      'SharedWorker': () => !!(window as { SharedWorker?: unknown }).SharedWorker,
       'ServiceWorker': () => 'serviceWorker' in navigator,
       'FileReader': () => !!window.FileReader,
       'Blob': () => !!window.Blob,
@@ -398,7 +400,7 @@ export class AdvancedFingerprintCollector {
       'ES6': () => {
         try {
           return eval('(function*(){})') && eval('(()=>{})') && eval('class{}');
-        } catch (e) {
+        } catch {
           return false;
         }
       }
@@ -407,7 +409,7 @@ export class AdvancedFingerprintCollector {
     Object.entries(jsTests).forEach(([name, test]) => {
       try {
         if (test()) features.push(name);
-      } catch (error) {
+      } catch {
         // Feature not supported
       }
     });

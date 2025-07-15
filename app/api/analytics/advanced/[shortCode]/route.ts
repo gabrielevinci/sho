@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
-export async function GET(request: NextRequest, { params }: { params: { shortCode: string } }) {
-  const { shortCode } = params;
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ shortCode: string }> }
+) {
+  const { shortCode } = await context.params;
   
   try {
     // Trova il link

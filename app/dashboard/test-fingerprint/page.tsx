@@ -22,7 +22,7 @@ export default function FingerprintTestPage() {
     }
   };
 
-  const formatValue = (key: string, value: any): string => {
+  const formatValue = (key: string, value: unknown): string => {
     if (value === null || value === undefined) return 'N/A';
     if (typeof value === 'boolean') return value ? 'Sì' : 'No';
     if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'Nessuno';
@@ -111,7 +111,7 @@ export default function FingerprintTestPage() {
     if (!acc[category]) acc[category] = [];
     acc[category].push({ key, value });
     return acc;
-  }, {} as Record<string, Array<{ key: string; value: any }>>) : {};
+  }, {} as Record<string, Array<{ key: string; value: unknown }>>) : {};
 
   const categoryColors = {
     'Browser': 'from-blue-500 to-blue-600',
