@@ -436,12 +436,35 @@ export default function FolderizedLinksList({
     return folders.filter(folder => folder.parent_folder_id === selectedFolderId);
   }, [folders, selectedFolderId, defaultFolderId]);
 
-  // Calcola il numero di link e sottocartelle per ogni cartella
+  // Calcola il numero di link e sottocartelle per ogni cartella (inclusi tutti i livelli nidificati)
   const getFolderStats = useCallback((folderId: string) => {
+    // Funzione ricorsiva per ottenere tutte le cartelle figlie a qualsiasi livello
+    const getAllDescendantFolders = (parentFolderId: string): string[] => {
+      const directChildren = folders
+        .filter(folder => folder.parent_folder_id === parentFolderId)
+        .map(folder => folder.id);
+      
+      const allDescendants = [...directChildren];
+      
+      // Per ogni figlio diretto, ottieni ricorsivamente tutti i suoi discendenti
+      directChildren.forEach(childId => {
+        allDescendants.push(...getAllDescendantFolders(childId));
+      });
+      
+      return allDescendants;
+    };
+
+    // Ottieni tutte le cartelle figlie (inclusa quella corrente)
+    const allFolderIds = [folderId, ...getAllDescendantFolders(folderId)];
+    
+    // Conta tutti i link associati a qualsiasi cartella nella gerarchia
     const linkCount = links.filter(link => 
-      link.folders && link.folders.some(folder => folder.id === folderId)
+      link.folders && link.folders.some(folder => allFolderIds.includes(folder.id))
     ).length;
-    const subfolderCount = folders.filter(folder => folder.parent_folder_id === folderId).length;
+    
+    // Conta tutte le sottocartelle (esclusa quella corrente)
+    const subfolderCount = allFolderIds.length - 1;
+    
     return { linkCount, subfolderCount };
   }, [links, folders]);
 
