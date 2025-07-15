@@ -22,7 +22,7 @@ function FolderCard({ folder, onFolderSelect, linkCount, subfolderCount }: Folde
 
   return (
     <div 
-      className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+      className="bg-white border border-gray-200 rounded-2xl p-4 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
       onClick={handleClick}
     >
       <div className="flex items-center space-x-3">
@@ -508,7 +508,7 @@ export default function FolderizedLinksList({
   if (filteredLinks.length === 0 && subfolders.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <div className="bg-white rounded-lg shadow-md h-full flex flex-col overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-md h-full flex flex-col overflow-hidden">
           {/* Header con informazioni della cartella */}
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
             <div className="flex items-center justify-between">
@@ -628,7 +628,7 @@ export default function FolderizedLinksList({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-white rounded-lg shadow-md h-full flex flex-col overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-md h-full flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -676,7 +676,7 @@ export default function FolderizedLinksList({
                   <div className="relative" ref={dropdownRef}>
                     <button
                       onClick={() => setShowFolderDropdown(!showFolderDropdown)}
-                      className="flex items-center space-x-1 px-3 py-1 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="flex items-center space-x-1 px-3 py-1 bg-white border border-gray-300 rounded-2xl text-sm font-medium text-gray-700 hover:bg-gray-50"
                     >
                       <FolderIcon className="h-4 w-4" />
                       <span>Sposta in</span>

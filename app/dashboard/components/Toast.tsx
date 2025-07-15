@@ -68,7 +68,7 @@ function ToastComponent({ toast, onClose }: ToastProps) {
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
       }`}
     >
-      <div className={`min-w-max shadow-lg rounded-lg pointer-events-auto border ${getBackgroundColor()}`}>
+      <div className={`min-w-max shadow-lg rounded-2xl pointer-events-auto border ${getBackgroundColor()}`}>
         <div className="px-4 py-3">
           <div className="flex items-center">
             <div className="flex-shrink-0">

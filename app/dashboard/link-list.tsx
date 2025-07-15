@@ -48,7 +48,7 @@ export default function LinkList({ links, baseUrl }: { links: Link[], baseUrl: s
   // Gestione del caso in cui l'utente non ha ancora creato link.
   if (links.length === 0) {
     return (
-      <div className="mt-4 p-8 bg-white rounded-lg shadow-md text-center text-gray-500">
+      <div className="mt-4 p-8 bg-white rounded-3xl shadow-md text-center text-gray-500">
         <p>Non hai ancora creato nessun link.</p>
         <p className="text-sm">Usa il form qui sopra per iniziare!</p>
       </div>

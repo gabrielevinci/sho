@@ -328,7 +328,7 @@ export default function DashboardClient({
         
         {!initialActiveWorkspace && (
           <div className="flex-1 flex items-center justify-center p-12">
-            <div className="text-center bg-white rounded-lg shadow-md p-8">
+            <div className="text-center bg-white rounded-3xl shadow-md p-8">
               <h2 className="text-xl font-semibold text-gray-700">Nessun workspace trovato.</h2>
               <p className="text-gray-500 mt-2">Crea il tuo primo workspace per iniziare a shortare i link.</p>
             </div>

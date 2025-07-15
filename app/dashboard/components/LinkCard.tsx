@@ -69,7 +69,7 @@ export default function LinkCard({
 
   return (
     <div
-      className={`bg-white rounded-lg shadow-md p-6 border hover:shadow-lg transition-shadow duration-200 ${
+      className={`bg-white rounded-3xl shadow-md p-6 border hover:shadow-lg transition-shadow duration-200 ${
         isDragging ? 'opacity-50 transform rotate-2' : ''
       }`}
       draggable

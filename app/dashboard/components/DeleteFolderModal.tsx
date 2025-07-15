@@ -62,7 +62,7 @@ export default function DeleteFolderModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-        <div ref={modalRef} className="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl relative">
+        <div ref={modalRef} className="bg-white rounded-3xl p-6 w-96 max-w-md mx-4 shadow-2xl relative backdrop-blur-sm border border-white/20">
           <div className="flex items-center space-x-3 mb-4">
             <div className="flex-shrink-0">
               <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
@@ -84,7 +84,7 @@ export default function DeleteFolderModal({
               <p className="text-gray-600">
                 Sei sicuro di voler eliminare la cartella <strong>&quot;{folderName}&quot;</strong>?
               </p>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-3">
                 <p className="text-sm text-yellow-800">
                   <strong>Questa azione:</strong>
                 </p>
@@ -102,7 +102,7 @@ export default function DeleteFolderModal({
           <button
             onClick={onClose}
             disabled={isDeleting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50"
           >
             {isDefault ? 'Chiudi' : 'Annulla'}
           </button>
@@ -110,7 +110,7 @@ export default function DeleteFolderModal({
             <button
               onClick={handleConfirm}
               disabled={isDeleting}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
             >
               {isDeleting ? (
                 <>

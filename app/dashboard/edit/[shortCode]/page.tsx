@@ -61,7 +61,7 @@ export default async function EditLinkPage({ params }: EditLinkPageProps) {
             </p>
           </header>
 
-          <main className="p-8 bg-white rounded-lg shadow-md">
+          <main className="p-8 bg-white rounded-3xl shadow-md">
             <EditLinkForm linkData={typedLinkData} linkFolders={typedLinkFolders} />
           </main>
           

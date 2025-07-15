@@ -207,14 +207,14 @@ export default function QRCodeModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4">
-        <div ref={modalRef} className={`bg-white rounded-2xl shadow-2xl w-full mx-4 overflow-hidden ${
+        <div ref={modalRef} className={`bg-white rounded-3xl shadow-2xl w-full mx-4 overflow-hidden backdrop-blur-sm border border-white/20 ${
           showAdvanced ? 'max-w-3xl max-h-[85vh] overflow-y-auto' : 'max-w-2xl'
         }`}>
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-3xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-white/20 rounded-2xl flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h2M4 4h4m12 0h2M4 20h4m12 0h2" />
                   </svg>
@@ -231,7 +231,7 @@ export default function QRCodeModal({
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
+                  className={`p-2 rounded-2xl transition-all duration-200 ${
                     showAdvanced 
                       ? 'bg-white/20 text-white' 
                       : 'bg-white/10 text-blue-100 hover:bg-white/20 hover:text-white'
@@ -242,7 +242,7 @@ export default function QRCodeModal({
                 </button>
                 <button
                   onClick={onClose}
-                  className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all duration-200 text-blue-100 hover:text-white"
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-2xl transition-all duration-200 text-blue-100 hover:text-white"
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
@@ -254,7 +254,7 @@ export default function QRCodeModal({
           <div className="p-6">
             {/* Opzioni avanzate */}
             {showAdvanced && (
-              <div className="mb-6 p-5 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="mb-6 p-5 bg-gray-50 rounded-3xl border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
                     <CogIcon className="w-5 h-5 text-gray-600 mr-2" />
@@ -262,7 +262,7 @@ export default function QRCodeModal({
                   </div>
                   <button
                     onClick={resetAdvancedOptions}
-                    className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
+                    className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-2xl transition-colors"
                     title="Ripristina impostazioni predefinite"
                   >
                     Reset
@@ -278,7 +278,7 @@ export default function QRCodeModal({
                       <select
                         value={size}
                         onChange={(e) => setSize(e.target.value as QRSize)}
-                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full text-sm border border-gray-300 rounded-2xl px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       >
                         <option value="200">200x200 px (Piccolo)</option>
                         <option value="300">300x300 px (Medio)</option>
@@ -294,7 +294,7 @@ export default function QRCodeModal({
                       <select
                         value={format}
                         onChange={(e) => setFormat(e.target.value as QRFormat)}
-                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full text-sm border border-gray-300 rounded-2xl px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       >
                         <option value="png">PNG (Migliore qualità)</option>
                         <option value="jpg">JPG (File più piccolo)</option>
@@ -309,7 +309,7 @@ export default function QRCodeModal({
                       <select
                         value={errorCorrection}
                         onChange={(e) => setErrorCorrection(e.target.value as 'L' | 'M' | 'Q' | 'H')}
-                        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full text-sm border border-gray-300 rounded-2xl px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       >
                         <option value="L">Basso - 7% (Veloce)</option>
                         <option value="M">Medio - 15% (Bilanciato)</option>
@@ -330,14 +330,14 @@ export default function QRCodeModal({
                             type="color"
                             value={`#${foregroundColor}`}
                             onChange={(e) => setForegroundColor(e.target.value.slice(1))}
-                            className="w-12 h-10 border-2 border-gray-300 rounded-lg cursor-pointer shadow-sm"
+                            className="w-12 h-10 border-2 border-gray-300 rounded-2xl cursor-pointer shadow-sm"
                           />
                         </div>
                         <input
                           type="text"
                           value={foregroundColor}
                           onChange={(e) => setForegroundColor(e.target.value.replace('#', ''))}
-                          className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          className="flex-1 text-sm border border-gray-300 rounded-2xl px-3 py-2 font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                           placeholder="000000"
                           maxLength={6}
                         />
@@ -354,14 +354,14 @@ export default function QRCodeModal({
                             type="color"
                             value={`#${backgroundColor}`}
                             onChange={(e) => setBackgroundColor(e.target.value.slice(1))}
-                            className="w-12 h-10 border-2 border-gray-300 rounded-lg cursor-pointer shadow-sm"
+                            className="w-12 h-10 border-2 border-gray-300 rounded-2xl cursor-pointer shadow-sm"
                           />
                         </div>
                         <input
                           type="text"
                           value={backgroundColor}
                           onChange={(e) => setBackgroundColor(e.target.value.replace('#', ''))}
-                          className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          className="flex-1 text-sm border border-gray-300 rounded-2xl px-3 py-2 font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                           placeholder="ffffff"
                           maxLength={6}
                         />
@@ -369,7 +369,7 @@ export default function QRCodeModal({
                     </div>
                     
                     {/* Preview colori */}
-                    <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
+                    <div className="mt-4 p-3 bg-white rounded-2xl border border-gray-200">
                       <p className="text-xs text-gray-600 mb-2">Anteprima colori:</p>
                       <div className="flex items-center space-x-2">
                         <div 
@@ -393,17 +393,17 @@ export default function QRCodeModal({
             {/* Area QR Code */}
             <div className="text-center mb-6">
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center h-80 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                <div className="flex flex-col items-center justify-center h-80 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-300">
                   <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mb-4"></div>
                   <p className="text-gray-600 font-medium">Generazione QR Code...</p>
                   <p className="text-gray-400 text-sm mt-1">Ottimizzazione in corso</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 shadow-inner">
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-3xl border border-gray-200 shadow-inner">
                     {qrCodeUrl ? (
                       <div className="flex justify-center">
-                        <div className="bg-white p-4 rounded-lg shadow-lg">
+                        <div className="bg-white p-4 rounded-2xl shadow-lg">
                           <NextImage 
                             src={qrCodeUrl} 
                             alt="QR Code" 
@@ -430,7 +430,7 @@ export default function QRCodeModal({
                         </div>
                       </div>
                     ) : (
-                      <div className="w-64 h-64 mx-auto bg-gray-200 flex flex-col items-center justify-center rounded-lg">
+                      <div className="w-64 h-64 mx-auto bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
                         <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -441,7 +441,7 @@ export default function QRCodeModal({
                   </div>
                   
                   {/* Informazioni link */}
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="bg-blue-50 p-4 rounded-2xl border border-blue-200">
                     <div className="text-left">
                       {title && (
                         <div className="mb-2">
@@ -469,7 +469,7 @@ export default function QRCodeModal({
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={copyUrlToClipboard}
-                className="flex-1 flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                className="flex-1 flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all duration-200 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               >
                 <ClipboardIcon className="h-5 w-5 mr-2" />
                 Copia URL
@@ -478,7 +478,7 @@ export default function QRCodeModal({
               <button
                 onClick={downloadQRCode}
                 disabled={isLoading || !qrCodeUrl}
-                className="flex-1 flex items-center justify-center px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg"
+                className="flex-1 flex items-center justify-center px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg"
               >
                 <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
                 {isLoading ? 'Elaborazione...' : `Scarica ${format.toUpperCase()}`}

@@ -195,7 +195,7 @@ export default function LinkActions({
       {showConfirmDelete && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div ref={deleteModalRef} className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+            <div ref={deleteModalRef} className="bg-white rounded-3xl p-6 max-w-md w-full mx-4 relative backdrop-blur-sm border border-white/20">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Conferma eliminazione
               </h3>
@@ -227,7 +227,7 @@ export default function LinkActions({
       {showConfirmReset && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div ref={resetModalRef} className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+            <div ref={resetModalRef} className="bg-white rounded-3xl p-6 max-w-md w-full mx-4 relative backdrop-blur-sm border border-white/20">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
                 Conferma reset statistiche
               </h3>

@@ -680,7 +680,7 @@ export default function FolderSidebar({
               setParentFolderId(null);
               setIsCreatingFolder(true);
             }}
-            className="w-full flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            className="w-full flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-xl shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             <PlusIcon className="h-4 w-4 mr-2 text-gray-600" />
             Nuova Cartella
@@ -689,7 +689,7 @@ export default function FolderSidebar({
           {folders.filter(f => f.name !== 'Tutti i link').length > 0 && (
             <button
               onClick={() => setReorderModalOpen(true)}
-              className="w-full flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="w-full flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-xl shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <Bars3Icon className="h-4 w-4 mr-2 text-gray-600" />
               Riordina Cartelle
@@ -742,7 +742,7 @@ export default function FolderSidebar({
             {folderTree.some(node => node.children.length > 0 || folderTree.length > 1) && (
               <button
                 onClick={areAllFoldersExpanded() ? collapseAllFolders : expandAllFolders}
-                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
                 title={areAllFoldersExpanded() ? "Comprimi tutte le cartelle" : "Espandi tutte le cartelle"}
               >
                 {areAllFoldersExpanded() ? (
@@ -763,7 +763,7 @@ export default function FolderSidebar({
       {isCreatingFolder && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div ref={newFolderModalRef} className="bg-white rounded-lg p-6 w-96 shadow-xl relative">
+            <div ref={newFolderModalRef} className="bg-white rounded-3xl p-6 w-96 shadow-2xl relative backdrop-blur-sm border border-white/20">
               <h3 className="text-lg font-semibold mb-4 text-gray-900">
                 {parentFolderId ? 'Crea sottocartella' : 'Crea nuova cartella'}
               </h3>

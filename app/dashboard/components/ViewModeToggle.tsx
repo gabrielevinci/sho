@@ -28,7 +28,7 @@ export default function ViewModeToggle({
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setShowOptions(!showOptions)}
-        className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-2xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         title="Opzioni visualizzazione"
       >
         <AdjustmentsHorizontalIcon className="h-4 w-4" />
@@ -36,7 +36,7 @@ export default function ViewModeToggle({
       </button>
 
       {showOptions && (
-        <div className="absolute right-0 z-10 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
+        <div className="absolute right-0 z-10 mt-2 w-64 bg-white rounded-3xl shadow-lg border border-gray-200 py-2">
           <div className="px-4 py-2 border-b border-gray-200">
             <h3 className="text-sm font-medium text-gray-900">Opzioni di Visualizzazione</h3>
           </div>

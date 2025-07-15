@@ -15,7 +15,7 @@ export default function CreateLinkPage() {
           </h1>
         </header>
 
-        <main className="p-8 bg-white rounded-lg shadow-md">
+        <main className="p-8 bg-white rounded-3xl shadow-md">
           {/* Sostituiamo il placeholder con il nostro form avanzato */}
           <AdvancedCreateForm />
         </main>

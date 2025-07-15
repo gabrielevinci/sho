@@ -389,7 +389,7 @@ export default function FolderReorderModal({
           <div key={target.id} className="select-none">
             <button
               onClick={() => moveFolderTo(selectedFolder!, target.id)}
-              className={`w-full flex items-center p-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm ${
+              className={`w-full flex items-center p-3 rounded-2xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm ${
                 level === 0 ? 'bg-blue-50 border-blue-200' : 'bg-white'
               }`}
               style={{ marginLeft: `${level * 20}px` }}
@@ -397,12 +397,12 @@ export default function FolderReorderModal({
               {/* Connettore visivo per la gerarchia */}
               {level > 0 && (
                 <div className="flex items-center mr-2">
-                  <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-lg"></div>
+                  <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-xl"></div>
                 </div>
               )}
               
               {/* Icona cartella */}
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mr-3 ${
                 level === 0 ? 'bg-blue-100' : 'bg-gray-100'
               }`}>
                 <FolderIcon className={`w-5 h-5 ${
@@ -461,7 +461,7 @@ export default function FolderReorderModal({
         <div key={node.id} className="select-none">
           {/* Nodo principale */}
           <div 
-            className={`flex items-center py-3 px-4 rounded-lg hover:bg-gray-50 group transition-all duration-200 ${
+            className={`flex items-center py-3 px-4 rounded-2xl hover:bg-gray-50 group transition-all duration-200 ${
               level === 0 ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'bg-white border border-gray-200'
             } ${selectedFolder === node.id ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}`}
             style={{ marginLeft: `${level * 24}px` }}
@@ -488,7 +488,7 @@ export default function FolderReorderModal({
             </div>
             
             {/* Icona cartella */}
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-4 transition-colors ${
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mr-4 transition-colors ${
               level === 0 ? 'bg-blue-100 shadow-sm' : 'bg-gray-100'
             }`}>
               <FolderIcon className={`w-5 h-5 ${
@@ -529,7 +529,7 @@ export default function FolderReorderModal({
               {/* Pulsante sposta */}
               <button
                 onClick={() => openMoveModal(node.id)}
-                className="p-2 rounded-lg bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 transition-all duration-200 shadow-sm"
+                className="p-2 rounded-2xl bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 transition-all duration-200 shadow-sm"
                 title="Sposta cartella in un'altra posizione"
               >
                 <ArrowRightIcon className="w-4 h-4" />
@@ -542,7 +542,7 @@ export default function FolderReorderModal({
               <button
                 onClick={() => moveFolder(node.id, 'up', node.parent_folder_id)}
                 disabled={isFirst}
-                className={`p-2 rounded-lg transition-all duration-200 ${
+                className={`p-2 rounded-2xl transition-all duration-200 ${
                   isFirst
                     ? 'bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 shadow-sm'
@@ -555,7 +555,7 @@ export default function FolderReorderModal({
               <button
                 onClick={() => moveFolder(node.id, 'down', node.parent_folder_id)}
                 disabled={isLast}
-                className={`p-2 rounded-lg transition-all duration-200 ${
+                className={`p-2 rounded-2xl transition-all duration-200 ${
                   isLast
                     ? 'bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 shadow-sm'
@@ -583,9 +583,9 @@ export default function FolderReorderModal({
   return (
     <Portal>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999] p-4" role="dialog" aria-modal="true" aria-labelledby="folder-modal-title">
-      <div ref={mainModalRef} className="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+      <div ref={mainModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col backdrop-blur-sm border border-white/20">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-3xl">
           <div className="flex items-center justify-between">
             <div>
               <h2 id="folder-modal-title" className="text-xl font-semibold text-gray-900">🗂️ Gestione Cartelle</h2>
@@ -595,7 +595,7 @@ export default function FolderReorderModal({
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+              className="p-2 rounded-2xl hover:bg-gray-200 transition-colors"
               title="Chiudi"
               aria-label="Chiudi finestra di gestione cartelle"
             >
@@ -606,7 +606,7 @@ export default function FolderReorderModal({
           </div>
           
           {/* Legenda migliorata */}
-          <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="mt-4 p-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
             <div className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -615,7 +615,7 @@ export default function FolderReorderModal({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div className="flex items-center">
-                <div className="p-1.5 bg-blue-50 border border-blue-200 rounded mr-3">
+                <div className="p-1.5 bg-blue-50 border border-blue-200 rounded-xl mr-3">
                   <ChevronUpIcon className="w-3 h-3 text-blue-600" />
                 </div>
                 <div>
@@ -624,7 +624,7 @@ export default function FolderReorderModal({
                 </div>
               </div>
               <div className="flex items-center">
-                <div className="p-1.5 bg-green-50 border border-green-200 rounded mr-3">
+                <div className="p-1.5 bg-green-50 border border-green-200 rounded-xl mr-3">
                   <ArrowRightIcon className="w-3 h-3 text-green-600" />
                 </div>
                 <div>
@@ -633,7 +633,7 @@ export default function FolderReorderModal({
                 </div>
               </div>
               <div className="flex items-center">
-                <div className="p-1.5 bg-gray-50 border border-gray-200 rounded mr-3">
+                <div className="p-1.5 bg-gray-50 border border-gray-200 rounded-xl mr-3">
                   <ChevronRightIcon className="w-3 h-3 text-gray-600" />
                 </div>
                 <div>
@@ -685,7 +685,7 @@ export default function FolderReorderModal({
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
               title="Chiudi finestra"
             >
               Chiudi
@@ -698,8 +698,8 @@ export default function FolderReorderModal({
       {showMoveModal && selectedFolder && (
         <Portal>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[10000] p-4">
-          <div ref={moveModalRef} className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-auto max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+          <div ref={moveModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-auto max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-200 backdrop-blur-sm border border-white/20">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-3xl">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Sposta Cartella</h3>
@@ -713,7 +713,7 @@ export default function FolderReorderModal({
                     setSelectedFolder(null);
                     setSearchTerm('');
                   }}
-                  className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="p-2 rounded-2xl hover:bg-gray-200 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -734,7 +734,7 @@ export default function FolderReorderModal({
                     </div>
                     <input
                       type="text"
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-2xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Cerca cartelle di destinazione..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -750,9 +750,9 @@ export default function FolderReorderModal({
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Sposta al livello principale</h4>
                     <button
                       onClick={() => moveFolderTo(selectedFolder!, null)}
-                      className="w-full flex items-center p-4 rounded-lg border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 shadow-sm"
+                      className="w-full flex items-center p-4 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 shadow-sm"
                     >
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4 shadow-sm">
+                      <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mr-4 shadow-sm">
                         <HomeIcon className="w-6 h-6 text-blue-600" />
                       </div>
                       <div className="text-left">
@@ -814,7 +814,7 @@ export default function FolderReorderModal({
                     }
                     
                     return (
-                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50">
                         <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                           <FolderIcon className="w-4 h-4 mr-2" />
                           Gerarchia delle cartelle
@@ -827,7 +827,7 @@ export default function FolderReorderModal({
               </div>
             </div>
             
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-3xl flex justify-between items-center">
               <div className="text-sm text-gray-600">
                 💡 <strong>Suggerimento:</strong> Non puoi spostare una cartella in una sua sottocartella
               </div>
@@ -837,7 +837,7 @@ export default function FolderReorderModal({
                   setSelectedFolder(null);
                   setSearchTerm('');
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-2xl hover:bg-gray-50 transition-colors"
               >
                 Annulla
               </button>

@@ -95,7 +95,7 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
     <div className="relative" ref={switcherRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)} 
-        className="flex items-center gap-2 px-3 py-2 text-lg font-semibold text-gray-800 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-3 py-2 text-lg font-semibold text-gray-800 bg-white border border-gray-200 rounded-2xl shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={isPending}
       >
         <span>{activeWorkspace?.name || 'Seleziona Workspace'}</span>
@@ -107,7 +107,7 @@ export default function WorkspaceSwitcher({ workspaces, activeWorkspace }: { wor
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+        <div className="absolute top-full mt-2 w-72 bg-white border border-gray-200 rounded-3xl shadow-lg z-10">
           <div className="p-2">
             <p className="px-2 py-1 text-xs font-semibold text-gray-500">I TUOI WORKSPACE</p>
             {workspaces.map((ws) => (

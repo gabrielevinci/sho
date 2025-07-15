@@ -23,14 +23,14 @@ interface LinksListProps {
 export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
   if (links.length === 0) {
     return (
-      <div className="mt-4 p-6 bg-white rounded-lg shadow-md text-center text-gray-500">
+      <div className="mt-4 p-6 bg-white rounded-3xl shadow-md text-center text-gray-500">
         <p>Non hai ancora creato nessun link in questo workspace.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden dashboard-container">
+    <div className="bg-white rounded-3xl shadow-md overflow-hidden dashboard-container">
       <div className="overflow-x-auto">
         <table className="w-full divide-y divide-gray-200 dashboard-table">
           <thead className="bg-gray-50">

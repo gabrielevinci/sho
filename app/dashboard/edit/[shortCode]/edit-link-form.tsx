@@ -160,7 +160,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
           {selectedFolders.map(folder => (
             <span
               key={folder.id}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-md"
+              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-xl"
             >
               <FolderIcon className="w-4 h-4" />
               {folder.name}
@@ -181,7 +181,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-3 py-2 text-left border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white"
+          className="w-full px-3 py-2 text-left border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
           <span className="text-gray-500">
             {selectedFolders.length > 0 
@@ -193,14 +193,14 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto" ref={dropdownRef}>
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-xl z-10 max-h-60 overflow-y-auto" ref={dropdownRef}>
             <div className="p-2">
               <input
                 type="text"
                 placeholder="Cerca cartelle..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             
@@ -277,11 +277,11 @@ function SubmitButton() {
 
 // Componente per i campi UTM
 function UtmFields({ linkData }: { linkData: LinkData }) {
-  const fieldClass = "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500";
+  const fieldClass = "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500";
   const labelClass = "block text-sm font-medium text-gray-600";
   
   return (
-    <div className="space-y-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+    <div className="space-y-4 p-4 border border-gray-200 rounded-2xl bg-gray-50">
       <h3 className="font-semibold text-gray-700">Parametri UTM</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -396,14 +396,14 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
     <div className="space-y-6">
       {/* Messaggio di successo */}
       {state.success && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+        <div className="p-4 bg-green-50 border border-green-200 rounded-2xl">
           <p className="text-green-800">{state.message}</p>
         </div>
       )}
 
       {/* Messaggio di errore generale */}
       {state.errors?.general && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
           <p className="text-red-800">{state.errors.general}</p>
         </div>
       )}
@@ -427,7 +427,7 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
           )}
         </div>
 
-        <div className="space-y-4 p-4 border border-gray-200 rounded-lg">
+        <div className="space-y-4 p-4 border border-gray-200 rounded-2xl">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-600">
               Titolo (Opzionale)
@@ -437,7 +437,7 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
               name="title" 
               id="title" 
               placeholder="Il mio fantastico articolo" 
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               defaultValue={linkData.title || ''}
             />
           </div>
@@ -451,7 +451,7 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
               id="description" 
               rows={3} 
               placeholder="Una breve descrizione del contenuto del link." 
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               defaultValue={linkData.description || ''}
             />
           </div>
@@ -461,7 +461,7 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
               Short Code Personalizzato (Opzionale)
             </label>
             <div className="flex items-center mt-1">
-              <span className="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md h-11">
+              <span className="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-xl h-11">
                 {SITE_URL.replace(/^https?:\/\//, '')}/
               </span>
               <input 
@@ -469,7 +469,7 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
                 name="shortCode" 
                 id="shortCode" 
                 placeholder="mio-link" 
-                className="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-r-md shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-r-xl shadow-sm text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 defaultValue={linkData.short_code}
               />
             </div>
