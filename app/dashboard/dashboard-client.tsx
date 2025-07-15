@@ -304,12 +304,6 @@ export default function DashboardClient({
             </div>
             
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="bg-white border-b border-gray-200 px-6 py-4">
-                <h2 className="text-2xl font-semibold text-gray-800">
-                  Link in: <span className="text-blue-600">{initialActiveWorkspace.name}</span>
-                </h2>
-              </div>
-              
               <div className="flex-1 overflow-auto p-6">
                 <FolderizedLinksList
                   links={links}
