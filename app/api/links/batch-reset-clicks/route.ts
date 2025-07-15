@@ -16,17 +16,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ShortCodes array mancante o vuoto' }, { status: 400 });
     }
     
-    // Azzera i click per tutti i link specificati
-    const placeholders = shortCodes.map((_, index) => `$${index + 3}`).join(', ');
-    const query = `
-      UPDATE links 
-      SET click_count = 0, unique_click_count = 0 
-      WHERE short_code IN (${placeholders}) 
-      AND user_id = $1 
-      AND workspace_id = $2
+    // Prima ottieni gli ID dei link per eliminare i record clicks
+    const linkPlaceholders = shortCodes.map((_, index) => `$${index + 2}`).join(', ');
+    const linkQuery = `
+      SELECT id FROM links 
+      WHERE short_code IN (${linkPlaceholders}) 
+      AND user_id = $1
     `;
     
-    await sql.query(query, [session.userId, session.workspaceId, ...shortCodes]);
+    const { rows: linkRows } = await sql.query(linkQuery, [session.userId, ...shortCodes]);
+    const linkIds = linkRows.map(row => row.id);
+    
+    if (linkIds.length > 0) {
+      // Elimina tutti i record dalla tabella clicks per questi link
+      const clickPlaceholders = linkIds.map((_, index) => `$${index + 1}`).join(', ');
+      const deleteClicksQuery = `
+        DELETE FROM clicks
+        WHERE link_id IN (${clickPlaceholders})
+      `;
+      
+      await sql.query(deleteClicksQuery, linkIds);
+    }
+    
+    // Azzera i contatori dei link nella tabella links
+    const updateQuery = `
+      UPDATE links 
+      SET click_count = 0, unique_click_count = 0 
+      WHERE short_code IN (${linkPlaceholders}) 
+      AND user_id = $1
+    `;
+    
+    await sql.query(updateQuery, [session.userId, ...shortCodes]);
     
     return NextResponse.json({ 
       success: true, 

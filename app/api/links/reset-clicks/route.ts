@@ -34,15 +34,21 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 });
     }
 
-    // Azzera i click del link
+    // Ottieni l'ID del link per eliminare i record clicks
+    const linkId = linkRows[0].id;
+
+    // Elimina tutti i record dalla tabella clicks per questo link
+    await sql`
+      DELETE FROM clicks
+      WHERE link_id = ${linkId}
+    `;
+
+    // Azzera i contatori del link nella tabella links
     await sql`
       UPDATE links
       SET click_count = 0, unique_click_count = 0
       WHERE short_code = ${shortCode} AND user_id = ${session.userId}
     `;
-
-    // Nota: Non eliminiamo i record dalla tabella clicks per mantenere lo storico delle analitiche
-    // Solo resettiamo il contatore nel link principale
 
     return NextResponse.json({ 
       message: 'Click azzerati con successo',

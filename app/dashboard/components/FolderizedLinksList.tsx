@@ -833,30 +833,52 @@ export default function FolderizedLinksList({
                     onClick={async () => {
                       try {
                         const selectedLinkArray = Array.from(selectedLinks);
-                        for (const linkId of selectedLinkArray) {
-                          const response = await fetch('/api/links/reset-clicks', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ linkId }),
-                          });
-                          if (!response.ok) {
-                            throw new Error('Failed to reset clicks');
-                          }
+                        
+                        // Converti gli ID in short_code
+                        const shortCodes = selectedLinkArray
+                          .map(linkId => {
+                            const link = links.find(l => l.id === linkId);
+                            return link?.short_code;
+                          })
+                          .filter(Boolean); // Rimuove eventuali undefined
+                        
+                        if (shortCodes.length === 0) {
+                          onToast?.('Nessun link valido selezionato', 'error');
+                          return;
                         }
+                        
+                        // Chiamata API batch per reset click
+                        const response = await fetch('/api/links/batch-reset-clicks', {
+                          method: 'PUT',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({ shortCodes }),
+                        });
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || 'Errore durante l\'azzeramento');
+                        }
+                        
+                        const result = await response.json();
+                        
                         handleClearSelection();
-                        onToast?.(`Click azzerati per ${selectedLinkArray.length} link`, 'success');
-                        onUpdateLinks();
+                        onToast?.(result.message || `Click azzerati per ${shortCodes.length} link`, 'success');
+                        onUpdateLinks(); // Aggiorna la lista per riflettere le modifiche
+                        
                       } catch (error) {
                         console.error('Errore durante l\'azzeramento batch:', error);
                         onToast?.('Errore durante l\'azzeramento dei click', 'error');
                       }
                     }}
-                    className="flex items-center space-x-1 px-3 py-1 bg-white border border-gray-300 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+                    className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-2xl text-sm font-medium text-red-600 hover:bg-red-50 shadow-sm hover:shadow-md transition-all duration-200"
                   >
                     <ArrowPathIcon className="h-4 w-4" />
                     <span>Azzera click</span>
+                    <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                      {selectedLinks.size}
+                    </span>
                   </button>
                   
                   {/* Elimina */}
