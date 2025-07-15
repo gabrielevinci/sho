@@ -76,15 +76,6 @@ type MonthlyData = {
   unique_clicks: number;
 };
 
-type WeeklyData = {
-  week: number;
-  year: number;
-  week_start: string;
-  week_end: string;
-  total_clicks: number;
-  unique_clicks: number;
-};
-
 // Funzione per ottenere le statistiche generali del workspace
 async function getWorkspaceAnalytics(userId: string, workspaceId: string): Promise<WorkspaceAnalytics> {
   try {
@@ -421,7 +412,11 @@ async function getDailyTimeSeriesData(userId: string, workspaceId: string, days:
     const { rows } = await sql.query(intervalQuery, [userId, workspaceId]);
     
     // Converto i valori numerici da stringhe a numeri
-    return (rows as any[]).map(row => ({
+    return (rows as { 
+      date: string; 
+      total_clicks: string; 
+      unique_clicks: string; 
+    }[]).map(row => ({
       date: row.date,
       total_clicks: Number(row.total_clicks),
       unique_clicks: Number(row.unique_clicks)

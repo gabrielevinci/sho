@@ -93,8 +93,7 @@ export default function WorkspaceAnalyticsClient({
   deviceData,
   browserData,
   referrerData,
-  dailyData,
-  monthlyData
+  dailyData
 }: Props) {
   // Stati per i dati che possono essere filtrati
   const [workspaceAnalytics, setWorkspaceAnalytics] = useState(initialWorkspaceAnalytics);

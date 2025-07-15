@@ -157,7 +157,14 @@ async function getFilteredTopLinks(
     const params = [userId, workspaceId, limit, ...dateParams];
     const { rows } = await sql.query(query, params);
     
-    return rows.map((row: any) => ({
+    return rows.map((row: { 
+      short_code: string; 
+      original_url: string; 
+      title: string; 
+      created_at: Date; 
+      click_count: string; 
+      unique_click_count: string; 
+    }) => ({
       short_code: row.short_code,
       original_url: row.original_url,
       title: row.title,
@@ -218,7 +225,11 @@ async function getFilteredGeographicData(
     const params = [userId, workspaceId, ...dateFilter.params];
     const { rows } = await sql.query(query, params);
     
-    return rows.map((row: any) => ({
+    return rows.map((row: { 
+      country: string; 
+      clicks: string; 
+      percentage: string; 
+    }) => ({
       country: row.country,
       clicks: Number(row.clicks),
       percentage: Number(row.percentage)
