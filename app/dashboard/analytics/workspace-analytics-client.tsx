@@ -226,243 +226,267 @@ export default function WorkspaceAnalyticsClient({
         </div>
       )}
       {/* Statistiche Generali */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-8 rounded-2xl shadow-lg border border-blue-200 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-600 rounded-xl">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-blue-600 rounded-lg">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-bold text-gray-700 mb-2">Totale Link</h3>
-          <p className="text-4xl font-black text-blue-700 mb-2">{workspaceAnalytics.total_links}</p>
-          <p className="text-sm text-blue-600 font-medium">Link creati nel workspace</p>
+          <h3 className="text-sm font-bold text-gray-700 mb-2">Totale Link</h3>
+          <p className="text-2xl font-black text-blue-700 mb-1">{workspaceAnalytics.total_links}</p>
+          <p className="text-xs text-blue-600 font-medium">Link creati nel workspace</p>
         </div>
         
-        <div className="bg-gradient-to-br from-green-50 to-green-100 p-8 rounded-2xl shadow-lg border border-green-200 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-green-600 rounded-xl">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-md border border-green-200 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-green-600 rounded-lg">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-bold text-gray-700 mb-2">Click Totali</h3>
-          <p className="text-4xl font-black text-green-700 mb-2">{workspaceAnalytics.total_clicks.toLocaleString()}</p>
-          <p className="text-sm text-green-600 font-medium">Click su tutti i link</p>
+          <h3 className="text-sm font-bold text-gray-700 mb-2">Click Totali</h3>
+          <p className="text-2xl font-black text-green-700 mb-1">{workspaceAnalytics.total_clicks.toLocaleString()}</p>
+          <p className="text-xs text-green-600 font-medium">Click su tutti i link</p>
         </div>
         
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-8 rounded-2xl shadow-lg border border-purple-200 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-purple-600 rounded-xl">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl shadow-md border border-purple-200 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-purple-600 rounded-lg">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-bold text-gray-700 mb-2">Visitatori Unici</h3>
-          <p className="text-4xl font-black text-purple-700 mb-2">{workspaceAnalytics.unique_clicks.toLocaleString()}</p>
-          <p className="text-sm text-purple-600 font-medium">Utenti unici registrati</p>
+          <h3 className="text-sm font-bold text-gray-700 mb-2">Visitatori Unici</h3>
+          <p className="text-2xl font-black text-purple-700 mb-1">{workspaceAnalytics.unique_clicks.toLocaleString()}</p>
+          <p className="text-xs text-purple-600 font-medium">Utenti unici registrati</p>
         </div>
         
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-8 rounded-2xl shadow-lg border border-orange-200 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-orange-600 rounded-xl">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl shadow-md border border-orange-200 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-orange-600 rounded-lg">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-bold text-gray-700 mb-2">Media Click/Link</h3>
-          <p className="text-4xl font-black text-orange-700 mb-2">{workspaceAnalytics.avg_clicks_per_link.toFixed(1)}</p>
-          <p className="text-sm text-orange-600 font-medium">Performance media</p>
+          <h3 className="text-sm font-bold text-gray-700 mb-2">Media Click/Link</h3>
+          <p className="text-2xl font-black text-orange-700 mb-1">{workspaceAnalytics.avg_clicks_per_link.toFixed(1)}</p>
+          <p className="text-xs text-orange-600 font-medium">Performance media</p>
         </div>
       </div>
 
       {/* Statistiche Periodo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center mb-6">
-            <div className="p-3 bg-blue-100 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-blue-100 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800">Oggi</h3>
+            <h3 className="text-lg font-bold text-gray-800">Oggi</h3>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Click</span>
-              <span className="text-2xl font-bold text-blue-600">{workspaceAnalytics.clicks_today.toLocaleString()}</span>
+              <span className="text-sm text-gray-600 font-medium">Click</span>
+              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.clicks_today.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Click Unici</span>
-              <span className="text-2xl font-bold text-blue-600">{workspaceAnalytics.unique_clicks_today.toLocaleString()}</span>
+              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
+              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.unique_clicks_today.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Link Creati</span>
-              <span className="text-2xl font-bold text-blue-600">{workspaceAnalytics.links_created_today}</span>
+              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
+              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.links_created_today}</span>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center mb-6">
-            <div className="p-3 bg-green-100 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-green-100 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800">Questa Settimana</h3>
+            <h3 className="text-lg font-bold text-gray-800">Questa Settimana</h3>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Click</span>
-              <span className="text-2xl font-bold text-green-600">{workspaceAnalytics.clicks_this_week.toLocaleString()}</span>
+              <span className="text-sm text-gray-600 font-medium">Click</span>
+              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.clicks_this_week.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Click Unici</span>
-              <span className="text-2xl font-bold text-green-600">{workspaceAnalytics.unique_clicks_this_week.toLocaleString()}</span>
+              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
+              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.unique_clicks_this_week.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Link Creati</span>
-              <span className="text-2xl font-bold text-green-600">{workspaceAnalytics.links_created_this_week}</span>
+              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
+              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.links_created_this_week}</span>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-          <div className="flex items-center mb-6">
-            <div className="p-3 bg-purple-100 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-purple-100 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800">Questo Mese</h3>
+            <h3 className="text-lg font-bold text-gray-800">Questo Mese</h3>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Click</span>
-              <span className="text-2xl font-bold text-purple-600">{workspaceAnalytics.clicks_this_month.toLocaleString()}</span>
+              <span className="text-sm text-gray-600 font-medium">Click</span>
+              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.clicks_this_month.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Click Unici</span>
-              <span className="text-2xl font-bold text-purple-600">{workspaceAnalytics.unique_clicks_this_month.toLocaleString()}</span>
+              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
+              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.unique_clicks_this_month.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Link Creati</span>
-              <span className="text-2xl font-bold text-purple-600">{workspaceAnalytics.links_created_this_month}</span>
+              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
+              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.links_created_this_month}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Informazioni Principali */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-8 rounded-2xl shadow-xl text-white">
-          <div className="flex items-center mb-4">
-            <div className="p-3 bg-white bg-opacity-20 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold">Link Più Cliccato</h3>
+            </div>
+            {/* Logo Link */}
+            <div className="p-2 bg-white bg-opacity-10 rounded-lg">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
               </svg>
             </div>
-            <h3 className="text-xl font-bold">Link Più Cliccato</h3>
           </div>
           {workspaceAnalytics.most_clicked_link ? (
             <div>
-              <p className="text-lg font-mono text-blue-100 mb-2 break-all">{workspaceAnalytics.most_clicked_link}</p>
-              <p className="text-3xl font-black text-white">{workspaceAnalytics.most_clicked_link_count.toLocaleString()} click</p>
+              <p className="text-sm font-mono text-blue-100 mb-2 break-all">{workspaceAnalytics.most_clicked_link}</p>
+              <p className="text-xl font-black text-white">{workspaceAnalytics.most_clicked_link_count.toLocaleString()} click</p>
             </div>
           ) : (
-            <p className="text-xl text-white opacity-80">Nessun click registrato</p>
+            <p className="text-base text-white opacity-80">Nessun click registrato</p>
           )}
         </div>
         
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-8 rounded-2xl shadow-xl text-white">
-          <div className="flex items-center mb-4">
-            <div className="p-3 bg-white bg-opacity-20 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold">Browser Più Usato</h3>
+            </div>
+            {/* Logo Browser */}
+            <div className="p-2 bg-white bg-opacity-10 rounded-lg">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10Z"/>
               </svg>
             </div>
-            <h3 className="text-xl font-bold">Browser Più Usato</h3>
           </div>
-          <p className="text-2xl font-bold text-white">{workspaceAnalytics.most_used_browser || 'N/A'}</p>
+          <p className="text-lg font-bold text-white">{workspaceAnalytics.most_used_browser || 'N/A'}</p>
         </div>
         
-        <div className="bg-gradient-to-r from-orange-500 to-red-600 p-8 rounded-2xl shadow-xl text-white">
-          <div className="flex items-center mb-4">
-            <div className="p-3 bg-white bg-opacity-20 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        <div className="bg-gradient-to-r from-orange-500 to-red-600 p-6 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold">Dispositivo Più Usato</h3>
+            </div>
+            {/* Logo Dispositivo */}
+            <div className="p-2 bg-white bg-opacity-10 rounded-lg">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17,19H7V5H17M17,1H7C5.89,1 5,1.89 5,3V21C5,22.11 5.89,23 7,23H17C18.11,23 19,22.11 19,21V3C19,1.89 18.11,1 17,1M16,13H13V16H11V13H8V11H11V8H13V11H16V13Z"/>
               </svg>
             </div>
-            <h3 className="text-xl font-bold">Dispositivo Più Usato</h3>
           </div>
-          <p className="text-2xl font-bold text-white">{workspaceAnalytics.most_used_device || 'N/A'}</p>
+          <p className="text-lg font-bold text-white">{workspaceAnalytics.most_used_device || 'N/A'}</p>
         </div>
       </div>
 
       {/* Top Link */}
-      <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-        <div className="flex items-center mb-8">
-          <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl mr-4">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+        <div className="flex items-center mb-6">
+          <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg mr-3">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <h3 className="text-2xl font-bold text-gray-800">Top 10 Link Performanti</h3>
+          <h3 className="text-lg font-bold text-gray-800">Top 10 Link Performanti</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="border-b-2 border-gray-100">
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
+              <tr className="border-b border-gray-100">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Link
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Titolo
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Click Totali
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Click Unici
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Creato
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {topLinks.map((link, index) => (
                 <tr key={link.short_code} className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="px-6 py-5 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-white font-bold text-sm">{index + 1}</span>
+                      <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
+                        <span className="text-white font-bold text-xs">{index + 1}</span>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-blue-600 font-mono">{link.short_code}</div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs">{link.original_url}</div>
+                        <div className="text-sm font-bold text-blue-600 font-mono">{link.short_code}</div>
+                        <div className="text-xs text-gray-500 truncate max-w-xs">{link.original_url}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap">
-                    <div className="text-lg font-semibold text-gray-900">{link.title || 'Senza titolo'}</div>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="text-sm font-semibold text-gray-900">{link.title || 'Senza titolo'}</div>
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-800">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
                       {link.click_count.toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-purple-100 text-purple-800">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
                       {link.unique_click_count.toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap text-base text-gray-600 font-medium">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-medium">
                     {new Date(link.created_at).toLocaleDateString('it-IT')}
                   </td>
                 </tr>
@@ -474,27 +498,27 @@ export default function WorkspaceAnalyticsClient({
 
       {/* Dati Geografici */}
       {geographicData.length > 0 && (
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-          <div className="flex items-center mb-8">
-            <div className="p-3 bg-gradient-to-r from-green-500 to-blue-600 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <div className="flex items-center mb-6">
+            <div className="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-gray-800">Distribuzione Geografica</h3>
+            <h3 className="text-lg font-bold text-gray-800">Distribuzione Geografica</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {geographicData.map((geo, index) => (
-              <div key={geo.country} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200">
+              <div key={geo.country} className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:shadow-sm transition-all duration-200">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center mr-4">
-                    <span className="text-white font-bold text-sm">{index + 1}</span>
+                  <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center mr-3">
+                    <span className="text-white font-bold text-xs">{index + 1}</span>
                   </div>
-                  <span className="text-lg font-bold text-gray-800">{geo.country}</span>
+                  <span className="text-sm font-bold text-gray-800">{geo.country}</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold text-blue-600">{geo.clicks.toLocaleString()}</div>
-                  <div className="text-sm text-gray-500 font-medium">{geo.percentage.toFixed(1)}%</div>
+                  <div className="text-lg font-bold text-blue-600">{geo.clicks.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500 font-medium">{geo.percentage.toFixed(1)}%</div>
                 </div>
               </div>
             ))}
@@ -597,22 +621,24 @@ export default function WorkspaceAnalyticsClient({
 
       {/* Dati Temporali */}
       {dailyData.length > 0 && (
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <div className="flex items-center mb-6">
-            <div className="p-3 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-xl mr-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800">Andamento Click - Ultimi 15 Giorni</h3>
+            <h3 className="text-lg font-bold text-gray-800">Andamento Click - Ultimi 15 Giorni</h3>
           </div>
           <div className="overflow-x-auto">
-            <div className="grid grid-cols-5 gap-4 min-w-full">
-              {dailyData.slice(-15).map((day) => (
-                <div key={day.date} className="text-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-200 hover:shadow-lg transition-all duration-200">
-                  <p className="text-sm font-bold text-gray-600 mb-2">{new Date(day.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}</p>
-                  <p className="text-2xl font-black text-blue-600 mb-1">{day.total_clicks.toLocaleString()}</p>
-                  <p className="text-sm text-gray-500 font-medium">({day.unique_clicks.toLocaleString()} unici)</p>
+            <div className="grid grid-cols-5 gap-3 min-w-full">
+              {dailyData.slice(-15).reverse().map((day, index) => (
+                <div key={day.date} className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border border-blue-200 hover:shadow-md transition-all duration-200">
+                  <p className="text-xs font-bold text-gray-600 mb-2">
+                    {index === 0 ? 'Oggi' : new Date(day.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
+                  </p>
+                  <p className="text-lg font-black text-blue-600 mb-1">{day.total_clicks.toLocaleString()}</p>
+                  <p className="text-xs text-gray-500 font-medium">({day.unique_clicks.toLocaleString()} unici)</p>
                 </div>
               ))}
             </div>
