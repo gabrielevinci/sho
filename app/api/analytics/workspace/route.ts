@@ -319,12 +319,8 @@ async function getFilteredTimeSeriesData(
     }
     
     // Per tutti gli altri filtri, usiamo dati giornalieri
-    let dateCondition = '';
-    let params = [userId, workspaceId];
-    
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome::date >= $3::date AND c.clicked_at_rome::date <= $4::date`;
-      params.push(startDate, endDate);
+      const params = [userId, workspaceId, startDate, endDate];
       
       const dailyQuery = `
         WITH workspace_links AS (

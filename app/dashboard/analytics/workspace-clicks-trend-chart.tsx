@@ -103,7 +103,13 @@ const CustomTooltip = ({
     value: number;
     name: string;
     color: string;
-    payload?: any;
+    payload?: {
+      date: string;
+      full_datetime?: string;
+      total_clicks: number;
+      unique_clicks: number;
+      displayDate?: string;
+    };
   }>;
   label?: string;
   filterType?: DateFilter;
