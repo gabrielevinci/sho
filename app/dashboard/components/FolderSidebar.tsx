@@ -476,12 +476,12 @@ export default function FolderSidebar({
     const isEditing = editingFolderId === node.id;
     const isDefaultFolder = node.id === defaultFolderId;
     
-    // Calcola l'indentazione precisa basata sul livello
-    const indentationLevel = depth * 24; // 24px per livello per allineamento consistente
+    // Calcola l'indentazione precisa basata sul livello - aumentata per sidebar più ampia
+    const indentationLevel = depth * 28; // Aumentato da 24px a 28px per maggiore chiarezza
     const hasChildren = node.children.length > 0;
     
-    // Limita la profondità massima per evitare layout problematici
-    const maxDepth = 5;
+    // Aumenta la profondità massima dato lo spazio aggiuntivo
+    const maxDepth = 7; // Aumentato da 5 a 7
     const isDeepNested = depth >= maxDepth;
     
     return (
@@ -495,7 +495,7 @@ export default function FolderSidebar({
             isDeepNested ? 'opacity-80' : ''
           }`}
           style={{ 
-            marginLeft: isDeepNested ? `${maxDepth * 24}px` : `${indentationLevel}px`,
+            marginLeft: isDeepNested ? `${maxDepth * 28}px` : `${indentationLevel}px`,
             position: 'relative'
           }}
           onDragOver={(e) => handleDragOver(e, node.id)}
@@ -509,7 +509,7 @@ export default function FolderSidebar({
             <div 
               className="absolute border-l-2 border-gray-200"
               style={{
-                left: `${indentationLevel - 12}px`,
+                left: `${indentationLevel - 14}px`, // Aggiustato per la nuova indentazione
                 top: '0',
                 bottom: '0',
                 width: '2px'
@@ -519,7 +519,7 @@ export default function FolderSidebar({
           
           {/* Indicatore per cartelle molto annidate */}
           {isDeepNested && (
-            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-gray-400 rounded-full" 
+            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-gray-400 rounded-full" 
                  title={`Livello ${depth + 1}`} />
           )}
           
@@ -593,7 +593,7 @@ export default function FolderSidebar({
             
             {/* Indicatore del livello per cartelle molto annidate */}
             {isDeepNested && (
-              <span className="text-xs text-gray-400 ml-2 flex-shrink-0">L{depth + 1}</span>
+              <span className="text-xs text-gray-400 ml-2 flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded-full">L{depth + 1}</span>
             )}
           </div>
           
@@ -670,17 +670,17 @@ export default function FolderSidebar({
 
   return (
     <div className="h-full flex flex-col bg-gray-50 min-h-0">
-      <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-800">Cartelle</h2>
+      <div className="p-5 border-b border-gray-200 flex-shrink-0 bg-white">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">Cartelle</h2>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           <button
             onClick={() => {
               setParentFolderId(null);
               setIsCreatingFolder(true);
             }}
-            className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="w-full flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             <PlusIcon className="h-4 w-4 mr-2 text-gray-600" />
             Nuova Cartella
@@ -689,7 +689,7 @@ export default function FolderSidebar({
           {folders.filter(f => f.name !== 'Tutti i link').length > 0 && (
             <button
               onClick={() => setReorderModalOpen(true)}
-              className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full flex items-center justify-center px-4 py-2.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <Bars3Icon className="h-4 w-4 mr-2 text-gray-600" />
               Riordina Cartelle
@@ -714,35 +714,35 @@ export default function FolderSidebar({
               onClick={() => onFolderSelect(defaultFolderId)}
             >
               <div className="flex items-center flex-1 min-w-0">
-                <div className={`mr-3 flex-shrink-0 transition-colors ${
+                <div className={`mr-4 flex-shrink-0 transition-colors ${
                   selectedFolderId === defaultFolderId ? 'text-blue-600' : 'text-gray-500'
                 }`}>
-                  <HomeIcon className="w-5 h-5" />
+                  <HomeIcon className="w-6 h-6" />
                 </div>
-                <span className={`font-medium truncate transition-colors ${
+                <span className={`font-semibold truncate transition-colors ${
                   selectedFolderId === defaultFolderId ? 'text-blue-700' : 'text-gray-700'
                 }`} title="Tutti i link">
                   Tutti i link
                 </span>
               </div>
-              <div className={`ml-2 flex items-center flex-shrink-0 ${
+              <div className={`ml-3 flex items-center flex-shrink-0 ${
                 selectedFolderId === defaultFolderId ? 'text-blue-600' : 'text-gray-400'
               }`}>
-                <DocumentIcon className="w-4 h-4 mr-1" />
-                <span className="text-xs font-medium">Tutti</span>
+                <DocumentIcon className="w-5 h-5 mr-1" />
+                <span className="text-sm font-medium">Tutti</span>
               </div>
             </div>
           </div>
         )}
         
         {/* Sezione Cartelle */}
-        <div className="flex-1 flex flex-col min-h-0 p-4">
-          <div className="mb-3 flex items-center justify-between flex-shrink-0">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cartelle</h3>
+        <div className="flex-1 flex flex-col min-h-0 p-5">
+          <div className="mb-4 flex items-center justify-between flex-shrink-0">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cartelle Organizzate</h3>
             {folderTree.some(node => node.children.length > 0 || folderTree.length > 1) && (
               <button
                 onClick={areAllFoldersExpanded() ? collapseAllFolders : expandAllFolders}
-                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
                 title={areAllFoldersExpanded() ? "Comprimi tutte le cartelle" : "Espandi tutte le cartelle"}
               >
                 {areAllFoldersExpanded() ? (

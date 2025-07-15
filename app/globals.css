@@ -130,6 +130,21 @@ textarea::placeholder {
 .scrollbar-track-gray-100::-webkit-scrollbar-track {
   background: #f3f4f6;
 }
+
+/* Responsive sidebar improvements */
+@media (max-width: 1280px) {
+  /* Su schermi più piccoli, riduci leggermente la sidebar */
+  .dashboard-sidebar {
+    width: 320px; /* w-80 instead of w-96 */
+  }
+}
+
+@media (max-width: 1024px) {
+  /* Su tablet, sidebar ancora più compatta */
+  .dashboard-sidebar {
+    width: 280px; /* w-72 */
+  }
+}
 .dashboard-table th:nth-child(4) { width: 16%; } /* Shorted */
 .dashboard-table th:nth-child(5) { width: 20%; } /* Originale */
 .dashboard-table th:nth-child(6) { width: 24%; } /* Azioni - Aumentata per ospitare tutti i pulsanti */
