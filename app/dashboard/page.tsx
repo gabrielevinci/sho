@@ -159,6 +159,12 @@ export default async function DashboardPage() {
             >
               Crea Link
             </Link>
+            <Link 
+              href="/dashboard/analytics"
+              className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75"
+            >
+              Statistiche
+            </Link>
           </div>
           <div className="flex items-center space-x-4">
             <WorkspaceSwitcher 
