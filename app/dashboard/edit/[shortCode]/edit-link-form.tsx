@@ -156,23 +156,42 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
       
       {/* Cartelle selezionate */}
       {selectedFolders.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {selectedFolders.map(folder => (
-            <span
-              key={folder.id}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-xl"
-            >
-              <FolderIcon className="w-4 h-4" />
-              {folder.name}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+              Cartelle Selezionate ({selectedFolders.length})
+            </span>
+            {selectedFolders.length > 1 && (
               <button
                 type="button"
-                onClick={() => removeFolder(folder.id)}
-                className="text-blue-600 hover:text-blue-800"
+                onClick={() => onFoldersChange([])}
+                className="text-xs text-red-600 hover:text-red-700 font-medium"
               >
-                <XMarkIcon className="w-4 h-4" />
+                Rimuovi tutte
               </button>
-            </span>
-          ))}
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedFolders.map(folder => (
+              <div
+                key={folder.id}
+                className="group inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-800 text-sm rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200"
+              >
+                <FolderIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="font-medium truncate max-w-[150px]" title={folder.name}>
+                  {folder.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeFolder(folder.id)}
+                  className="text-blue-600 hover:text-red-600 hover:bg-red-50 rounded-full p-0.5 transition-all duration-200 group-hover:bg-white/50"
+                  title={`Rimuovi ${folder.name}`}
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -181,69 +200,223 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-3 py-2 text-left border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white"
+          className={`w-full px-4 py-3 text-left border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-all duration-200 ${
+            isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''
+          }`}
         >
-          <span className="text-gray-500">
-            {selectedFolders.length > 0 
-              ? `${selectedFolders.length} cartelle selezionate`
-              : 'Seleziona cartelle...'
-            }
-          </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center min-w-0">
+              <FolderIcon className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
+              <span className={`truncate ${
+                selectedFolders.length > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'
+              }`}>
+                {selectedFolders.length > 0 
+                  ? selectedFolders.length === 1
+                    ? `${selectedFolders[0].name}`
+                    : `${selectedFolders.length} cartelle selezionate`
+                  : 'Seleziona cartelle...'
+                }
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+              {selectedFolders.length > 0 && (
+                <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full">
+                  {selectedFolders.length}
+                </span>
+              )}
+              <svg 
+                className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                  isOpen ? 'transform rotate-180' : ''
+                }`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </button>
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-xl z-10 max-h-60 overflow-y-auto" ref={dropdownRef}>
-            <div className="p-2">
-              <input
-                type="text"
-                placeholder="Cerca cartelle..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-2xl z-10 max-h-80 overflow-hidden backdrop-blur-sm" ref={dropdownRef}>
+            {/* Header del dropdown */}
+            <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                  <FolderIcon className="w-4 h-4 mr-2 text-gray-500" />
+                  Seleziona Cartelle
+                </h4>
+                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">
+                  {selectedFolders.length} selezionate
+                </span>
+              </div>
+            </div>
+            
+            {/* Campo di ricerca migliorato */}
+            <div className="p-3 bg-gray-50 border-b border-gray-100">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Cerca cartelle..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-gray-400"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <XMarkIcon className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="max-h-40 overflow-y-auto">
               {filteredFolders.length > 0 ? (
                 filteredFolders.map((folder) => {
                   const isSelected = selectedFolders.some(f => f.id === folder.id);
+                  const hasChildren = folder.children.length > 0;
+                  const indentLevel = folder.level;
+                  
                   return (
                     <button
                       key={folder.id}
                       type="button"
                       onClick={() => toggleFolder({id: folder.id, name: folder.name})}
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-2 ${
-                        isSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-800 hover:text-gray-900'
+                      className={`w-full py-3 px-3 text-left hover:bg-gray-50 flex items-center transition-all duration-200 border-l-4 ${
+                        isSelected 
+                          ? 'bg-blue-50 text-blue-700 border-blue-500 shadow-sm' 
+                          : 'text-gray-800 hover:text-gray-900 border-transparent hover:border-gray-200'
                       }`}
-                      style={{ paddingLeft: `${12 + folder.level * 16}px` }}
+                      style={{ paddingLeft: `${12 + indentLevel * 20}px` }}
                     >
-                      <FolderIcon className="w-4 h-4 flex-shrink-0 text-gray-600" />
-                      <span className="flex-1 text-gray-800">
-                        {folder.level > 0 && (
-                          <span className="text-gray-400 mr-1 font-mono text-xs">
-                            {'│  '.repeat(folder.level - 1)}{'├─ '}
-                          </span>
+                      {/* Indicatori gerarchia visivi */}
+                      <div className="flex items-center mr-3 flex-shrink-0">
+                        {indentLevel > 0 && (
+                          <div className="flex items-center">
+                            {/* Linee di connessione gerarchia */}
+                            {Array.from({ length: indentLevel }, (_, i) => (
+                              <div
+                                key={i}
+                                className={`w-4 h-full flex items-center justify-center ${
+                                  i === indentLevel - 1 ? 'text-gray-400' : 'text-gray-300'
+                                }`}
+                              >
+                                {i === indentLevel - 1 ? (
+                                  <div className="w-3 h-3 border-l-2 border-b-2 border-gray-300 rounded-bl-md"></div>
+                                ) : (
+                                  <div className="w-px h-6 bg-gray-200"></div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
-                        {folder.name}
-                        {folder.children.length > 0 && (
-                          <span className="text-gray-500 text-xs ml-1">
-                            ({folder.children.length})
-                          </span>
+                        
+                        {/* Icona cartella con stile professionale */}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors ${
+                          isSelected 
+                            ? 'bg-blue-100 text-blue-600' 
+                            : indentLevel === 0 
+                              ? 'bg-gray-100 text-gray-600' 
+                              : 'bg-gray-50 text-gray-500'
+                        }`}>
+                          <FolderIcon className="w-4 h-4" />
+                        </div>
+                      </div>
+                      
+                      {/* Contenuto cartella */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center min-w-0">
+                            <span className={`font-medium truncate ${
+                              isSelected ? 'text-blue-700' : 'text-gray-900'
+                            }`}>
+                              {folder.name}
+                            </span>
+                            
+                            {/* Badge livello per cartelle annidate */}
+                            {indentLevel > 0 && (
+                              <span className={`ml-2 px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
+                                isSelected 
+                                  ? 'bg-blue-200 text-blue-700' 
+                                  : 'bg-gray-200 text-gray-600'
+                              }`}>
+                                L{indentLevel + 1}
+                              </span>
+                            )}
+                            
+                            {/* Indicatore sottocartelle */}
+                            {hasChildren && (
+                              <span className={`ml-2 px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${
+                                isSelected 
+                                  ? 'bg-blue-200 text-blue-700' 
+                                  : 'bg-orange-100 text-orange-600'
+                              }`}>
+                                {folder.children.length} sotto
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Checkmark per selezione */}
+                          {isSelected && (
+                            <div className="ml-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Percorso gerarchia per cartelle annidate */}
+                        {indentLevel > 0 && (
+                          <div className="mt-1 text-xs text-gray-500 truncate">
+                            Sottocartella di livello {indentLevel + 1}
+                          </div>
                         )}
-                      </span>
-                      {isSelected && (
-                        <span className="text-blue-600 flex-shrink-0">✓</span>
-                      )}
+                      </div>
                     </button>
                   );
                 })
               ) : (
-                <div className="px-3 py-2 text-gray-600 text-sm">
-                  Nessuna cartella trovata
+                <div className="px-4 py-8 text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                    <FolderIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 text-sm font-medium">Nessuna cartella trovata</p>
+                  <p className="text-gray-400 text-xs mt-1">Prova con un termine di ricerca diverso</p>
                 </div>
               )}
             </div>
+            
+            {/* Footer informativo */}
+            {filteredFolders.length > 0 && (
+              <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 rounded-b-2xl">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center space-x-4">
+                    <span className="flex items-center">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                      Selezionate
+                    </span>
+                    <span className="flex items-center">
+                      <div className="w-2 h-2 bg-orange-400 rounded-full mr-1"></div>
+                      Con sottocartelle
+                    </span>
+                  </div>
+                  <span>
+                    {filteredFolders.length} cartelle totali
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

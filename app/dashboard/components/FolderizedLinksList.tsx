@@ -676,16 +676,34 @@ export default function FolderizedLinksList({
                   <div className="relative" ref={dropdownRef}>
                     <button
                       onClick={() => setShowFolderDropdown(!showFolderDropdown)}
-                      className="flex items-center space-x-1 px-3 py-1 bg-white border border-gray-300 rounded-2xl text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-2xl text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm hover:shadow-md transition-all duration-200"
                     >
                       <FolderIcon className="h-4 w-4" />
                       <span>Sposta in</span>
-                      <ChevronDownIcon className="h-4 w-4" />
+                      <div className="flex items-center space-x-1 ml-2">
+                        <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                          {selectedLinks.size}
+                        </span>
+                        <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${showFolderDropdown ? 'rotate-180' : ''}`} />
+                      </div>
                     </button>
                     
                     {showFolderDropdown && (
-                      <div className="absolute top-full mt-1 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                        <div className="py-1 max-h-64 overflow-y-auto">
+                      <div className="absolute top-full mt-2 right-0 w-80 bg-white border border-gray-200 rounded-2xl shadow-2xl z-20 backdrop-blur-sm overflow-hidden">
+                        {/* Header del dropdown */}
+                        <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                              <FolderIcon className="w-4 h-4 mr-2 text-gray-500" />
+                              Sposta {selectedLinks.size} link
+                            </h4>
+                            <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">
+                              {flatFolderList.length + 1} destinazioni
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="py-2 max-h-80 overflow-y-auto">
                           {/* Opzione "Tutti i link" */}
                           <button
                             onClick={async () => {
@@ -694,25 +712,117 @@ export default function FolderizedLinksList({
                               handleClearSelection();
                               onToast?.(`Tutti i link sono stati spostati in "Tutti i link"`, 'success');
                             }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center transition-all duration-200 border-l-4 border-transparent hover:border-blue-500"
                           >
-                            Tutti i link
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center mr-3 bg-gray-100 text-gray-600">
+                              <FolderIcon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1">
+                              <span className="font-medium">Tutti i link</span>
+                              <div className="text-xs text-gray-500 mt-0.5">Cartella principale</div>
+                            </div>
                           </button>
-                          {flatFolderList.map(({ folder, depth }) => (
-                            <button
-                              key={folder.id}
-                              onClick={async () => {
-                                await handleBatchMoveToFolder(Array.from(selectedLinks), folder.id);
-                                setShowFolderDropdown(false);
-                                handleClearSelection();
-                                onToast?.(`Tutti i link sono stati spostati in "${folder.name}"`, 'success');
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                              style={{ paddingLeft: `${16 + depth * 20}px` }}
-                            >
-                              <span>{folder.name}</span>
-                            </button>
-                          ))}
+                          
+                          {flatFolderList.map(({ folder, depth }) => {
+                            const hasChildren = flatFolderList.some(f => f.folder.parent_folder_id === folder.id);
+                            
+                            return (
+                              <button
+                                key={folder.id}
+                                onClick={async () => {
+                                  await handleBatchMoveToFolder(Array.from(selectedLinks), folder.id);
+                                  setShowFolderDropdown(false);
+                                  handleClearSelection();
+                                  onToast?.(`Tutti i link sono stati spostati in "${folder.name}"`, 'success');
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center transition-all duration-200 border-l-4 border-transparent hover:border-blue-500"
+                                style={{ paddingLeft: `${16 + depth * 24}px` }}
+                              >
+                                {/* Indicatori gerarchia visivi */}
+                                <div className="flex items-center mr-3 flex-shrink-0">
+                                  {depth > 0 && (
+                                    <div className="flex items-center">
+                                      {/* Linee di connessione gerarchia */}
+                                      {Array.from({ length: depth }, (_, i) => (
+                                        <div
+                                          key={i}
+                                          className={`w-6 h-full flex items-center justify-center ${
+                                            i === depth - 1 ? 'text-gray-400' : 'text-gray-300'
+                                          }`}
+                                        >
+                                          {i === depth - 1 ? (
+                                            <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-lg"></div>
+                                          ) : (
+                                            <div className="w-px h-8 bg-gray-200"></div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Icona cartella con stile professionale */}
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                    depth === 0 
+                                      ? 'bg-blue-100 text-blue-600' 
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    <FolderIcon className="w-4 h-4" />
+                                  </div>
+                                </div>
+                                
+                                {/* Contenuto cartella */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center min-w-0">
+                                      <span className="font-medium truncate text-gray-900">
+                                        {folder.name}
+                                      </span>
+                                      
+                                      {/* Badge livello per cartelle annidate */}
+                                      {depth > 0 && (
+                                        <span className="ml-2 px-2 py-0.5 text-xs rounded-full flex-shrink-0 bg-gray-200 text-gray-600">
+                                          L{depth + 1}
+                                        </span>
+                                      )}
+                                      
+                                      {/* Indicatore sottocartelle */}
+                                      {hasChildren && (
+                                        <span className="ml-2 px-2 py-0.5 text-xs rounded-full flex-shrink-0 bg-orange-100 text-orange-600">
+                                          Ha sottocartelle
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Percorso gerarchia per cartelle annidate */}
+                                  {depth > 0 && (
+                                    <div className="mt-1 text-xs text-gray-500 truncate">
+                                      Sottocartella di livello {depth + 1}
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Footer informativo */}
+                        <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <div className="flex items-center space-x-4">
+                              <span className="flex items-center">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                                Root
+                              </span>
+                              <span className="flex items-center">
+                                <div className="w-2 h-2 bg-orange-400 rounded-full mr-1"></div>
+                                Con sottocartelle
+                              </span>
+                            </div>
+                            <span>
+                              {flatFolderList.length + 1} destinazioni disponibili
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}
