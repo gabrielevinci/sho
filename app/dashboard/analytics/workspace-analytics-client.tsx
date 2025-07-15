@@ -267,84 +267,6 @@ export default function WorkspaceAnalyticsClient({
         </div>
       </div>
 
-      {/* Statistiche Periodo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center mb-4">
-            <div className="p-2 bg-blue-100 rounded-lg mr-3">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-800">Oggi</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Click</span>
-              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.clicks_today.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
-              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.unique_clicks_today.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
-              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.links_created_today}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center mb-4">
-            <div className="p-2 bg-green-100 rounded-lg mr-3">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-800">Questa Settimana</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Click</span>
-              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.clicks_this_week.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
-              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.unique_clicks_this_week.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
-              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.links_created_this_week}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center mb-4">
-            <div className="p-2 bg-purple-100 rounded-lg mr-3">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-800">Questo Mese</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Click</span>
-              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.clicks_this_month.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
-              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.unique_clicks_this_month.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
-              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.links_created_this_month}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Informazioni Principali */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-indigo-50 to-purple-100 p-6 rounded-xl shadow-md border border-indigo-200 hover:shadow-lg transition-all duration-300">
@@ -426,6 +348,14 @@ export default function WorkspaceAnalyticsClient({
           </div>
         </div>
       </div>
+
+      {/* Grafico Andamento Click */}
+      {dailyData.length > 0 && (
+        <WorkspaceClicksTrendChart 
+          data={dailyData} 
+          filterType={currentFilter}
+        />
+      )}
 
       {/* Top Link */}
       <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
@@ -618,13 +548,83 @@ export default function WorkspaceAnalyticsClient({
         )}
       </div>
 
-      {/* Grafico Andamento Click */}
-      {dailyData.length > 0 && (
-        <WorkspaceClicksTrendChart 
-          data={dailyData} 
-          filterType={currentFilter}
-        />
-      )}
+      {/* Statistiche Periodo */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-blue-100 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Oggi</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Click</span>
+              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.clicks_today.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
+              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.unique_clicks_today.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
+              <span className="text-lg font-bold text-blue-600">{workspaceAnalytics.links_created_today}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-green-100 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Questa Settimana</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Click</span>
+              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.clicks_this_week.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
+              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.unique_clicks_this_week.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
+              <span className="text-lg font-bold text-green-600">{workspaceAnalytics.links_created_this_week}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center mb-4">
+            <div className="p-2 bg-purple-100 rounded-lg mr-3">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Questo Mese</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Click</span>
+              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.clicks_this_month.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Click Unici</span>
+              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.unique_clicks_this_month.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 font-medium">Link Creati</span>
+              <span className="text-lg font-bold text-purple-600">{workspaceAnalytics.links_created_this_month}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Statistiche Dettagliate */}
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-8 rounded-2xl shadow-lg border border-gray-200">
