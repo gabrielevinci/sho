@@ -480,6 +480,10 @@ export default function FolderSidebar({
     const indentationLevel = depth * 24; // 24px per livello per allineamento consistente
     const hasChildren = node.children.length > 0;
     
+    // Limita la profondità massima per evitare layout problematici
+    const maxDepth = 5;
+    const isDeepNested = depth >= maxDepth;
+    
     return (
       <div key={node.id} className="select-none">
         <div
@@ -487,18 +491,21 @@ export default function FolderSidebar({
             isSelected 
               ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-500' 
               : 'text-gray-700 hover:bg-gray-50'
-          } ${dragOverFolderId === node.id ? 'bg-blue-100 ring-2 ring-blue-300 ring-inset' : ''}`}
+          } ${dragOverFolderId === node.id ? 'bg-blue-100 ring-2 ring-blue-300 ring-inset' : ''} ${
+            isDeepNested ? 'opacity-80' : ''
+          }`}
           style={{ 
-            marginLeft: `${indentationLevel}px`,
+            marginLeft: isDeepNested ? `${maxDepth * 24}px` : `${indentationLevel}px`,
             position: 'relative'
           }}
           onDragOver={(e) => handleDragOver(e, node.id)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, node.id)}
           onClick={() => !isEditing && onFolderSelect(node.id)}
+          title={isDeepNested ? `Cartella annidata (livello ${depth + 1})` : undefined}
         >
           {/* Linea verticale per indicare la gerarchia */}
-          {depth > 0 && (
+          {depth > 0 && !isDeepNested && (
             <div 
               className="absolute border-l-2 border-gray-200"
               style={{
@@ -508,6 +515,12 @@ export default function FolderSidebar({
                 width: '2px'
               }}
             />
+          )}
+          
+          {/* Indicatore per cartelle molto annidate */}
+          {isDeepNested && (
+            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-gray-400 rounded-full" 
+                 title={`Livello ${depth + 1}`} />
           )}
           
           <div className="flex items-center flex-1 min-w-0">
@@ -571,9 +584,16 @@ export default function FolderSidebar({
                 autoFocus
               />
             ) : (
-              <span className={`font-medium truncate ${isSelected ? 'text-blue-700' : 'text-gray-700'}`} title={node.name}>
-                {node.name}
+              <span className={`font-medium truncate ${isSelected ? 'text-blue-700' : 'text-gray-700'} ${
+                isDeepNested ? 'text-sm' : ''
+              }`} title={node.name}>
+                {isDeepNested && '⋯ '}{node.name}
               </span>
+            )}
+            
+            {/* Indicatore del livello per cartelle molto annidate */}
+            {isDeepNested && (
+              <span className="text-xs text-gray-400 ml-2 flex-shrink-0">L{depth + 1}</span>
             )}
           </div>
           
@@ -649,7 +669,7 @@ export default function FolderSidebar({
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50 min-h-0">
       <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-800">Cartelle</h2>
@@ -678,10 +698,10 @@ export default function FolderSidebar({
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {/* Sezione "Tutti i link" */}
         {defaultFolderId && (
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 flex-shrink-0">
             <div 
               className={`flex items-center py-4 px-6 cursor-pointer transition-all duration-200 border-l-4 ${
                 selectedFolderId === defaultFolderId 
@@ -716,8 +736,8 @@ export default function FolderSidebar({
         )}
         
         {/* Sezione Cartelle */}
-        <div className="p-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="flex-1 flex flex-col min-h-0 p-4">
+          <div className="mb-3 flex items-center justify-between flex-shrink-0">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Cartelle</h3>
             {folderTree.some(node => node.children.length > 0 || folderTree.length > 1) && (
               <button
@@ -733,7 +753,7 @@ export default function FolderSidebar({
               </button>
             )}
           </div>
-          <div className="space-y-1 group">
+          <div className="flex-1 overflow-y-auto space-y-1 group scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
             {folderTree.filter(node => !defaultFolderId || node.id !== defaultFolderId).map(node => renderFolderNode(node))}
           </div>
         </div>

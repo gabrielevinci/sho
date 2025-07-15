@@ -214,12 +214,12 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
                       type="button"
                       onClick={() => toggleFolder({id: folder.id, name: folder.name})}
                       className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center gap-2 ${
-                        isSelected ? 'bg-blue-50 text-blue-700' : ''
+                        isSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-800 hover:text-gray-900'
                       }`}
                       style={{ paddingLeft: `${12 + folder.level * 16}px` }}
                     >
-                      <FolderIcon className="w-4 h-4 flex-shrink-0" />
-                      <span className="flex-1">
+                      <FolderIcon className="w-4 h-4 flex-shrink-0 text-gray-600" />
+                      <span className="flex-1 text-gray-800">
                         {folder.level > 0 && (
                           <span className="text-gray-400 mr-1 font-mono text-xs">
                             {'│  '.repeat(folder.level - 1)}{'├─ '}
@@ -227,7 +227,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
                         )}
                         {folder.name}
                         {folder.children.length > 0 && (
-                          <span className="text-gray-400 text-xs ml-1">
+                          <span className="text-gray-500 text-xs ml-1">
                             ({folder.children.length})
                           </span>
                         )}
@@ -239,7 +239,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
                   );
                 })
               ) : (
-                <div className="px-3 py-2 text-gray-500 text-sm">
+                <div className="px-3 py-2 text-gray-600 text-sm">
                   Nessuna cartella trovata
                 </div>
               )}

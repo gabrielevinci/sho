@@ -98,6 +98,38 @@ textarea::placeholder {
 .dashboard-table th:nth-child(1) { width: 18%; } /* Titolo */
 .dashboard-table th:nth-child(2) { width: 8%; } /* Click */
 .dashboard-table th:nth-child(3) { width: 14%; } /* Data */
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f3f4f6;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+
+.scrollbar-track-gray-100::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
 .dashboard-table th:nth-child(4) { width: 16%; } /* Shorted */
 .dashboard-table th:nth-child(5) { width: 20%; } /* Originale */
 .dashboard-table th:nth-child(6) { width: 24%; } /* Azioni - Aumentata per ospitare tutti i pulsanti */
