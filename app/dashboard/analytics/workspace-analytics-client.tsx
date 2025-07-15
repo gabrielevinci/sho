@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import WorkspaceAnalyticsFilters, { DateFilter, DateRange } from './workspace-analytics-filters';
+import WorkspaceClicksTrendChart from './workspace-clicks-trend-chart';
 
 // Tipi per i dati delle statistiche del workspace
 type WorkspaceAnalytics = {
@@ -93,17 +94,17 @@ export default function WorkspaceAnalyticsClient({
   deviceData,
   browserData,
   referrerData,
-  dailyData
+  dailyData: initialDailyData
 }: Props) {
   // Stati per i dati che possono essere filtrati
   const [workspaceAnalytics, setWorkspaceAnalytics] = useState(initialWorkspaceAnalytics);
   const [topLinks, setTopLinks] = useState(initialTopLinks);
   const [geographicData, setGeographicData] = useState(initialGeographicData);
+  const [dailyData, setDailyData] = useState(initialDailyData);
   
   // Stati per i filtri
   const [currentFilter, setCurrentFilter] = useState<DateFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ startDate: null, endDate: null });
-  const [isLoading, setIsLoading] = useState(false);
 
   // Funzione helper per calcolare l'intervallo di date in base al filtro
   const getDateRangeFromFilter = useCallback((filter: DateFilter, customRange?: DateRange): { startDate: string; endDate: string } => {
@@ -162,8 +163,6 @@ export default function WorkspaceAnalyticsClient({
   // Funzione per caricare i dati filtrati
   const loadFilteredData = useCallback(async (filter: DateFilter, customRange?: DateRange) => {
     try {
-      setIsLoading(true);
-      
       let params: URLSearchParams;
       
       if (filter === 'all') {
@@ -188,11 +187,10 @@ export default function WorkspaceAnalyticsClient({
       setWorkspaceAnalytics(data.workspaceAnalytics);
       setTopLinks(data.topLinks);
       setGeographicData(data.geographicData);
+      setDailyData(data.timeSeriesData || []);
       
     } catch (error) {
       console.error('Errore nel caricamento dei dati filtrati:', error);
-    } finally {
-      setIsLoading(false);
     }
   }, [getDateRangeFromFilter]);
 
@@ -214,17 +212,6 @@ export default function WorkspaceAnalyticsClient({
         onFilterChange={handleFilterChange}
       />
 
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <div className="flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="text-gray-700">Caricamento dati...</span>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Statistiche Generali */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200 hover:shadow-lg transition-all duration-300">
@@ -261,9 +248,9 @@ export default function WorkspaceAnalyticsClient({
               </svg>
             </div>
           </div>
-          <h3 className="text-sm font-bold text-gray-700 mb-2">Visitatori Unici</h3>
+          <h3 className="text-sm font-bold text-gray-700 mb-2">Click Unici</h3>
           <p className="text-2xl font-black text-purple-700 mb-1">{workspaceAnalytics.unique_clicks.toLocaleString()}</p>
-          <p className="text-xs text-purple-600 font-medium">Utenti unici registrati</p>
+          <p className="text-xs text-purple-600 font-medium">Click unici registrati</p>
         </div>
         
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl shadow-md border border-orange-200 hover:shadow-lg transition-all duration-300">
@@ -360,71 +347,83 @@ export default function WorkspaceAnalyticsClient({
 
       {/* Informazioni Principali */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-xl shadow-lg text-white">
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-100 p-6 rounded-xl shadow-md border border-indigo-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
-              <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg mr-3 shadow-sm">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold">Link Più Cliccato</h3>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Link Più Cliccato</h3>
+                <p className="text-sm text-gray-600">Performance migliore</p>
+              </div>
             </div>
-            {/* Logo Link */}
-            <div className="p-2 bg-white bg-opacity-10 rounded-lg">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <svg className="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
               </svg>
             </div>
           </div>
           {workspaceAnalytics.most_clicked_link ? (
-            <div>
-              <p className="text-sm font-mono text-blue-100 mb-2 break-all">{workspaceAnalytics.most_clicked_link}</p>
-              <p className="text-xl font-black text-white">{workspaceAnalytics.most_clicked_link_count.toLocaleString()} click</p>
+            <div className="bg-white p-4 rounded-lg">
+              <p className="text-sm font-mono text-indigo-700 mb-2 break-all font-medium">{workspaceAnalytics.most_clicked_link}</p>
+              <p className="text-2xl font-black text-indigo-600">{workspaceAnalytics.most_clicked_link_count.toLocaleString()} click</p>
             </div>
           ) : (
-            <p className="text-base text-white opacity-80">Nessun click registrato</p>
+            <div className="bg-white p-4 rounded-lg">
+              <p className="text-base text-gray-500">Nessun click registrato</p>
+            </div>
           )}
         </div>
         
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 rounded-xl shadow-lg text-white">
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-100 p-6 rounded-xl shadow-md border border-emerald-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
-              <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg mr-3 shadow-sm">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold">Browser Più Usato</h3>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Browser Più Usato</h3>
+                <p className="text-sm text-gray-600">Client preferito</p>
+              </div>
             </div>
-            {/* Logo Browser */}
-            <div className="p-2 bg-white bg-opacity-10 rounded-lg">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <svg className="w-6 h-6 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10Z"/>
               </svg>
             </div>
           </div>
-          <p className="text-lg font-bold text-white">{workspaceAnalytics.most_used_browser || 'N/A'}</p>
+          <div className="bg-white p-4 rounded-lg">
+            <p className="text-2xl font-black text-emerald-600">{workspaceAnalytics.most_used_browser || 'N/A'}</p>
+          </div>
         </div>
         
-        <div className="bg-gradient-to-r from-orange-500 to-red-600 p-6 rounded-xl shadow-lg text-white">
+        <div className="bg-gradient-to-br from-orange-50 to-red-100 p-6 rounded-xl shadow-md border border-orange-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
-              <div className="p-2 bg-white bg-opacity-20 rounded-lg mr-3">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg mr-3 shadow-sm">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold">Dispositivo Più Usato</h3>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Dispositivo Più Usato</h3>
+                <p className="text-sm text-gray-600">Device preferito</p>
+              </div>
             </div>
-            {/* Logo Dispositivo */}
-            <div className="p-2 bg-white bg-opacity-10 rounded-lg">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <svg className="w-6 h-6 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M17,19H7V5H17M17,1H7C5.89,1 5,1.89 5,3V21C5,22.11 5.89,23 7,23H17C18.11,23 19,22.11 19,21V3C19,1.89 18.11,1 17,1M16,13H13V16H11V13H8V11H11V8H13V11H16V13Z"/>
               </svg>
             </div>
           </div>
-          <p className="text-lg font-bold text-white">{workspaceAnalytics.most_used_device || 'N/A'}</p>
+          <div className="bg-white p-4 rounded-lg">
+            <p className="text-2xl font-black text-orange-600">{workspaceAnalytics.most_used_device || 'N/A'}</p>
+          </div>
         </div>
       </div>
 
@@ -619,31 +618,12 @@ export default function WorkspaceAnalyticsClient({
         )}
       </div>
 
-      {/* Dati Temporali */}
+      {/* Grafico Andamento Click */}
       {dailyData.length > 0 && (
-        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-          <div className="flex items-center mb-6">
-            <div className="p-2 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-lg mr-3">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-gray-800">Andamento Click - Ultimi 15 Giorni</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <div className="grid grid-cols-5 gap-3 min-w-full">
-              {dailyData.slice(-15).reverse().map((day, index) => (
-                <div key={day.date} className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg border border-blue-200 hover:shadow-md transition-all duration-200">
-                  <p className="text-xs font-bold text-gray-600 mb-2">
-                    {index === 0 ? 'Oggi' : new Date(day.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
-                  </p>
-                  <p className="text-lg font-black text-blue-600 mb-1">{day.total_clicks.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 font-medium">({day.unique_clicks.toLocaleString()} unici)</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <WorkspaceClicksTrendChart 
+          data={dailyData} 
+          filterType={currentFilter}
+        />
       )}
 
       {/* Statistiche Dettagliate */}

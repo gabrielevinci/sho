@@ -403,7 +403,7 @@ async function getDailyTimeSeriesData(userId: string, workspaceId: string, days:
         COALESCE(COUNT(c.id), 0) as total_clicks,
         COALESCE(COUNT(DISTINCT c.user_fingerprint), 0) as unique_clicks
       FROM date_series ds
-      LEFT JOIN clicks c ON c.clicked_at::date = ds.date
+      LEFT JOIN clicks c ON c.clicked_at_rome::date = ds.date
       LEFT JOIN workspace_links wl ON c.link_id = wl.id
       GROUP BY ds.date
       ORDER BY ds.date ASC
