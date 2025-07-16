@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import { Calendar, Download, Eye, EyeOff } from 'lucide-react';
-import { addTestDataToMonthly, addTestDataToWeekly } from './test-data';
 
 type MonthlyData = {
   month: string;
@@ -85,22 +84,13 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
   const safeMonthlyData = Array.isArray(monthlyData) ? monthlyData : [];
   const safeWeeklyData = Array.isArray(weeklyData) ? weeklyData : [];
 
-  // Process data - add test data if real data is all zeros to help with debugging
-  const processedMonthlyData = safeMonthlyData.length === 0 || safeMonthlyData.every(item => item.total_clicks === 0)
-    ? addTestDataToMonthly(safeMonthlyData)
-    : safeMonthlyData;
-
-  const processedWeeklyData = safeWeeklyData.length === 0 || safeWeeklyData.every(item => item.total_clicks === 0)
-    ? addTestDataToWeekly(safeWeeklyData)
-    : safeWeeklyData;
-
   // Generiamo serie complete se i dati dal server non sono completi
   const generateCompleteMonthlyData = () => {
     const completeData = [];
     const currentMonth = new Date().getMonth() + 1; // JavaScript months are 0-indexed
     
     for (let month = 1; month <= 12; month++) {
-      const existingData = processedMonthlyData.find(item => item.month_number === month);
+      const existingData = safeMonthlyData.find((item: MonthlyData) => item.month_number === month);
       const isCurrentMonth = month === currentMonth;
       
       completeData.push({
@@ -144,7 +134,7 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
       weekEnd.setDate(weekStart.getDate() + 6);
       
       // Trova i dati corrispondenti a questa settimana
-      const existingData = processedWeeklyData.find(item => item.week === weekNumber);
+      const existingData = safeWeeklyData.find((item: WeeklyData) => item.week === weekNumber);
       const isCurrentWeek = weekNumber === currentWeek;
       
       completeData.push({
@@ -190,6 +180,12 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
   const displayData = useMemo(() => {
     return viewMode === 'monthly' ? monthlyChartData : weeklyChartData;
   }, [monthlyChartData, weeklyChartData, viewMode]);
+
+  // Controlla se ci sono dati reali (non tutti a zero)
+  const hasRealData = useMemo(() => {
+    const sourceData = viewMode === 'monthly' ? safeMonthlyData : safeWeeklyData;
+    return sourceData.length > 0 && sourceData.some(item => item.total_clicks > 0 || item.unique_clicks > 0);
+  }, [safeMonthlyData, safeWeeklyData, viewMode]);
 
   // Funzioni di utilità
   const handleViewModeChange = (mode: ViewMode) => {
@@ -346,7 +342,33 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
 
       {/* Grafico */}
       <div className={`h-96 transition-opacity duration-300 ${isAnimating ? 'opacity-50' : 'opacity-100'}`}>
-        {(showTotalClicks || showUniqueClicks) ? (
+        {!hasRealData ? (
+          // Mostra messaggio quando non ci sono dati reali
+          <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="text-center">
+              <div className="text-4xl text-gray-400 mb-4">📊</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Nessun dato disponibile
+              </h3>
+              <p className="text-gray-500 text-sm">
+                I dati di analisi periodica appariranno qui una volta che il link inizierà a ricevere click.
+              </p>
+            </div>
+          </div>
+        ) : !(showTotalClicks || showUniqueClicks) ? (
+          // Mostra messaggio quando tutte le serie sono nascoste
+          <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="text-center">
+              <div className="text-4xl text-gray-400 mb-4">📊</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Tutte le serie sono nascoste
+              </h3>
+              <p className="text-gray-500 text-sm">
+                Utilizza i pulsanti di visibilità per mostrare i dati.
+              </p>
+            </div>
+          </div>
+        ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={displayData}
@@ -440,41 +462,34 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
               )}
             </BarChart>
           </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="text-center">
-              <div className="text-4xl text-gray-400 mb-4">📊</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Tutte le serie sono nascoste
-              </h3>
-              <p className="text-gray-500 text-sm">
-                Utilizza i pulsanti di visibilità per mostrare i dati.
-              </p>
-            </div>
-          </div>
         )}
       </div>
 
       {/* Info aggiuntive */}
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-gray-500 space-y-2 sm:space-y-0">
         <div>
-          {viewMode === 'monthly' 
-            ? 'Dati aggregati per mese dell\'anno corrente'
-            : 'Dati aggregati per settimana dell\'anno corrente'
-          }
+          {!hasRealData ? (
+            'Nessun dato di click registrato per questo link'
+          ) : (
+            viewMode === 'monthly' 
+              ? 'Dati aggregati per mese dell\'anno corrente'
+              : 'Dati aggregati per settimana dell\'anno corrente'
+          )}
         </div>
         
-        <div className="flex items-center space-x-4">
-          {!showTotalClicks && (
-            <span className="text-gray-400">Click totali nascosti</span>
-          )}
-          {!showUniqueClicks && (
-            <span className="text-gray-400">Click unici nascosti</span>
-          )}
-          <span className="text-gray-400">
-            {displayData.length} {viewMode === 'monthly' ? 'mesi' : 'settimane'} visualizzate
-          </span>
-        </div>
+        {hasRealData && (
+          <div className="flex items-center space-x-4">
+            {!showTotalClicks && (
+              <span className="text-gray-400">Click totali nascosti</span>
+            )}
+            {!showUniqueClicks && (
+              <span className="text-gray-400">Click unici nascosti</span>
+            )}
+            <span className="text-gray-400">
+              {displayData.length} {viewMode === 'monthly' ? 'mesi' : 'settimane'} visualizzate
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
