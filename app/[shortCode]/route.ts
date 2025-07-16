@@ -201,10 +201,6 @@ export async function GET(request: NextRequest) {
     // Genera fingerprint fisico del dispositivo migliorato
     const physicalFingerprint = generatePhysicalDeviceFingerprint(request);
     
-    // Controlla se è un bot o crawler (skip fingerprinting per bot)
-    const userAgent = request.headers.get('user-agent') || '';
-    const isBot = /bot|crawl|spider|facebook|twitter|linkedinbot|whatsapp/i.test(userAgent);
-    
     // Per tutti (bot e utenti reali): registra il click con il nuovo sistema
     await recordEnhancedClick(link.id, request, physicalFingerprint);
 

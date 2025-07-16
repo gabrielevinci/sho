@@ -81,8 +81,8 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
   console.log('PeriodChart received data:', { monthlyData, weeklyData });
 
   // Ensure data is properly formatted and fallback to empty arrays if needed
-  const safeMonthlyData = Array.isArray(monthlyData) ? monthlyData : [];
-  const safeWeeklyData = Array.isArray(weeklyData) ? weeklyData : [];
+  const safeMonthlyData = useMemo(() => Array.isArray(monthlyData) ? monthlyData : [], [monthlyData]);
+  const safeWeeklyData = useMemo(() => Array.isArray(weeklyData) ? weeklyData : [], [weeklyData]);
 
   // Generiamo serie complete se i dati dal server non sono completi
   const generateCompleteMonthlyData = () => {

@@ -174,12 +174,19 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   };
 }
 
+// Tipi per le query SQL - compatibile con Vercel Postgres
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SqlFunction = (...args: any[]) => Promise<{ rows: Record<string, unknown>[] }>;
+type CountResult = { count: number };
+type FingerprintResult = { fingerprint_hash: string };
+type UserFingerprintResult = { user_fingerprint: string };
+
 /**
  * Trova fingerprint correlati che potrebbero essere dello stesso utente
  */
 export async function findCorrelatedFingerprints(
   currentFingerprint: PhysicalDeviceFingerprint,
-  sql: any
+  sql: SqlFunction
 ): Promise<string[]> {
   try {
     // Cerca fingerprint con stesso deviceFingerprint (match esatto)
@@ -190,7 +197,7 @@ export async function findCorrelatedFingerprints(
       AND fingerprint_hash != ${currentFingerprint.browserFingerprint}
     `;
     
-    const correlatedIds = exactMatches.rows.map((row: any) => row.fingerprint_hash);
+    const correlatedIds = exactMatches.rows.map((row) => (row as FingerprintResult).fingerprint_hash);
     
     // Cerca match parziali basati su IP + timezone + geo
     const partialMatches = await sql`
@@ -204,7 +211,7 @@ export async function findCorrelatedFingerprints(
     `;
     
     const additionalMatches = partialMatches.rows
-      .map((row: any) => row.fingerprint_hash)
+      .map((row) => (row as FingerprintResult).fingerprint_hash)
       .filter((id: string) => !correlatedIds.includes(id));
     
     return [...correlatedIds, ...additionalMatches];
@@ -222,7 +229,7 @@ export async function findCorrelatedFingerprints(
 export async function isUniqueVisit(
   linkId: number,
   currentFingerprint: PhysicalDeviceFingerprint,
-  sql: any
+  sql: SqlFunction
 ): Promise<{
   isUnique: boolean;
   reason: string;
@@ -237,7 +244,7 @@ export async function isUniqueVisit(
       AND user_fingerprint = ${currentFingerprint.browserFingerprint}
     `;
     
-    if (directMatch.rows[0].count > 0) {
+    if ((directMatch.rows[0] as CountResult).count > 0) {
       return {
         isUnique: false,
         reason: 'same_browser_session',
@@ -256,14 +263,14 @@ export async function isUniqueVisit(
         WHERE link_id = ${linkId} 
         AND user_fingerprint = ANY(${correlatedFingerprints})
       `;
-      
-      if (correlatedVisits.rows.length > 0) {
-        return {
-          isUnique: false,
-          reason: 'same_physical_device',
-          relatedFingerprints: correlatedVisits.rows.map((row: any) => row.user_fingerprint)
-        };
-      }
+        
+        if (correlatedVisits.rows.length > 0) {
+          return {
+            isUnique: false,
+            reason: 'same_physical_device',
+            relatedFingerprints: correlatedVisits.rows.map((row) => (row as UserFingerprintResult).user_fingerprint)
+          };
+        }
     }
     
     // 3. Se nessun match, è un visitatore unico

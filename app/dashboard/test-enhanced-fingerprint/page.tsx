@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface FingerprintTest {
   deviceFingerprint: string;
@@ -67,7 +67,7 @@ export default function TestEnhancedFingerprint() {
         </h2>
         <div className="space-y-3 text-blue-700">
           <p>
-            <strong>1. Browser Normale:</strong> Clicca "Genera Fingerprint" con il tuo browser normale
+            <strong>1. Browser Normale:</strong> Clicca &quot;Genera Fingerprint&quot; con il tuo browser normale
           </p>
           <p>
             <strong>2. Modalità Incognito:</strong> Apri una finestra incognito e rifai il test
@@ -221,7 +221,7 @@ export default function TestEnhancedFingerprint() {
             Cambia tra Chrome/Firefox e normale/incognito.
           </p>
           <p>
-            <strong>Confidenza:</strong> Indica quanto il sistema è sicuro dell'identificazione. 
+            <strong>Confidenza:</strong> Indica quanto il sistema è sicuro dell&apos;identificazione. 
             Valori alti (80%+) indicano identificazione molto accurata.
           </p>
         </div>
