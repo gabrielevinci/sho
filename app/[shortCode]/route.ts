@@ -71,8 +71,6 @@ async function recordEnhancedClick(
       AND link_id = ${linkId}
     `;
 
-    let isFirstVisitFromBrowser = false;
-    
     if (existingFingerprint.rows.length > 0) {
       // Aggiorna fingerprint esistente
       const currentVisitCount = existingFingerprint.rows[0].visit_count || 0;
@@ -85,7 +83,6 @@ async function recordEnhancedClick(
       console.log(`   📊 Visita #${currentVisitCount + 1} da questo browser`);
     } else {
       // Inserisci nuovo fingerprint
-      isFirstVisitFromBrowser = true;
       await sql`
         INSERT INTO enhanced_fingerprints (
           link_id, device_fingerprint, browser_fingerprint, session_fingerprint,
@@ -114,7 +111,7 @@ async function recordEnhancedClick(
     
     // STEP 4: Aggiorna i contatori del link
     if (isUniqueVisitor) {
-      const updateResult = await sql`
+      await sql`
         UPDATE links SET 
           click_count = click_count + 1,
           unique_click_count = unique_click_count + 1 
@@ -122,7 +119,7 @@ async function recordEnhancedClick(
       `;
       console.log(`   ✅ TOTALI: +1 | UNICI: +1 (${uniqueCheckResult.reason})`);
     } else {
-      const updateResult = await sql`
+      await sql`
         UPDATE links SET click_count = click_count + 1 WHERE id = ${linkId}
       `;
       console.log(`   ✅ TOTALI: +1 | UNICI: = (${uniqueCheckResult.reason})`);
