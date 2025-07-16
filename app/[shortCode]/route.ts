@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { UAParser } from 'ua-parser-js';
 import { createHash } from 'crypto';
+import { getTrafficSource, getQRDetectionStats } from '@/lib/qr-detection';
 
 // Tipo per il risultato della query al DB
 type LinkFromDb = {
@@ -82,16 +83,25 @@ function generateAdvancedServerFingerprint(request: NextRequest): {
 
 // Funzione per registrare il click basic (per compatibilità)
 async function recordBasicClick(linkId: number, request: NextRequest, fingerprintInfo: ReturnType<typeof generateAdvancedServerFingerprint>) {
-  let referrer = request.headers.get('referer') || 'Direct';
   const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
-
-  // Controlla se il click proviene da un QR code
-  const url = new URL(request.url);
-  const isQrCode = url.searchParams.get('qr') === '1';
   
-  if (isQrCode) {
-    referrer = 'QR Code';
-  }
+    // Usa la nuova libreria di rilevamento QR per determinare la sorgente di traffico
+    const referrer = getTrafficSource(request);
+    
+    // Debug logging per monitorare l'efficacia del rilevamento QR (rimuovi in produzione se necessario)
+    if (process.env.NODE_ENV === 'development') {
+      const qrStats = getQRDetectionStats(request);
+      if (qrStats.qrDetection.isQRCode) {
+        console.log('QR Code detected:', {
+          referrer,
+          method: qrStats.qrDetection.method,
+          confidence: qrStats.qrDetection.confidence,
+          userAgent: qrStats.userAgent.substring(0, 100), // Limita la lunghezza per log
+          isMobile: qrStats.isMobile,
+          isDirect: qrStats.isDirect
+        });
+      }
+    }
 
   try {
     // Controlla se questo è un click unico (basato sul fingerprint server)
@@ -142,7 +152,7 @@ async function saveAdvancedFingerprint(linkId: number, request: NextRequest, fin
     const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
     const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
     const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
-    const referer = request.headers.get('referer') || 'Direct';
+    const referer = getTrafficSource(request);
 
     // Controlla se abbiamo già registrato questo fingerprint per questo link
     const existingFingerprint = await sql`

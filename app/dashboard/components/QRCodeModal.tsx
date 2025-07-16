@@ -81,10 +81,15 @@ export default function QRCodeModal({
         return;
       }
 
+      // Aggiungi il parametro qr=1 per il tracking se non è già presente
+      const urlWithQrParam = url.includes('?') 
+        ? `${url}&qr=1`
+        : `${url}?qr=1`;
+
       // Genera il QR code con parametri personalizzati
       const params = new URLSearchParams({
         size: `${size}x${size}`,
-        data: url,
+        data: urlWithQrParam,
         format: format,
         ecc: errorCorrection,
         color: foregroundColor,

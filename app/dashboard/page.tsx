@@ -165,6 +165,14 @@ export default async function DashboardPage() {
             >
               Statistiche
             </Link>
+            {process.env.NODE_ENV === 'development' && (
+              <Link 
+                href="/dashboard/test-qr-detection"
+                className="px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75"
+              >
+                Test QR
+              </Link>
+            )}
           </div>
           <div className="flex items-center space-x-4">
             <WorkspaceSwitcher 
