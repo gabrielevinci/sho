@@ -2,10 +2,27 @@
 
 import { useState } from 'react';
 
+interface MigrationResult {
+  status: 'success' | 'error';
+  tables_created?: string[];
+  views_created?: string[];
+  migrated_records?: number;
+  data?: {
+    diagnosis?: {
+      recommendation: string;
+    };
+    tableCounts?: Array<{
+      table_name: string;
+      total_records: number;
+    }>;
+  };
+  error?: string;
+}
+
 export default function MigrationPage() {
   const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<MigrationResult | null>(null);
 
   const runMigration = async () => {
     setLoading(true);
@@ -26,7 +43,7 @@ export default function MigrationPage() {
       }
     } catch (error) {
       setStatus('❌ Errore di connessione');
-      setResult({ error: error instanceof Error ? error.message : 'Unknown error' });
+      setResult({ status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setLoading(false);
     }
@@ -51,7 +68,7 @@ export default function MigrationPage() {
       }
     } catch (error) {
       setStatus('❌ Errore di connessione');
-      setResult({ error: error instanceof Error ? error.message : 'Unknown error' });
+      setResult({ status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setLoading(false);
     }
@@ -73,7 +90,7 @@ export default function MigrationPage() {
       }
     } catch (error) {
       setStatus('❌ Errore durante il controllo');
-      setResult({ error: error instanceof Error ? error.message : 'Unknown error' });
+      setResult({ status: 'error', error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setLoading(false);
     }
@@ -140,7 +157,7 @@ export default function MigrationPage() {
                 <div>
                   <h3 className="font-semibold text-green-600">✅ Viste Create:</h3>
                   <ul className="list-disc list-inside ml-4">
-                    {result.views_created.map((view: string) => (
+                    {result.views_created?.map((view: string) => (
                       <li key={view} className="text-sm">{view}</li>
                     ))}
                   </ul>

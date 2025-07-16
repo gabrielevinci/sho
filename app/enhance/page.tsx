@@ -1,8 +1,7 @@
-import { NextRequest } from 'next/server';
 import AutoEnhancePage from '@/app/components/AutoEnhancePage';
 
 interface EnhancePageProps {
-  params: Promise<{}>;
+  params: Promise<Record<string, never>>;
   searchParams: Promise<{
     lid?: string;
     fph?: string;
