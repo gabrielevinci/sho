@@ -51,7 +51,6 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   const browser = parser.getBrowser();
   const os = parser.getOS();
   const device = parser.getDevice();
-  const cpu = parser.getCPU();
 
   // 1. ELEMENTI FISICI DEL DISPOSITIVO (stabili tra browser)
   const forwardedFor = request.headers.get('x-forwarded-for');
@@ -68,11 +67,9 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
   const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
   
-  // Hardware info (stabile)
-  const cpuArch = cpu.architecture || 'unknown';
-  const osName = os.name || 'unknown';
-  const osVersion = os.version || 'unknown';
-  const deviceType = device.type || 'desktop';
+  // Hardware info - più generico per stabilità cross-browser
+  const osFamily = os.name ? os.name.toLowerCase().replace(/[^a-z]/g, '') : 'unknown';
+  const deviceCategory = device.type || (userAgent.toLowerCase().includes('mobile') ? 'mobile' : 'desktop');
   
   // Lingua primaria (generalmente stabile)
   const primaryLanguage = acceptLanguage.split(',')[0]?.split('-')[0] || 'unknown';
@@ -92,9 +89,8 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
     ipHash,                    // Stesso IP
     timezoneFingerprint,       // Stesso timezone
     country, region,           // Stessa posizione geografica
-    osName,                    // Stesso OS
-    cpuArch,                   // Stessa architettura
-    deviceType,                // Stesso tipo di device
+    osFamily,                  // Stesso OS family (windows, macos, linux)
+    deviceCategory,            // Stesso tipo di device (desktop/mobile)
     primaryLanguage            // Stessa lingua primaria
   ].join('|');
   
@@ -146,8 +142,8 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
     confidence += 15;
   }
   
-  if (osName !== 'unknown' && osVersion !== 'unknown') {
-    correlationFactors.push('os_version');
+  if (osFamily !== 'unknown') {
+    correlationFactors.push('os_family');
     confidence += 10;
   }
   
@@ -161,14 +157,14 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   return {
     deviceFingerprint,
     ipHash,
-    screenResolution: 'unknown', // Da implementare lato client se necessario
+    screenResolution: 'server-side', // Non disponibile lato server
     timezoneFingerprint,
-    hardwareProfile: `${cpuArch}-${osName}`,
+    hardwareProfile: `${osFamily}-${deviceCategory}`,
     browserFingerprint,
     sessionFingerprint,
     browserType: browserName.toLowerCase(),
-    deviceCategory: deviceType,
-    osFamily: osName.toLowerCase(),
+    deviceCategory: deviceCategory,
+    osFamily: osFamily,
     confidence,
     correlationFactors
   };
@@ -199,15 +195,16 @@ export async function findCorrelatedFingerprints(
     
     const correlatedIds = exactMatches.rows.map((row) => (row as FingerprintResult).fingerprint_hash);
     
-    // Cerca match parziali basati su IP + timezone + geo
+    // Cerca match parziali basati su IP + timezone + geo (più permissivi)
     const partialMatches = await sql`
       SELECT DISTINCT fingerprint_hash, confidence
       FROM enhanced_fingerprints 
       WHERE ip_hash = ${currentFingerprint.ipHash}
       AND timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
-      AND confidence >= 70
+      AND os_family = ${currentFingerprint.osFamily}
+      AND device_category = ${currentFingerprint.deviceCategory}
       AND fingerprint_hash != ${currentFingerprint.browserFingerprint}
-      AND created_at >= NOW() - INTERVAL '7 days'
+      AND created_at >= NOW() - INTERVAL '24 hours'
     `;
     
     const additionalMatches = partialMatches.rows
@@ -273,7 +270,32 @@ export async function isUniqueVisit(
         }
     }
     
-    // 3. Se nessun match, è un visitatore unico
+    // 3. VERIFICA AGGIUNTIVA: Controllo per IP + Geo + Timezone simili (fallback per browser diversi)
+    const geoSimilarVisits = await sql`
+      SELECT DISTINCT ef.browser_fingerprint 
+      FROM enhanced_fingerprints ef
+      JOIN clicks c ON c.user_fingerprint = ef.browser_fingerprint
+      WHERE c.link_id = ${linkId}
+      AND ef.ip_hash = ${currentFingerprint.ipHash}
+      AND ef.timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
+      AND ef.country = (
+        SELECT country FROM enhanced_fingerprints 
+        WHERE browser_fingerprint = ${currentFingerprint.browserFingerprint} 
+        LIMIT 1
+      )
+      AND ef.browser_fingerprint != ${currentFingerprint.browserFingerprint}
+      AND ef.created_at >= NOW() - INTERVAL '24 hours'
+    `;
+    
+    if (geoSimilarVisits.rows.length > 0) {
+      return {
+        isUnique: false,
+        reason: 'same_location_recent',
+        relatedFingerprints: geoSimilarVisits.rows.map((row) => (row as FingerprintResult).fingerprint_hash)
+      };
+    }
+    
+    // 4. Se nessun match, è un visitatore unico
     return {
       isUnique: true,
       reason: 'new_device',
