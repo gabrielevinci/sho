@@ -202,8 +202,8 @@ export default function TestQRDetection() {
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h3 className="font-medium text-blue-800 mb-2">Come testare il rilevamento QR:</h3>
         <ul className="text-blue-700 text-sm space-y-1">
-          <li>• <strong>Metodo esplicito:</strong> Aggiungi `?qr=1` all'URL</li>
-          <li>• <strong>App QR Scanner:</strong> User agent contenenti "QR", "Scanner", "Barcode"</li>
+          <li>• <strong>Metodo esplicito:</strong> Aggiungi `?qr=1` all&apos;URL</li>
+          <li>• <strong>App QR Scanner:</strong> User agent contenenti &quot;QR&quot;, &quot;Scanner&quot;, &quot;Barcode&quot;</li>
           <li>• <strong>Mobile diretto:</strong> Browser mobile senza referrer e senza sec-fetch-site</li>
           <li>• <strong>Confidenza alta:</strong> Rilevamento esplicito o app QR note</li>
           <li>• <strong>Confidenza media/bassa:</strong> Rilevamento euristico basato su comportamento</li>
