@@ -20,6 +20,8 @@ async function recordEnhancedClick(
   request: NextRequest, 
   physicalFingerprint: PhysicalDeviceFingerprint
 ) {
+  console.log('🎯 recordEnhancedClick called:', { linkId, deviceFingerprint: physicalFingerprint.deviceFingerprint });
+  
   const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
   const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
   const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
@@ -43,21 +45,8 @@ async function recordEnhancedClick(
   }
 
   try {
-    // Determina se questo è un visit unico usando il nuovo algoritmo
-    const uniqueCheckResult = await isUniqueVisit(linkId, physicalFingerprint, sql);
-    const isUniqueVisitor = uniqueCheckResult.isUnique;
-    
-    // Log per debug (rimuovere in produzione)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Enhanced fingerprint check:', {
-        isUnique: isUniqueVisitor,
-        reason: uniqueCheckResult.reason,
-        deviceFingerprint: physicalFingerprint.deviceFingerprint,
-        browserFingerprint: physicalFingerprint.browserFingerprint,
-        confidence: physicalFingerprint.confidence,
-        correlationFactors: physicalFingerprint.correlationFactors
-      });
-    }
+    // STEP 1: Salva sempre il fingerprint prima di controllare uniqueness
+    // Questo permette alla logica di correlazione di funzionare correttamente
     
     // Registra il click nella tabella legacy (per compatibilità)
     await sql`
@@ -136,7 +125,25 @@ async function recordEnhancedClick(
       `;
     }
     
-    // Aggiorna i contatori del link con la nuova logica
+    // STEP 2: Ora che il fingerprint è salvato, determina se questo è un visit unico
+    // La logica di correlazione può ora funzionare correttamente
+    const uniqueCheckResult = await isUniqueVisit(linkId, physicalFingerprint, sql);
+    const isUniqueVisitor = uniqueCheckResult.isUnique;
+    
+    // Log per debug (rimuovere in produzione)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Enhanced fingerprint check:', {
+        isUnique: isUniqueVisitor,
+        reason: uniqueCheckResult.reason,
+        deviceFingerprint: physicalFingerprint.deviceFingerprint,
+        browserFingerprint: physicalFingerprint.browserFingerprint,
+        confidence: physicalFingerprint.confidence,
+        correlationFactors: physicalFingerprint.correlationFactors,
+        relatedFingerprints: uniqueCheckResult.relatedFingerprints
+      });
+    }
+    
+    // STEP 3: Aggiorna i contatori del link con la nuova logica
     if (isUniqueVisitor) {
       await sql`
         UPDATE links SET 
@@ -183,6 +190,8 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const shortCode = url.pathname.slice(1);
 
+  console.log('🚀 REDIRECT REQUEST:', { shortCode, userAgent: request.headers.get('user-agent')?.substring(0, 50) });
+
   if (!shortCode) {
     return NextResponse.redirect(new URL('/', request.url));
   }
@@ -200,9 +209,18 @@ export async function GET(request: NextRequest) {
 
     // Genera fingerprint fisico del dispositivo migliorato
     const physicalFingerprint = generatePhysicalDeviceFingerprint(request);
+    console.log('🔑 Generated fingerprint:', { 
+      deviceFingerprint: physicalFingerprint.deviceFingerprint,
+      browserFingerprint: physicalFingerprint.browserFingerprint 
+    });
     
     // Per tutti (bot e utenti reali): registra il click con il nuovo sistema
-    await recordEnhancedClick(link.id, request, physicalFingerprint);
+    try {
+      await recordEnhancedClick(link.id, request, physicalFingerprint);
+      console.log('✅ Click recorded successfully');
+    } catch (error) {
+      console.error('❌ Error recording click:', error);
+    }
 
     // Redirect immediato - NESSUNA PAGINA INTERMEDIA
     return NextResponse.redirect(new URL(link.original_url));

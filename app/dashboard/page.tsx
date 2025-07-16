@@ -43,7 +43,7 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
-    // Query base per ottenere i link con conteggi dei click
+    // Query base per ottenere i link con conteggi dei click usando il nuovo sistema enhanced fingerprinting
     const { rows: links } = await sql`
       SELECT 
         l.id,
@@ -53,12 +53,17 @@ async function getLinksForWorkspace(userId: string, workspaceId: string): Promis
         l.description,
         l.created_at,
         l.folder_id,
-        COALESCE(COUNT(c.id), 0)::integer as click_count,
-        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0)::integer as unique_click_count
+        -- Usa i click totali dalla tabella links (più affidabile)
+        l.click_count::integer as click_count,
+        -- Calcola unique visitors basandosi sui device_fingerprint unici (sistema migliorato)
+        COALESCE(
+          (SELECT COUNT(DISTINCT ef.device_fingerprint) 
+           FROM enhanced_fingerprints ef 
+           WHERE ef.link_id = l.id), 
+          l.unique_click_count
+        )::integer as unique_click_count
       FROM links l
-      LEFT JOIN clicks c ON c.link_id = l.id
       WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
-      GROUP BY l.id, l.short_code, l.original_url, l.title, l.description, l.created_at, l.folder_id
       ORDER BY l.created_at DESC
     `;
 

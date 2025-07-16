@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const folderId = searchParams.get('folderId');
     const includeUnassigned = searchParams.get('includeUnassigned') === 'true';
 
-    // Query base per ottenere i link con conteggi dei click
+    // Query base per ottenere i link con conteggi accurati usando enhanced fingerprinting
     let baseQuery = `
       SELECT 
         l.id,
@@ -43,10 +43,16 @@ export async function GET(request: NextRequest) {
         l.description,
         l.created_at,
         l.folder_id,
-        COALESCE(COUNT(c.id), 0)::integer as click_count,
-        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0)::integer as unique_click_count
+        -- Usa click_count dalla tabella links (più performante)
+        l.click_count::integer as click_count,
+        -- Calcola unique visitors basandosi sui device_fingerprint unici
+        COALESCE(
+          (SELECT COUNT(DISTINCT ef.device_fingerprint) 
+           FROM enhanced_fingerprints ef 
+           WHERE ef.link_id = l.id), 
+          l.unique_click_count
+        )::integer as unique_click_count
       FROM links l
-      LEFT JOIN clicks c ON c.link_id = l.id
       WHERE l.user_id = $1 AND l.workspace_id = $2
     `;
 
@@ -66,7 +72,6 @@ export async function GET(request: NextRequest) {
     }
 
     baseQuery += `
-      GROUP BY l.id, l.short_code, l.original_url, l.title, l.description, l.created_at, l.folder_id
       ORDER BY l.created_at DESC
     `;
 

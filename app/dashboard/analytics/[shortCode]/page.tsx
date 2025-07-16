@@ -99,104 +99,210 @@ async function getLinkData(userId: string, workspaceId: string, shortCode: strin
 // Funzione per ottenere le statistiche di base del link
 async function getClickAnalytics(userId: string, workspaceId: string, shortCode: string): Promise<ClickAnalytics> {
   try {
-    const { rows } = await sql<ClickAnalytics>`
-      WITH link_data AS (
-        SELECT id FROM links 
-        WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
-      ),
-      click_stats AS (
-        SELECT 
-          COUNT(*) as total_clicks,
-          COUNT(DISTINCT user_fingerprint) as unique_clicks,
-          COUNT(DISTINCT country) as unique_countries,
-          COUNT(DISTINCT referrer) as unique_referrers,
-          COUNT(DISTINCT device_type) as unique_devices,
-          COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
-          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
-          COUNT(DISTINCT CASE WHEN clicked_at::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
-          COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
-          COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
-        FROM clicks c
-        JOIN link_data ld ON c.link_id = ld.id
-      ),
-      top_stats AS (
-        SELECT 
-          (SELECT referrer FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-           WHERE referrer != 'Direct' GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-          (SELECT browser_name FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-           GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-          (SELECT device_type FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-           GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
-      )
-      SELECT 
-        cs.total_clicks,
-        cs.unique_clicks,
-        cs.unique_countries,
-        cs.unique_referrers,
-        cs.unique_devices,
-        ts.top_referrer,
-        ts.most_used_browser,
-        ts.most_used_device,
-        cs.clicks_today,
-        cs.clicks_this_week,
-        cs.clicks_this_month,
-        cs.unique_clicks_today,
-        cs.unique_clicks_this_week,
-        cs.unique_clicks_this_month
-      FROM click_stats cs, top_stats ts
+    // Prima verifichiamo se esiste il campo referrer
+    const hasReferrerField = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'enhanced_fingerprints' 
+      AND column_name = 'referrer'
     `;
-    return rows[0] || {
-      total_clicks: 0,
-      unique_clicks: 0,
-      unique_countries: 0,
-      unique_referrers: 0,
-      unique_devices: 0,
-      top_referrer: null,
-      most_used_browser: null,
-      most_used_device: null,
-      clicks_today: 0,
-      clicks_this_week: 0,
-      clicks_this_month: 0,
-      unique_clicks_today: 0,
-      unique_clicks_this_week: 0,
-      unique_clicks_this_month: 0,
-      avg_total_clicks_per_period: 0,
-      avg_unique_clicks_per_period: 0
-    };
+
+    const hasReferrer = hasReferrerField.rows.length > 0;
+
+    if (hasReferrer) {
+      // Query con campo referrer
+      const { rows } = await sql<ClickAnalytics>`
+        WITH link_data AS (
+          SELECT id FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        click_stats AS (
+          SELECT 
+            COUNT(ef.id) as total_clicks,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_clicks,
+            COUNT(DISTINCT ef.country) as unique_countries,
+            COUNT(DISTINCT ef.referrer) as unique_referrers,
+            COUNT(DISTINCT ef.device_category) as unique_devices,
+            COUNT(CASE WHEN ef.created_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN ef.created_at::date = CURRENT_DATE THEN ef.device_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ef.device_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN ef.device_fingerprint END) as unique_clicks_this_month
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        avg_stats AS (
+          SELECT 
+            CASE 
+              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
+              THEN COUNT(ef.id)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
+              ELSE 0 
+            END as avg_total_clicks_per_period,
+            CASE 
+              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
+              THEN COUNT(DISTINCT ef.device_fingerprint)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
+              ELSE 0 
+            END as avg_unique_clicks_per_period
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+            AND ef.created_at >= CURRENT_DATE - INTERVAL '24 hours'
+        ),
+        top_stats AS (
+          SELECT 
+            (SELECT ef.referrer FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
+             WHERE ef.referrer != 'Direct' AND ef.referrer IS NOT NULL 
+             GROUP BY ef.referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+            (SELECT ef.browser_type FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
+             WHERE ef.browser_type IS NOT NULL
+             GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+            (SELECT ef.device_category FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
+             WHERE ef.device_category IS NOT NULL
+             GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+        )
+        SELECT 
+          cs.total_clicks,
+          cs.unique_clicks,
+          cs.unique_countries,
+          cs.unique_referrers,
+          cs.unique_devices,
+          ts.top_referrer,
+          ts.most_used_browser,
+          ts.most_used_device,
+          cs.clicks_today,
+          cs.clicks_this_week,
+          cs.clicks_this_month,
+          cs.unique_clicks_today,
+          cs.unique_clicks_this_week,
+          cs.unique_clicks_this_month,
+          ROUND(avgst.avg_total_clicks_per_period::numeric, 2) as avg_total_clicks_per_period,
+          ROUND(avgst.avg_unique_clicks_per_period::numeric, 2) as avg_unique_clicks_per_period
+        FROM click_stats cs, top_stats ts, avg_stats avgst
+      `;
+      return rows[0] || getDefaultClickAnalytics();
+    } else {
+      // Query senza campo referrer
+      const { rows } = await sql<ClickAnalytics>`
+        WITH link_data AS (
+          SELECT id FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        click_stats AS (
+          SELECT 
+            COUNT(ef.id) as total_clicks,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_clicks,
+            COUNT(DISTINCT ef.country) as unique_countries,
+            COUNT(DISTINCT 'unknown') as unique_referrers,
+            COUNT(DISTINCT ef.device_category) as unique_devices,
+            COUNT(CASE WHEN ef.created_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN ef.created_at::date = CURRENT_DATE THEN ef.device_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ef.device_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN ef.device_fingerprint END) as unique_clicks_this_month
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        avg_stats AS (
+          SELECT 
+            CASE 
+              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
+              THEN COUNT(ef.id)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
+              ELSE 0 
+            END as avg_total_clicks_per_period,
+            CASE 
+              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
+              THEN COUNT(DISTINCT ef.device_fingerprint)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
+              ELSE 0 
+            END as avg_unique_clicks_per_period
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+            AND ef.created_at >= CURRENT_DATE - INTERVAL '24 hours'
+        ),
+        top_stats AS (
+          SELECT 
+            NULL as top_referrer,
+            (SELECT ef.browser_type FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
+             WHERE ef.browser_type IS NOT NULL
+             GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+            (SELECT ef.device_category FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
+             WHERE ef.device_category IS NOT NULL
+             GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+        )
+        SELECT 
+          cs.total_clicks,
+          cs.unique_clicks,
+          cs.unique_countries,
+          cs.unique_referrers,
+          cs.unique_devices,
+          ts.top_referrer,
+          ts.most_used_browser,
+          ts.most_used_device,
+          cs.clicks_today,
+          cs.clicks_this_week,
+          cs.clicks_this_month,
+          cs.unique_clicks_today,
+          cs.unique_clicks_this_week,
+          cs.unique_clicks_this_month,
+          ROUND(avgst.avg_total_clicks_per_period::numeric, 2) as avg_total_clicks_per_period,
+          ROUND(avgst.avg_unique_clicks_per_period::numeric, 2) as avg_unique_clicks_per_period
+        FROM click_stats cs, top_stats ts, avg_stats avgst
+      `;
+      return rows[0] || getDefaultClickAnalytics();
+    }
   } catch (error) {
     console.error("Failed to fetch click analytics:", error);
-    return {
-      total_clicks: 0,
-      unique_clicks: 0,
-      unique_countries: 0,
-      unique_referrers: 0,
-      unique_devices: 0,
-      top_referrer: null,
-      most_used_browser: null,
-      most_used_device: null,
-      clicks_today: 0,
-      clicks_this_week: 0,
-      clicks_this_month: 0,
-      unique_clicks_today: 0,
-      unique_clicks_this_week: 0,
-      unique_clicks_this_month: 0,
-      avg_total_clicks_per_period: 0,
-      avg_unique_clicks_per_period: 0
-    };
+    return getDefaultClickAnalytics();
   }
+}
+
+// Funzione helper per i valori di default
+function getDefaultClickAnalytics(): ClickAnalytics {
+  return {
+    total_clicks: 0,
+    unique_clicks: 0,
+    unique_countries: 0,
+    unique_referrers: 0,
+    unique_devices: 0,
+    top_referrer: null,
+    most_used_browser: null,
+    most_used_device: null,
+    clicks_today: 0,
+    clicks_this_week: 0,
+    clicks_this_month: 0,
+    unique_clicks_today: 0,
+    unique_clicks_this_week: 0,
+    unique_clicks_this_month: 0,
+    avg_total_clicks_per_period: 0,
+    avg_unique_clicks_per_period: 0
+  };
 }
 
 // Funzione per ottenere i dati geografici
 async function getGeographicData(userId: string, workspaceId: string, shortCode: string): Promise<GeographicData[]> {
   try {
     const { rows } = await sql<GeographicData>`
-      SELECT country, COUNT(*) as clicks
-      FROM clicks c
-      JOIN links l ON c.link_id = l.id
-      WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-      GROUP BY country
-      ORDER BY clicks DESC
+      WITH country_clicks AS (
+        SELECT 
+          ef.country, 
+          COUNT(*) as clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        GROUP BY ef.country
+      ),
+      total_clicks AS (
+        SELECT COUNT(*) as total
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+      )
+      SELECT 
+        cc.country,
+        cc.clicks,
+        ROUND((cc.clicks::float / tc.total * 100)::numeric, 1) as percentage
+      FROM country_clicks cc, total_clicks tc
+      ORDER BY cc.clicks DESC
       LIMIT 10
     `;
     return rows;
@@ -210,12 +316,27 @@ async function getGeographicData(userId: string, workspaceId: string, shortCode:
 async function getDeviceData(userId: string, workspaceId: string, shortCode: string): Promise<DeviceData[]> {
   try {
     const { rows } = await sql<DeviceData>`
-      SELECT device_type, COUNT(*) as clicks
-      FROM clicks c
-      JOIN links l ON c.link_id = l.id
-      WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-      GROUP BY device_type
-      ORDER BY clicks DESC
+      WITH device_clicks AS (
+        SELECT 
+          ef.device_category as device_type, 
+          COUNT(*) as clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        GROUP BY ef.device_category
+      ),
+      total_clicks AS (
+        SELECT COUNT(*) as total
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+      )
+      SELECT 
+        dc.device_type,
+        dc.clicks,
+        ROUND((dc.clicks::float / tc.total * 100)::numeric, 1) as percentage
+      FROM device_clicks dc, total_clicks tc
+      ORDER BY dc.clicks DESC
     `;
     return rows;
   } catch (error) {
@@ -228,12 +349,27 @@ async function getDeviceData(userId: string, workspaceId: string, shortCode: str
 async function getBrowserData(userId: string, workspaceId: string, shortCode: string): Promise<BrowserData[]> {
   try {
     const { rows } = await sql<BrowserData>`
-      SELECT browser_name, COUNT(*) as clicks
-      FROM clicks c
-      JOIN links l ON c.link_id = l.id
-      WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-      GROUP BY browser_name
-      ORDER BY clicks DESC
+      WITH browser_clicks AS (
+        SELECT 
+          ef.browser_type as browser_name, 
+          COUNT(*) as clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        GROUP BY ef.browser_type
+      ),
+      total_clicks AS (
+        SELECT COUNT(*) as total
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+      )
+      SELECT 
+        bc.browser_name,
+        bc.clicks,
+        ROUND((bc.clicks::float / tc.total * 100)::numeric, 1) as percentage
+      FROM browser_clicks bc, total_clicks tc
+      ORDER BY bc.clicks DESC
       LIMIT 10
     `;
     return rows;
@@ -246,16 +382,43 @@ async function getBrowserData(userId: string, workspaceId: string, shortCode: st
 // Funzione per ottenere i dati dei referrer
 async function getReferrerData(userId: string, workspaceId: string, shortCode: string): Promise<ReferrerData[]> {
   try {
-    const { rows } = await sql<ReferrerData>`
-      SELECT referrer, COUNT(*) as clicks
-      FROM clicks c
-      JOIN links l ON c.link_id = l.id
-      WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-      GROUP BY referrer
-      ORDER BY clicks DESC
-      LIMIT 10
+    // Prima controlliamo se esiste il campo referrer in enhanced_fingerprints
+    const hasReferrerField = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'enhanced_fingerprints' 
+      AND column_name = 'referrer'
     `;
-    return rows;
+
+    if (hasReferrerField.rows.length > 0) {
+      // Usa enhanced_fingerprints se ha il campo referrer
+      const { rows } = await sql<ReferrerData>`
+        SELECT 
+          COALESCE(ef.referrer, 'Direct') as referrer, 
+          COUNT(*) as clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        GROUP BY COALESCE(ef.referrer, 'Direct')
+        ORDER BY clicks DESC
+        LIMIT 10
+      `;
+      return rows;
+    } else {
+      // Fallback alla tabella clicks se enhanced_fingerprints non ha referrer
+      const { rows } = await sql<ReferrerData>`
+        SELECT 
+          COALESCE(c.referrer, 'Direct') as referrer, 
+          COUNT(*) as clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        GROUP BY COALESCE(c.referrer, 'Direct')
+        ORDER BY clicks DESC
+        LIMIT 10
+      `;
+      return rows;
+    }
   } catch (error) {
     console.error("Failed to fetch referrer data:", error);
     return [];
@@ -275,26 +438,31 @@ async function getTimeSeriesData(userId: string, workspaceId: string, shortCode:
       ),
       daily_clicks AS (
         SELECT 
-          clicked_at::date as date,
+          ef.created_at::date as date,
           COUNT(*) as total_clicks,
-          COUNT(DISTINCT user_fingerprint) as unique_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+          COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} 
           AND l.workspace_id = ${workspaceId} 
           AND l.short_code = ${shortCode}
-          AND clicked_at >= CURRENT_DATE - INTERVAL '29 days'
-        GROUP BY clicked_at::date
+          AND ef.created_at >= CURRENT_DATE - INTERVAL '29 days'
+          AND ef.created_at < CURRENT_DATE + INTERVAL '1 day'
+        GROUP BY ef.created_at::date
       )
       SELECT 
-        ds.date::text as date,
+        TO_CHAR(ds.date, 'YYYY-MM-DD') as date,
         COALESCE(dc.total_clicks, 0) as total_clicks,
-        COALESCE(dc.unique_clicks, 0) as unique_clicks
+        COALESCE(dc.unique_clicks, 0) as unique_clicks,
+        ds.date as full_datetime
       FROM date_series ds
       LEFT JOIN daily_clicks dc ON ds.date = dc.date
       ORDER BY ds.date
     `;
-    return rows;
+    return rows.map(row => ({
+      ...row,
+      full_datetime: row.full_datetime || row.date
+    }));
   } catch (error) {
     console.error("Failed to fetch time series data:", error);
     return [];
@@ -313,17 +481,18 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
       ),
       monthly_clicks AS (
         SELECT 
-          EXTRACT(MONTH FROM clicked_at)::integer as month_number,
-          EXTRACT(YEAR FROM clicked_at)::integer as year,
-          COUNT(*)::integer as total_clicks,
-          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+          EXTRACT(MONTH FROM ef.created_at)::integer as month_number,
+          EXTRACT(YEAR FROM ef.created_at)::integer as year,
+          COUNT(ef.id)::integer as total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint)::integer as unique_clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} 
           AND l.workspace_id = ${workspaceId} 
           AND l.short_code = ${shortCode}
-          AND EXTRACT(YEAR FROM clicked_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-        GROUP BY EXTRACT(MONTH FROM clicked_at), EXTRACT(YEAR FROM clicked_at)
+          AND ef.created_at >= DATE_TRUNC('year', CURRENT_DATE)
+          AND ef.created_at < DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year'
+        GROUP BY EXTRACT(MONTH FROM ef.created_at), EXTRACT(YEAR FROM ef.created_at)
       )
       SELECT 
         TRIM(ms.month) as month,
@@ -338,7 +507,19 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
     return rows || [];
   } catch (error) {
     console.error("Failed to fetch monthly data:", error);
-    return [];
+    // Ritorna i 12 mesi con dati vuoti come fallback
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const currentYear = new Date().getFullYear();
+    return months.map((month, index) => ({
+      month,
+      month_number: index + 1,
+      year: currentYear,
+      total_clicks: 0,
+      unique_clicks: 0
+    }));
   }
 }
 
@@ -346,42 +527,109 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
 async function getWeeklyData(userId: string, workspaceId: string, shortCode: string): Promise<WeeklyData[]> {
   try {
     const { rows } = await sql<WeeklyData>`
-      WITH week_series AS (
+      WITH current_week_num AS (
+        SELECT DATE_PART('week', CURRENT_DATE)::integer as week_num
+      ),
+      week_series AS (
         SELECT 
-          generate_series(1, 52) as week,
-          EXTRACT(YEAR FROM CURRENT_DATE) as year,
-          (DATE_TRUNC('year', CURRENT_DATE) + (generate_series(1, 52) - 1) * INTERVAL '1 week')::date as week_start,
-          (DATE_TRUNC('year', CURRENT_DATE) + (generate_series(1, 52) - 1) * INTERVAL '1 week' + INTERVAL '6 days')::date as week_end
+          generate_series(1, (SELECT week_num FROM current_week_num)) as week,
+          EXTRACT(YEAR FROM CURRENT_DATE) as year
       ),
       weekly_clicks AS (
         SELECT 
-          DATE_PART('week', clicked_at)::integer as week,
-          EXTRACT(YEAR FROM clicked_at)::integer as year,
-          COUNT(*)::integer as total_clicks,
-          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+          DATE_PART('week', ef.created_at)::integer as week,
+          EXTRACT(YEAR FROM ef.created_at)::integer as year,
+          COUNT(ef.id)::integer as total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint)::integer as unique_clicks,
+          MIN(ef.created_at::date) as week_start,
+          MAX(ef.created_at::date) as week_end
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} 
           AND l.workspace_id = ${workspaceId} 
           AND l.short_code = ${shortCode}
-          AND EXTRACT(YEAR FROM clicked_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-        GROUP BY DATE_PART('week', clicked_at), EXTRACT(YEAR FROM clicked_at)
+          AND ef.created_at >= DATE_TRUNC('year', CURRENT_DATE)
+          AND ef.created_at < DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year'
+        GROUP BY DATE_PART('week', ef.created_at), EXTRACT(YEAR FROM ef.created_at)
       )
       SELECT 
         ws.week::integer,
         ws.year::integer,
-        ws.week_start::text,
-        ws.week_end::text,
+        COALESCE(wc.week_start::text, 
+          (DATE_TRUNC('year', CURRENT_DATE) + (ws.week - 1) * INTERVAL '1 week')::date::text
+        ) as week_start,
+        COALESCE(wc.week_end::text, 
+          (DATE_TRUNC('year', CURRENT_DATE) + (ws.week - 1) * INTERVAL '1 week' + INTERVAL '6 days')::date::text
+        ) as week_end,
         COALESCE(wc.total_clicks, 0) as total_clicks,
         COALESCE(wc.unique_clicks, 0) as unique_clicks
       FROM week_series ws
       LEFT JOIN weekly_clicks wc ON ws.week = wc.week AND ws.year = wc.year
-      WHERE ws.week <= DATE_PART('week', CURRENT_DATE)
       ORDER BY ws.week
     `;
     return rows || [];
   } catch (error) {
     console.error("Failed to fetch weekly data:", error);
+    // Fallback: ritorna le settimane fino ad ora con dati vuoti
+    const currentWeek = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (1000 * 60 * 60 * 24 * 7)) + 1;
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: Math.min(52, currentWeek) }, (_, index) => {
+      const weekNumber = index + 1;
+      const yearStart = new Date(currentYear, 0, 1);
+      const weekStart = new Date(yearStart.getTime() + (weekNumber - 1) * 7 * 24 * 60 * 60 * 1000);
+      const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+      
+      return {
+        week: weekNumber,
+        year: currentYear,
+        week_start: weekStart.toISOString().split('T')[0],
+        week_end: weekEnd.toISOString().split('T')[0],
+        total_clicks: 0,
+        unique_clicks: 0
+      };
+    });
+  }
+}
+
+// Funzione per ottenere i dati orari delle ultime 24 ore
+async function getHourlyData(userId: string, workspaceId: string, shortCode: string): Promise<TimeSeriesData[]> {
+  try {
+    const { rows } = await sql<TimeSeriesData>`
+      WITH hour_series AS (
+        SELECT generate_series(
+          DATE_TRUNC('hour', NOW() - INTERVAL '23 hours'),
+          DATE_TRUNC('hour', NOW()),
+          INTERVAL '1 hour'
+        ) AS hour
+      ),
+      hourly_clicks AS (
+        SELECT 
+          DATE_TRUNC('hour', ef.created_at) as hour,
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
+        WHERE l.user_id = ${userId} 
+          AND l.workspace_id = ${workspaceId} 
+          AND l.short_code = ${shortCode}
+          AND ef.created_at >= NOW() - INTERVAL '23 hours'
+        GROUP BY DATE_TRUNC('hour', ef.created_at)
+      )
+      SELECT 
+        TO_CHAR(hs.hour, 'YYYY-MM-DD"T"HH24:MI:SS') as date,
+        COALESCE(hc.total_clicks, 0) as total_clicks,
+        COALESCE(hc.unique_clicks, 0) as unique_clicks,
+        hs.hour as full_datetime
+      FROM hour_series hs
+      LEFT JOIN hourly_clicks hc ON hs.hour = hc.hour
+      ORDER BY hs.hour
+    `;
+    return rows.map(row => ({
+      ...row,
+      full_datetime: row.full_datetime || row.date
+    }));
+  } catch (error) {
+    console.error("Failed to fetch hourly data:", error);
     return [];
   }
 }
@@ -400,7 +648,7 @@ export default async function AnalyticsPage({
   const { shortCode } = await params;
   
   // Otteniamo tutti i dati iniziali in parallelo per ottimizzare le performance
-  const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData, monthlyData, weeklyData] = await Promise.all([
+  const [linkData, clickAnalytics, geographicData, deviceData, browserData, referrerData, timeSeriesData, hourlyData, monthlyData, weeklyData] = await Promise.all([
     getLinkData(session.userId, session.workspaceId, shortCode),
     getClickAnalytics(session.userId, session.workspaceId, shortCode),
     getGeographicData(session.userId, session.workspaceId, shortCode),
@@ -408,6 +656,7 @@ export default async function AnalyticsPage({
     getBrowserData(session.userId, session.workspaceId, shortCode),
     getReferrerData(session.userId, session.workspaceId, shortCode),
     getTimeSeriesData(session.userId, session.workspaceId, shortCode),
+    getHourlyData(session.userId, session.workspaceId, shortCode),
     getMonthlyData(session.userId, session.workspaceId, shortCode),
     getWeeklyData(session.userId, session.workspaceId, shortCode)
   ]);
@@ -424,6 +673,7 @@ export default async function AnalyticsPage({
     browserData,
     referrerData,
     timeSeriesData,
+    hourlyData: hourlyData || [],
     monthlyData: monthlyData || [],
     weeklyData: weeklyData || []
   };

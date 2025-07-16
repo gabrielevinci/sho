@@ -26,19 +26,20 @@ async function getFilteredWorkspaceAnalytics(
       ),
       click_stats AS (
         SELECT 
-          COUNT(*) as total_clicks,
-          COUNT(DISTINCT user_fingerprint) as unique_clicks,
-          COUNT(DISTINCT country) as unique_countries,
-          COUNT(DISTINCT referrer) as unique_referrers,
-          COUNT(DISTINCT device_type) as unique_devices,
-          COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-          COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-          COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-          COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-          COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
-          COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
-        FROM clicks c
-        JOIN workspace_links wl ON c.link_id = wl.id
+          COUNT(ef.id) as total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint) as unique_clicks,
+          COUNT(DISTINCT ef.country) as unique_countries,
+          COUNT(DISTINCT c.referrer) as unique_referrers,
+          COUNT(DISTINCT ef.device_category) as unique_devices,
+          COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+          COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+          COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+          COUNT(DISTINCT CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN ef.device_fingerprint END) as unique_clicks_today,
+          COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN ef.device_fingerprint END) as unique_clicks_this_week,
+          COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN ef.device_fingerprint END) as unique_clicks_this_month
+        FROM enhanced_fingerprints ef
+        LEFT JOIN clicks c ON c.user_fingerprint = ef.browser_fingerprint AND c.link_id = ef.link_id
+        JOIN workspace_links wl ON ef.link_id = wl.id
         WHERE 1=1 ${dateCondition}
       ),
       link_stats AS (

@@ -340,6 +340,87 @@ export async function findCorrelatedFingerprints(
 }
 
 /**
+ * Aggiorna la tabella fingerprint_correlations per tracciare dispositivi correlati
+ */
+async function updateFingerprintCorrelations(
+  currentFingerprint: PhysicalDeviceFingerprint,
+  sql: SqlFunction
+): Promise<void> {
+  try {
+    // 1. Cerca altri fingerprint con lo stesso device_fingerprint
+    const relatedFingerprints = await sql`
+      SELECT DISTINCT browser_fingerprint, confidence
+      FROM enhanced_fingerprints 
+      WHERE device_fingerprint = ${currentFingerprint.deviceFingerprint}
+      AND browser_fingerprint != ${currentFingerprint.browserFingerprint}
+    `;
+
+    if (relatedFingerprints.rows.length > 0) {
+      // 2. Crea o aggiorna cluster ID per questo dispositivo
+      const deviceClusterId = createHash('sha256')
+        .update(`cluster_${currentFingerprint.deviceFingerprint}`)
+        .digest('hex')
+        .substring(0, 24);
+
+      // 3. Inserisci/aggiorna correlazione per il fingerprint corrente
+      await sql`
+        INSERT INTO fingerprint_correlations (
+          device_cluster_id,
+          fingerprint_hash,
+          correlation_type,
+          confidence_score,
+          first_correlated,
+          last_confirmed
+        ) VALUES (
+          ${deviceClusterId},
+          ${currentFingerprint.browserFingerprint},
+          'same_device',
+          ${currentFingerprint.confidence},
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (device_cluster_id, fingerprint_hash) 
+        DO UPDATE SET
+          last_confirmed = NOW(),
+          confidence_score = GREATEST(fingerprint_correlations.confidence_score, ${currentFingerprint.confidence})
+      `;
+
+      // 4. Inserisci/aggiorna correlazioni per tutti i fingerprint correlati
+      for (const related of relatedFingerprints.rows) {
+        const relatedFp = (related as any).browser_fingerprint;
+        const relatedConfidence = (related as any).confidence || 100;
+
+        await sql`
+          INSERT INTO fingerprint_correlations (
+            device_cluster_id,
+            fingerprint_hash,
+            correlation_type,
+            confidence_score,
+            first_correlated,
+            last_confirmed
+          ) VALUES (
+            ${deviceClusterId},
+            ${relatedFp},
+            'same_device',
+            ${relatedConfidence},
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT (device_cluster_id, fingerprint_hash) 
+          DO UPDATE SET
+            last_confirmed = NOW(),
+            confidence_score = GREATEST(fingerprint_correlations.confidence_score, ${relatedConfidence})
+        `;
+      }
+
+
+    }
+  } catch (error) {
+    console.error('Error updating fingerprint correlations:', error);
+  }
+}
+
+/**
  * Determina se un click dovrebbe essere considerato unico
  * basandosi sulla correlazione tra fingerprint
  */
@@ -353,69 +434,69 @@ export async function isUniqueVisit(
   relatedFingerprints: string[];
 }> {
   try {
-    // 1. Controlla se questo browser specifico ha già visitato
-    const directMatch = await sql`
-      SELECT COUNT(*) as count 
-      FROM clicks 
+    // AGGIORNA CORRELAZIONI: Popola la tabella fingerprint_correlations
+    await updateFingerprintCorrelations(currentFingerprint, sql);
+
+    // CONTROLLO PRINCIPALE: Verifica se questo DEVICE_FINGERPRINT ha già visitato
+    // Questo è il controllo più importante per rilevare lo stesso utente su browser diversi
+    const deviceMatch = await sql`
+      SELECT COUNT(*) as count, 
+             array_agg(DISTINCT browser_fingerprint) as browser_fingerprints
+      FROM enhanced_fingerprints 
       WHERE link_id = ${linkId} 
-      AND user_fingerprint = ${currentFingerprint.browserFingerprint}
+      AND device_fingerprint = ${currentFingerprint.deviceFingerprint}
     `;
     
-    if ((directMatch.rows[0] as CountResult).count > 0) {
+    if (deviceMatch.rows.length > 0 && (deviceMatch.rows[0] as any).count > 0) {
+      const relatedBrowsers = (deviceMatch.rows[0] as any).browser_fingerprints || [];
+      return {
+        isUnique: false,
+        reason: 'same_physical_device',
+        relatedFingerprints: relatedBrowsers.filter((fp: string) => fp !== currentFingerprint.browserFingerprint)
+      };
+    }
+
+    // CONTROLLO SECONDARIO: Verifica se questo browser specifico ha già visitato
+    // (per compatibilità con sistema legacy)
+    const browserMatch = await sql`
+      SELECT COUNT(*) as count 
+      FROM enhanced_fingerprints 
+      WHERE link_id = ${linkId} 
+      AND browser_fingerprint = ${currentFingerprint.browserFingerprint}
+    `;
+    
+    if (browserMatch.rows.length > 0 && (browserMatch.rows[0] as any).count > 0) {
       return {
         isUnique: false,
         reason: 'same_browser_session',
         relatedFingerprints: [currentFingerprint.browserFingerprint]
       };
     }
-    
-    // 2. Controlla se il dispositivo fisico ha già visitato (tramite correlazione)
-    const correlatedFingerprints = await findCorrelatedFingerprints(currentFingerprint, sql);
-    
-    if (correlatedFingerprints.length > 0) {
-      // Controlla se qualche fingerprint correlato ha già visitato questo link
-      const correlatedVisits = await sql`
-        SELECT DISTINCT user_fingerprint 
-        FROM clicks 
-        WHERE link_id = ${linkId} 
-        AND user_fingerprint = ANY(${correlatedFingerprints})
-      `;
-        
-        if (correlatedVisits.rows.length > 0) {
-          return {
-            isUnique: false,
-            reason: 'same_physical_device',
-            relatedFingerprints: correlatedVisits.rows.map((row) => (row as UserFingerprintResult).user_fingerprint)
-          };
-        }
-    }
-    
-    // 3. VERIFICA AGGIUNTIVA: Controllo per IP + Geo + Timezone simili (fallback per browser diversi)
-    const geoSimilarVisits = await sql`
-      SELECT DISTINCT ef.browser_fingerprint 
-      FROM enhanced_fingerprints ef
-      JOIN clicks c ON c.user_fingerprint = ef.browser_fingerprint
-      WHERE c.link_id = ${linkId}
-      AND ef.ip_hash = ${currentFingerprint.ipHash}
-      AND ef.timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
-      AND ef.country = (
-        SELECT country FROM enhanced_fingerprints 
-        WHERE browser_fingerprint = ${currentFingerprint.browserFingerprint} 
-        LIMIT 1
-      )
-      AND ef.browser_fingerprint != ${currentFingerprint.browserFingerprint}
-      AND ef.created_at >= NOW() - INTERVAL '24 hours'
+
+    // CONTROLLO TERZIARIO: Verifica correlazioni avanzate (IP + Geo + Timezone)
+    // Solo se i controlli principali non hanno trovato match
+    const advancedMatch = await sql`
+      SELECT COUNT(*) as count,
+             array_agg(DISTINCT browser_fingerprint) as browser_fingerprints
+      FROM enhanced_fingerprints 
+      WHERE link_id = ${linkId}
+      AND ip_hash = ${currentFingerprint.ipHash}
+      AND timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
+      AND device_category = ${currentFingerprint.deviceCategory}
+      AND created_at >= NOW() - INTERVAL '24 hours'
+      AND browser_fingerprint != ${currentFingerprint.browserFingerprint}
     `;
     
-    if (geoSimilarVisits.rows.length > 0) {
+    if (advancedMatch.rows.length > 0 && (advancedMatch.rows[0] as any).count > 0) {
+      const relatedBrowsers = (advancedMatch.rows[0] as any).browser_fingerprints || [];
       return {
         isUnique: false,
-        reason: 'same_location_recent',
-        relatedFingerprints: geoSimilarVisits.rows.map((row) => (row as FingerprintResult).fingerprint_hash)
+        reason: 'same_device_advanced_correlation',
+        relatedFingerprints: relatedBrowsers
       };
     }
     
-    // 4. Se nessun match, è un visitatore unico
+    // Se nessun match, è un visitatore unico
     return {
       isUnique: true,
       reason: 'new_device',

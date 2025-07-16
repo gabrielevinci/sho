@@ -86,19 +86,20 @@ async function getWorkspaceAnalytics(userId: string, workspaceId: string): Promi
       ),
       click_stats AS (
         SELECT 
-          COUNT(*) as total_clicks,
-          COUNT(DISTINCT user_fingerprint) as unique_clicks,
-          COUNT(DISTINCT country) as unique_countries,
-          COUNT(DISTINCT referrer) as unique_referrers,
-          COUNT(DISTINCT device_type) as unique_devices,
-          COUNT(CASE WHEN clicked_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
-          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-          COUNT(CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
-          COUNT(DISTINCT CASE WHEN clicked_at::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
-          COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
-          COUNT(DISTINCT CASE WHEN clicked_at >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
-        FROM clicks c
-        JOIN workspace_links wl ON c.link_id = wl.id
+          COUNT(ef.id) as total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint) as unique_clicks,
+          COUNT(DISTINCT ef.country) as unique_countries,
+          COUNT(DISTINCT c.referrer) as unique_referrers,
+          COUNT(DISTINCT ef.device_category) as unique_devices,
+          COUNT(CASE WHEN ef.created_at::date = CURRENT_DATE THEN 1 END) as clicks_today,
+          COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+          COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+          COUNT(DISTINCT CASE WHEN ef.created_at::date = CURRENT_DATE THEN ef.device_fingerprint END) as unique_clicks_today,
+          COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ef.device_fingerprint END) as unique_clicks_this_week,
+          COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN ef.device_fingerprint END) as unique_clicks_this_month
+        FROM enhanced_fingerprints ef
+        LEFT JOIN clicks c ON c.user_fingerprint = ef.browser_fingerprint AND c.link_id = ef.link_id
+        JOIN workspace_links wl ON ef.link_id = wl.id
       ),
       link_stats AS (
         SELECT 
@@ -110,15 +111,17 @@ async function getWorkspaceAnalytics(userId: string, workspaceId: string): Promi
       ),
       top_stats AS (
         SELECT 
-          (SELECT referrer FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           WHERE referrer != 'Direct' GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-          (SELECT browser_name FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-          (SELECT device_type FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device,
-          (SELECT wl.short_code FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
+          (SELECT c.referrer FROM enhanced_fingerprints ef 
+           LEFT JOIN clicks c ON c.user_fingerprint = ef.browser_fingerprint AND c.link_id = ef.link_id
+           JOIN workspace_links wl ON ef.link_id = wl.id 
+           WHERE c.referrer != 'Direct' GROUP BY c.referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+          (SELECT ef.browser_type FROM enhanced_fingerprints ef JOIN workspace_links wl ON ef.link_id = wl.id 
+           GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+          (SELECT ef.device_category FROM enhanced_fingerprints ef JOIN workspace_links wl ON ef.link_id = wl.id 
+           GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device,
+          (SELECT wl.short_code FROM enhanced_fingerprints ef JOIN workspace_links wl ON ef.link_id = wl.id 
            GROUP BY wl.short_code ORDER BY COUNT(*) DESC LIMIT 1) as most_clicked_link,
-          (SELECT COUNT(*) FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
+          (SELECT COUNT(*) FROM enhanced_fingerprints ef JOIN workspace_links wl ON ef.link_id = wl.id 
            GROUP BY wl.short_code ORDER BY COUNT(*) DESC LIMIT 1) as most_clicked_link_count
       )
       SELECT 
@@ -207,10 +210,10 @@ async function getTopLinks(userId: string, workspaceId: string, limit: number = 
         l.original_url,
         l.title,
         l.created_at,
-        COALESCE(COUNT(c.id), 0)::integer as click_count,
-        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0)::integer as unique_click_count
+        COALESCE(COUNT(ef.id), 0)::integer as click_count,
+        COALESCE(COUNT(DISTINCT ef.device_fingerprint), 0)::integer as unique_click_count
       FROM links l
-      LEFT JOIN clicks c ON c.link_id = l.id
+      LEFT JOIN enhanced_fingerprints ef ON ef.link_id = l.id
       WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
       GROUP BY l.id, l.short_code, l.original_url, l.title, l.created_at
       ORDER BY click_count DESC, l.created_at DESC
@@ -242,18 +245,18 @@ async function getGeographicData(userId: string, workspaceId: string): Promise<G
       ),
       total_clicks AS (
         SELECT COUNT(*) as total
-        FROM clicks c
-        JOIN workspace_links wl ON c.link_id = wl.id
+        FROM enhanced_fingerprints ef
+        JOIN workspace_links wl ON ef.link_id = wl.id
       )
       SELECT 
-        country,
+        ef.country,
         COUNT(*) as clicks,
         (COUNT(*) * 100.0 / total.total) as percentage
-      FROM clicks c
-      JOIN workspace_links wl ON c.link_id = wl.id
+      FROM enhanced_fingerprints ef
+      JOIN workspace_links wl ON ef.link_id = wl.id
       CROSS JOIN total_clicks total
-      WHERE country IS NOT NULL AND country != ''
-      GROUP BY country, total.total
+      WHERE ef.country IS NOT NULL AND ef.country != ''
+      GROUP BY ef.country, total.total
       ORDER BY clicks DESC
       LIMIT 10
     `;
@@ -280,18 +283,18 @@ async function getDeviceData(userId: string, workspaceId: string): Promise<Devic
       ),
       total_clicks AS (
         SELECT COUNT(*) as total
-        FROM clicks c
-        JOIN workspace_links wl ON c.link_id = wl.id
+        FROM enhanced_fingerprints ef
+        JOIN workspace_links wl ON ef.link_id = wl.id
       )
       SELECT 
-        device_type,
+        ef.device_category as device_type,
         COUNT(*) as clicks,
         (COUNT(*) * 100.0 / total.total) as percentage
-      FROM clicks c
-      JOIN workspace_links wl ON c.link_id = wl.id
+      FROM enhanced_fingerprints ef
+      JOIN workspace_links wl ON ef.link_id = wl.id
       CROSS JOIN total_clicks total
-      WHERE device_type IS NOT NULL AND device_type != ''
-      GROUP BY device_type, total.total
+      WHERE ef.device_category IS NOT NULL AND ef.device_category != ''
+      GROUP BY ef.device_category, total.total
       ORDER BY clicks DESC
     `;
     
@@ -317,18 +320,18 @@ async function getBrowserData(userId: string, workspaceId: string): Promise<Brow
       ),
       total_clicks AS (
         SELECT COUNT(*) as total
-        FROM clicks c
-        JOIN workspace_links wl ON c.link_id = wl.id
+        FROM enhanced_fingerprints ef
+        JOIN workspace_links wl ON ef.link_id = wl.id
       )
       SELECT 
-        browser_name,
+        ef.browser_type as browser_name,
         COUNT(*) as clicks,
         (COUNT(*) * 100.0 / total.total) as percentage
-      FROM clicks c
-      JOIN workspace_links wl ON c.link_id = wl.id
+      FROM enhanced_fingerprints ef
+      JOIN workspace_links wl ON ef.link_id = wl.id
       CROSS JOIN total_clicks total
-      WHERE browser_name IS NOT NULL AND browser_name != ''
-      GROUP BY browser_name, total.total
+      WHERE ef.browser_type IS NOT NULL AND ef.browser_type != ''
+      GROUP BY ef.browser_type, total.total
       ORDER BY clicks DESC
       LIMIT 10
     `;
@@ -400,11 +403,11 @@ async function getDailyTimeSeriesData(userId: string, workspaceId: string, days:
       )
       SELECT 
         ds.date::text,
-        COALESCE(COUNT(c.id), 0) as total_clicks,
-        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0) as unique_clicks
+        COALESCE(COUNT(ef.id), 0) as total_clicks,
+        COALESCE(COUNT(DISTINCT ef.device_fingerprint), 0) as unique_clicks
       FROM date_series ds
-      LEFT JOIN clicks c ON c.clicked_at_rome::date = ds.date
-      LEFT JOIN workspace_links wl ON c.link_id = wl.id
+      LEFT JOIN enhanced_fingerprints ef ON (ef.created_at AT TIME ZONE 'Europe/Rome')::date = ds.date
+      LEFT JOIN workspace_links wl ON ef.link_id = wl.id
       GROUP BY ds.date
       ORDER BY ds.date ASC
     `;
@@ -436,14 +439,14 @@ async function getMonthlyData(userId: string, workspaceId: string): Promise<Mont
         WHERE user_id = ${userId} AND workspace_id = ${workspaceId}
       )
       SELECT 
-        TO_CHAR(clicked_at, 'Month YYYY') as month,
-        EXTRACT(MONTH FROM clicked_at)::integer as month_number,
-        EXTRACT(YEAR FROM clicked_at)::integer as year,
+        TO_CHAR(ef.created_at, 'Month YYYY') as month,
+        EXTRACT(MONTH FROM ef.created_at)::integer as month_number,
+        EXTRACT(YEAR FROM ef.created_at)::integer as year,
         COUNT(*) as total_clicks,
-        COUNT(DISTINCT user_fingerprint) as unique_clicks
-      FROM clicks c
-      JOIN workspace_links wl ON c.link_id = wl.id
-      GROUP BY EXTRACT(YEAR FROM clicked_at), EXTRACT(MONTH FROM clicked_at), TO_CHAR(clicked_at, 'Month YYYY')
+        COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
+      FROM enhanced_fingerprints ef
+      JOIN workspace_links wl ON ef.link_id = wl.id
+      GROUP BY EXTRACT(YEAR FROM ef.created_at), EXTRACT(MONTH FROM ef.created_at), TO_CHAR(ef.created_at, 'Month YYYY')
       ORDER BY year DESC, month_number DESC
       LIMIT 12
     `;

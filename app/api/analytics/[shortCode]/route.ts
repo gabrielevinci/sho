@@ -121,44 +121,47 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           SELECT id FROM links 
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
         ),
-        filtered_clicks AS (
-          SELECT * FROM clicks c
-          JOIN link_data ld ON c.link_id = ld.id
-          WHERE clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+        filtered_enhanced AS (
+          SELECT ef.* 
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
         ),
-        all_clicks AS (
-          SELECT * FROM clicks c
-          JOIN link_data ld ON c.link_id = ld.id
+        all_enhanced AS (
+          SELECT ef.* 
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
         click_stats AS (
           SELECT 
             COUNT(*) as total_clicks,
-            COUNT(DISTINCT user_fingerprint) as unique_clicks,
+            COUNT(DISTINCT device_fingerprint) as unique_clicks,
             COUNT(DISTINCT country) as unique_countries,
             COUNT(DISTINCT referrer) as unique_referrers,
-            COUNT(DISTINCT device_type) as unique_devices
-          FROM filtered_clicks
+            COUNT(DISTINCT device_category) as unique_devices
+          FROM filtered_enhanced
         ),
         time_stats AS (
           SELECT
-            -- Usa clicked_at_rome che è già nel fuso orario italiano
-            COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
-          FROM all_clicks
+            -- Usa created_at convertito al fuso orario italiano
+            COUNT(CASE WHEN (created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN (created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN device_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN device_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN device_fingerprint END) as unique_clicks_this_month
+          FROM all_enhanced
         ),
         top_stats AS (
           SELECT 
-            (SELECT referrer FROM filtered_clicks 
+            (SELECT referrer FROM filtered_enhanced 
              WHERE referrer != 'Direct' 
              GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-            (SELECT browser_name FROM filtered_clicks 
-             GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-            (SELECT device_type FROM filtered_clicks 
-             GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+            (SELECT browser_type FROM filtered_enhanced 
+             GROUP BY browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+            (SELECT device_category FROM filtered_enhanced 
+             GROUP BY device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
         )
         SELECT 
           cs.total_clicks,
@@ -185,29 +188,33 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         ),
         click_stats AS (
           SELECT 
-            COUNT(*) as total_clicks,
-            COUNT(DISTINCT user_fingerprint) as unique_clicks,
-            COUNT(DISTINCT country) as unique_countries,
-            COUNT(DISTINCT referrer) as unique_referrers,
-            COUNT(DISTINCT device_type) as unique_devices,
-            -- Usa clicked_at_rome che è già nel fuso orario italiano
-            COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as unique_clicks_this_month
-          FROM clicks c
-          JOIN link_data ld ON c.link_id = ld.id
+            COUNT(ef.id) as total_clicks,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_clicks,
+            COUNT(DISTINCT ef.country) as unique_countries,
+            COUNT(DISTINCT ef.referrer) as unique_referrers,
+            COUNT(DISTINCT ef.device_category) as unique_devices,
+            -- Usa created_at convertito al fuso orario italiano
+            COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN ef.device_fingerprint END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN ef.device_fingerprint END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN ef.device_fingerprint END) as unique_clicks_this_month
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
         top_stats AS (
           SELECT 
-            (SELECT referrer FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             WHERE referrer != 'Direct' GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-            (SELECT browser_name FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-            (SELECT device_type FROM clicks c JOIN link_data ld ON c.link_id = ld.id 
-             GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device        )
+            (SELECT ef.referrer FROM enhanced_fingerprints ef 
+             WHERE ef.link_id IN (SELECT id FROM link_data) AND ef.referrer != 'Direct' 
+             GROUP BY ef.referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+            (SELECT ef.browser_type FROM enhanced_fingerprints ef 
+             WHERE ef.link_id IN (SELECT id FROM link_data)
+             GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+            (SELECT ef.device_category FROM enhanced_fingerprints ef 
+             WHERE ef.link_id IN (SELECT id FROM link_data)
+             GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+        )
         SELECT 
           cs.total_clicks,
           cs.unique_clicks,
@@ -222,7 +229,9 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           cs.clicks_this_month,
           cs.unique_clicks_today,
           cs.unique_clicks_this_week,
-          cs.unique_clicks_this_month
+          cs.unique_clicks_this_month,
+          0 as avg_total_clicks_per_period,
+          0 as avg_unique_clicks_per_period
         FROM click_stats cs, top_stats ts
       `;
     }
@@ -360,20 +369,22 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
       query = sql<GeographicData>`
         WITH total_clicks AS (
           SELECT COUNT(*) as total
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
         )
         SELECT 
-          country, 
+          ef.country, 
           COUNT(*) as clicks,
           COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
-        GROUP BY country
+        AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+        AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
+        GROUP BY ef.country
         ORDER BY clicks DESC
         LIMIT 10
       `;
@@ -381,18 +392,18 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
       query = sql<GeographicData>`
         WITH total_clicks AS (
           SELECT COUNT(*) as total
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
         )
         SELECT 
-          country, 
+          ef.country, 
           COUNT(*) as clicks,
           COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        GROUP BY country
+        GROUP BY ef.country
         ORDER BY clicks DESC
         LIMIT 10
       `;
@@ -427,38 +438,40 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
       query = sql<DeviceData>`
         WITH total_clicks AS (
           SELECT COUNT(*) as total
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
         )
         SELECT 
-          device_type, 
+          ef.device_category as device_type, 
           COUNT(*) as clicks,
           COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
-        GROUP BY device_type
+        AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+        AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
+        GROUP BY ef.device_category
         ORDER BY clicks DESC
       `;
     } else {
       query = sql<DeviceData>`
         WITH total_clicks AS (
           SELECT COUNT(*) as total
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
         )
         SELECT 
-          device_type, 
+          ef.device_category as device_type, 
           COUNT(*) as clicks,
           COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        GROUP BY device_type
+        GROUP BY ef.device_category
         ORDER BY clicks DESC
       `;
     }
@@ -492,20 +505,22 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
       query = sql<BrowserData>`
         WITH total_clicks AS (
           SELECT COUNT(*) as total
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-          AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+          AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
         )
         SELECT 
-          browser_name, 
+          ef.browser_type as browser_name, 
           COUNT(*) as clicks,
           COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND clicked_at_rome >= ${startTimeUTC}::timestamptz AND clicked_at_rome < ${endTimeUTC}::timestamptz
-        GROUP BY browser_name
+        AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
+        AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
+        GROUP BY ef.browser_type
         ORDER BY clicks DESC
         LIMIT 10
       `;
@@ -513,18 +528,18 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
       query = sql<BrowserData>`
         WITH total_clicks AS (
           SELECT COUNT(*) as total
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
         )
         SELECT 
-          browser_name, 
+          ef.browser_type as browser_name, 
           COUNT(*) as clicks,
           COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        GROUP BY browser_name
+        GROUP BY ef.browser_type
         ORDER BY clicks DESC
         LIMIT 10
       `;
@@ -628,15 +643,15 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           ),
           daily_clicks AS (
             SELECT 
-              clicked_at_rome::date as date,
-              COUNT(*) as total_clicks,
-              COUNT(DISTINCT user_fingerprint) as unique_clicks
-            FROM clicks c
-            JOIN links l ON c.link_id = l.id
+              ef.created_at::date as date,
+              COUNT(ef.id) as total_clicks,
+              COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
+            FROM enhanced_fingerprints ef
+            JOIN links l ON ef.link_id = l.id
             WHERE l.user_id = ${userId} 
               AND l.workspace_id = ${workspaceId} 
               AND l.short_code = ${shortCode}
-            GROUP BY clicked_at_rome::date
+            GROUP BY ef.created_at::date
           )
           SELECT 
             ds.date::text as date,
@@ -672,16 +687,16 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         ),
         daily_clicks AS (
           SELECT 
-            -- Raggruppa i click per giorno utilizzando clicked_at_rome (già in fuso orario italiano)
-            clicked_at_rome::date as date,
-            COUNT(*) as total_clicks,
-            COUNT(DISTINCT user_fingerprint) as unique_clicks
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
+            -- Raggruppa i click per giorno utilizzando enhanced_fingerprints
+            ef.created_at::date as date,
+            COUNT(ef.id) as total_clicks,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
+          FROM enhanced_fingerprints ef
+          JOIN links l ON ef.link_id = l.id
           WHERE l.user_id = ${userId} 
             AND l.workspace_id = ${workspaceId} 
             AND l.short_code = ${shortCode}
-          GROUP BY clicked_at_rome::date
+          GROUP BY ef.created_at::date
         )
         SELECT 
           ds.date::text as date,
@@ -832,17 +847,17 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
       ),
       monthly_clicks AS (
         SELECT 
-          EXTRACT(MONTH FROM COALESCE(clicked_at_rome, clicked_at))::integer as month_number,
-          EXTRACT(YEAR FROM COALESCE(clicked_at_rome, clicked_at))::integer as year,
+          EXTRACT(MONTH FROM ef.created_at)::integer as month_number,
+          EXTRACT(YEAR FROM ef.created_at)::integer as year,
           COUNT(*)::integer as total_clicks,
-          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+          COUNT(DISTINCT ef.device_fingerprint)::integer as unique_clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} 
           AND l.workspace_id = ${workspaceId} 
           AND l.short_code = ${shortCode}
-          AND EXTRACT(YEAR FROM COALESCE(clicked_at_rome, clicked_at)) = EXTRACT(YEAR FROM CURRENT_DATE)
-        GROUP BY EXTRACT(MONTH FROM COALESCE(clicked_at_rome, clicked_at)), EXTRACT(YEAR FROM COALESCE(clicked_at_rome, clicked_at))
+          AND EXTRACT(YEAR FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+        GROUP BY EXTRACT(MONTH FROM ef.created_at), EXTRACT(YEAR FROM ef.created_at)
       )
       SELECT 
         TRIM(ms.month) as month,
@@ -880,20 +895,20 @@ async function getWeeklyData(userId: string, workspaceId: string, shortCode: str
       weekly_clicks AS (
         SELECT 
           -- Usa la settimana ISO standard di PostgreSQL
-          EXTRACT(week FROM COALESCE(clicked_at_rome, clicked_at))::integer as week,
-          EXTRACT(isoyear FROM COALESCE(clicked_at_rome, clicked_at))::integer as year,
+          EXTRACT(week FROM ef.created_at)::integer as week,
+          EXTRACT(isoyear FROM ef.created_at)::integer as year,
           COUNT(*)::integer as total_clicks,
-          COUNT(DISTINCT user_fingerprint)::integer as unique_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
+          COUNT(DISTINCT ef.device_fingerprint)::integer as unique_clicks
+        FROM enhanced_fingerprints ef
+        JOIN links l ON ef.link_id = l.id
         WHERE l.user_id = ${userId} 
           AND l.workspace_id = ${workspaceId} 
           AND l.short_code = ${shortCode}
           -- Filtra per l'anno ISO 2025 (che include i click dal 30-12-2024)
-          AND EXTRACT(isoyear FROM COALESCE(clicked_at_rome, clicked_at)) = EXTRACT(YEAR FROM CURRENT_DATE)
+          AND EXTRACT(isoyear FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
         GROUP BY 
-          EXTRACT(week FROM COALESCE(clicked_at_rome, clicked_at)), 
-          EXTRACT(isoyear FROM COALESCE(clicked_at_rome, clicked_at))
+          EXTRACT(week FROM ef.created_at), 
+          EXTRACT(isoyear FROM ef.created_at)
       )
       SELECT 
         wb.week_num::integer as week,

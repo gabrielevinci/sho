@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Esegui query per ottenere i link dell'utente nel workspace specificato
-    // Usa la stessa logica delle analytics per calcolare i click reali
+    // Usa il sistema enhanced fingerprinting per calcoli accurati
     const { rows } = await sql`
       SELECT 
         l.id, 
@@ -32,13 +32,17 @@ export async function GET(request: NextRequest) {
         l.title, 
         l.description, 
         l.folder_id,
-        -- Calcola i click reali dalla tabella clicks (stesso calcolo delle analytics)
-        COALESCE(COUNT(c.id), 0)::integer as click_count,
-        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0)::integer as unique_click_count
+        -- Usa click_count dalla tabella links (più affidabile e performante)
+        l.click_count::integer as click_count,
+        -- Calcola unique visitors basandosi sui device_fingerprint unici
+        COALESCE(
+          (SELECT COUNT(DISTINCT ef.device_fingerprint) 
+           FROM enhanced_fingerprints ef 
+           WHERE ef.link_id = l.id), 
+          l.unique_click_count
+        )::integer as unique_click_count
       FROM links l
-      LEFT JOIN clicks c ON c.link_id = l.id
       WHERE l.user_id = ${session.userId} AND l.workspace_id = ${workspaceId}
-      GROUP BY l.id, l.short_code, l.original_url, l.created_at, l.title, l.description, l.folder_id
       ORDER BY l.created_at DESC
     `;
     
