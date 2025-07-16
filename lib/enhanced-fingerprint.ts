@@ -7,6 +7,7 @@
 import { NextRequest } from 'next/server';
 import { createHash } from 'crypto';
 import { UAParser } from 'ua-parser-js';
+import { QueryResult, QueryResultRow } from '@vercel/postgres';
 
 export interface PhysicalDeviceFingerprint {
   // Identificatori del dispositivo fisico (stabili tra browser)
@@ -282,11 +283,9 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
 }
 
 // Tipi per le query SQL - compatibile con Vercel Postgres
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SqlFunction = (...args: any[]) => Promise<{ rows: Record<string, unknown>[] }>;
-type CountResult = { count: number };
+type Primitive = string | number | boolean | null | undefined;
+type SqlFunction = <O extends QueryResultRow>(strings: TemplateStringsArray, ...values: Primitive[]) => Promise<QueryResult<O>>;
 type FingerprintResult = { fingerprint_hash: string };
-type UserFingerprintResult = { user_fingerprint: string };
 
 /**
  * Trova fingerprint correlati che potrebbero essere dello stesso utente
@@ -387,8 +386,8 @@ async function updateFingerprintCorrelations(
 
       // 4. Inserisci/aggiorna correlazioni per tutti i fingerprint correlati
       for (const related of relatedFingerprints.rows) {
-        const relatedFp = (related as any).browser_fingerprint;
-        const relatedConfidence = (related as any).confidence || 100;
+        const relatedFp = (related as Record<string, unknown>).browser_fingerprint as string;
+        const relatedConfidence = ((related as Record<string, unknown>).confidence as number) || 100;
 
         await sql`
           INSERT INTO fingerprint_correlations (
@@ -447,8 +446,8 @@ export async function isUniqueVisit(
       AND device_fingerprint = ${currentFingerprint.deviceFingerprint}
     `;
     
-    if (deviceMatch.rows.length > 0 && (deviceMatch.rows[0] as any).count > 0) {
-      const relatedBrowsers = (deviceMatch.rows[0] as any).browser_fingerprints || [];
+    if (deviceMatch.rows.length > 0 && ((deviceMatch.rows[0] as Record<string, unknown>).count as number) > 0) {
+      const relatedBrowsers = ((deviceMatch.rows[0] as Record<string, unknown>).browser_fingerprints as string[]) || [];
       return {
         isUnique: false,
         reason: 'same_physical_device',
@@ -465,7 +464,7 @@ export async function isUniqueVisit(
       AND browser_fingerprint = ${currentFingerprint.browserFingerprint}
     `;
     
-    if (browserMatch.rows.length > 0 && (browserMatch.rows[0] as any).count > 0) {
+    if (browserMatch.rows.length > 0 && ((browserMatch.rows[0] as Record<string, unknown>).count as number) > 0) {
       return {
         isUnique: false,
         reason: 'same_browser_session',
@@ -487,8 +486,8 @@ export async function isUniqueVisit(
       AND browser_fingerprint != ${currentFingerprint.browserFingerprint}
     `;
     
-    if (advancedMatch.rows.length > 0 && (advancedMatch.rows[0] as any).count > 0) {
-      const relatedBrowsers = (advancedMatch.rows[0] as any).browser_fingerprints || [];
+    if (advancedMatch.rows.length > 0 && ((advancedMatch.rows[0] as Record<string, unknown>).count as number) > 0) {
+      const relatedBrowsers = ((advancedMatch.rows[0] as Record<string, unknown>).browser_fingerprints as string[]) || [];
       return {
         isUnique: false,
         reason: 'same_device_advanced_correlation',
