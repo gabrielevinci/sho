@@ -212,9 +212,38 @@ export default function WorkspaceAnalyticsClient({
         onFilterChange={handleFilterChange}
       />
 
+      {/* Nuovo: Banner Advanced Fingerprinting */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-xl p-6 text-white shadow-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">🔍 Fingerprinting Avanzato Attivo!</h2>
+            <p className="text-lg opacity-90 mb-3">
+              Ora raccogliamo oltre 40 parametri unici per ogni visitatore
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">Canvas Fingerprinting</span>
+              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">WebGL Analysis</span>
+              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">Audio Fingerprinting</span>
+              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">Hardware Detection</span>
+              <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">Behavioral Tracking</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-4xl font-bold">🚀</div>
+            <div className="text-sm opacity-80">Next Level</div>
+          </div>
+        </div>
+      </div>
+
       {/* Statistiche Generali */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200 hover:shadow-lg transition-all duration-300">
+        {/* Card Totale Link con Badge Avanzato */}
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-md border border-blue-200 hover:shadow-lg transition-all duration-300 relative">
+          <div className="absolute top-2 right-2">
+            <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+              ADVANCED
+            </span>
+          </div>
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 bg-blue-600 rounded-lg">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,7 +253,7 @@ export default function WorkspaceAnalyticsClient({
           </div>
           <h3 className="text-sm font-bold text-gray-700 mb-2">Totale Link</h3>
           <p className="text-2xl font-black text-blue-700 mb-1">{workspaceAnalytics.total_links}</p>
-          <p className="text-xs text-blue-600 font-medium">Link creati nel workspace</p>
+          <p className="text-xs text-blue-600 font-medium">Con tracking avanzato</p>
         </div>
         
         <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-md border border-green-200 hover:shadow-lg transition-all duration-300">
@@ -329,7 +358,7 @@ export default function WorkspaceAnalyticsClient({
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg mr-3 shadow-sm">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 012 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div>
@@ -493,7 +522,7 @@ export default function WorkspaceAnalyticsClient({
             <div className="flex items-center mb-6">
               <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl mr-4">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-gray-800">Dispositivi Utilizzati</h3>
