@@ -53,19 +53,96 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   const device = parser.getDevice();
 
   // 1. ELEMENTI FISICI DEL DISPOSITIVO (stabili tra browser)
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-  const ip = forwardedFor?.split(',')[0] || realIp || 'unknown';
+  // Estrazione IP più robusta che gestisce le differenze tra browser
+  function extractStableIP(request: NextRequest): string {
+    // Prova diverse fonti di IP in ordine di priorità
+    const ipSources = [
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
+      request.headers.get('x-real-ip'),
+      request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim(),
+      request.headers.get('cf-connecting-ip'), // Cloudflare
+      request.headers.get('x-client-ip'),
+      request.headers.get('x-forwarded'),
+      request.headers.get('forwarded')?.match(/for=([^;,]+)/)?.[1]
+    ];
+    
+    // Trova il primo IP valido
+    for (const ip of ipSources) {
+      if (ip && ip !== 'unknown' && ip.length > 0) {
+        // Normalizza tutti i localhost variants
+        if (ip === '::1' || ip === '::ffff:127.0.0.1' || ip === '127.0.0.1') {
+          return 'localhost';
+        }
+        // Normalizza IPv6 mapped IPv4 (::ffff:192.168.1.1 -> 192.168.1.1)
+        if (ip.startsWith('::ffff:')) {
+          return ip.substring(7);
+        }
+        // Rimuovi porte se presenti (192.168.1.1:8080 -> 192.168.1.1)
+        return ip.split(':')[0];
+      }
+    }
+    return 'localhost'; // Default per sviluppo locale
+  }
+  
+  const ip = extractStableIP(request);
   const ipHash = createHash('sha256').update(ip).digest('hex').substring(0, 16);
   
-  // Timezone e offset (molto stabili)
-  const timezone = request.headers.get('x-vercel-ip-timezone') || 'Unknown';
-  const timezoneFingerprint = timezone;
+  // Timezone e offset (molto stabili) - con fallback più robusti
+  function extractStableTimezone(request: NextRequest): string {
+    // Prova diverse fonti per il timezone
+    const timezone = request.headers.get('x-vercel-ip-timezone') || 
+                    request.headers.get('x-timezone') ||
+                    request.headers.get('timezone');
+    
+    // Se non abbiamo timezone da headers, usa fallback geografico o sviluppo locale
+    if (!timezone || timezone === 'Unknown') {
+      const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
+      
+      // Se siamo in sviluppo locale (headers Vercel nulli), usa timezone di default
+      if (country === 'Unknown' || !country) {
+        return 'Europe/Rome'; // Default per sviluppo locale
+      }
+      
+      // Fallback basato su paese per timezone comuni
+      const timezoneMap: Record<string, string> = {
+        'IT': 'Europe/Rome',
+        'US': 'America/New_York', 
+        'GB': 'Europe/London',
+        'DE': 'Europe/Berlin',
+        'FR': 'Europe/Paris'
+      };
+      return timezoneMap[country] || 'UTC';
+    }
+    
+    return timezone;
+  }
   
-  // Informazioni geografiche (stabili a breve termine)
-  const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
-  const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
-  const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
+  const timezoneFingerprint = extractStableTimezone(request);
+  
+  // Informazioni geografiche (stabili a breve termine) - con fallback per sviluppo locale
+  function extractStableGeo(request: NextRequest) {
+    const country = request.headers.get('x-vercel-ip-country') || null;
+    const region = request.headers.get('x-vercel-ip-country-region') || null;
+    const city = request.headers.get('x-vercel-ip-city') || null;
+    
+    // Se siamo in sviluppo locale (headers Vercel nulli), usa valori di default
+    if (!country || country === 'Unknown') {
+      return {
+        country: 'IT',      // Default per sviluppo locale
+        region: 'LZ',       // Lazio
+        city: 'Rome'        // Roma
+      };
+    }
+    
+    return {
+      country: country || 'Unknown',
+      region: region || 'Unknown', 
+      city: city || 'Unknown'
+    };
+  }
+  
+  const geoInfo = extractStableGeo(request);
+  const { country, region, city } = geoInfo;
   
   // Hardware info - più generico per stabilità cross-browser
   const osFamily = os.name ? os.name.toLowerCase().replace(/[^a-z]/g, '') : 'unknown';
@@ -85,17 +162,51 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   
   // 3. GENERAZIONE FINGERPRINT FISICO
   // Combina solo elementi che sono stabili tra browser diversi
-  const physicalElements = [
-    ipHash,                    // Stesso IP
-    timezoneFingerprint,       // Stesso timezone
-    country, region,           // Stessa posizione geografica
-    osFamily,                  // Stesso OS family (windows, macos, linux)
-    deviceCategory,            // Stesso tipo di device (desktop/mobile)
-    primaryLanguage            // Stessa lingua primaria
-  ].join('|');
+  // Usa strategia a livelli: se IP diverso, usa geo + timezone come fallback
+  function generateDeviceElements(ip: string, timezone: string, country: string, region: string, osFamily: string, deviceCategory: string, primaryLanguage: string): string[] {
+    // Livello 1: IP + geo completo (più preciso)
+    const level1Elements = [
+      ipHash,
+      timezone,
+      country,
+      region,
+      osFamily,
+      deviceCategory,
+      primaryLanguage
+    ];
+    
+    // Livello 2: Solo geo + timezone (fallback se IP problematico)  
+    const level2Elements = [
+      timezone,
+      country,
+      region, 
+      osFamily,
+      deviceCategory,
+      primaryLanguage,
+      'fallback-geo' // marker per distinguere da level1
+    ];
+    
+    // Se IP è "unknown" o sembrano essere diversi per motivi tecnici,
+    // usa fallback geografico
+    if (ip === 'unknown') {
+      return level2Elements;
+    }
+    
+    return level1Elements;
+  }
+  
+  const physicalElements = generateDeviceElements(
+    ip, 
+    timezoneFingerprint, 
+    country, 
+    region, 
+    osFamily, 
+    deviceCategory, 
+    primaryLanguage
+  );
   
   const deviceFingerprint = createHash('sha256')
-    .update(physicalElements)
+    .update(physicalElements.join('|'))
     .digest('hex')
     .substring(0, 20);
   
@@ -137,7 +248,7 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
     confidence += 20;
   }
   
-  if (timezone !== 'Unknown') {
+  if (timezoneFingerprint !== 'Unknown' && timezoneFingerprint !== 'UTC') {
     correlationFactors.push('timezone');
     confidence += 15;
   }
@@ -195,14 +306,23 @@ export async function findCorrelatedFingerprints(
     
     const correlatedIds = exactMatches.rows.map((row) => (row as FingerprintResult).fingerprint_hash);
     
-    // Cerca match parziali basati su IP + timezone + geo (più permissivi)
+    // Cerca match parziali basati su geo + timezone + OS (più permissivi per problemi IP)
     const partialMatches = await sql`
       SELECT DISTINCT fingerprint_hash, confidence
       FROM enhanced_fingerprints 
-      WHERE ip_hash = ${currentFingerprint.ipHash}
-      AND timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
-      AND os_family = ${currentFingerprint.osFamily}
-      AND device_category = ${currentFingerprint.deviceCategory}
+      WHERE (
+        -- Match esatto IP (ideale)
+        (ip_hash = ${currentFingerprint.ipHash}
+         AND timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
+         AND os_family = ${currentFingerprint.osFamily})
+        OR
+        -- Match geografico + timezone (fallback per IP diversi)
+        (timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
+         AND country = (SELECT country FROM enhanced_fingerprints WHERE browser_fingerprint = ${currentFingerprint.browserFingerprint} LIMIT 1)
+         AND region = (SELECT region FROM enhanced_fingerprints WHERE browser_fingerprint = ${currentFingerprint.browserFingerprint} LIMIT 1)
+         AND os_family = ${currentFingerprint.osFamily}
+         AND device_category = ${currentFingerprint.deviceCategory})
+      )
       AND fingerprint_hash != ${currentFingerprint.browserFingerprint}
       AND created_at >= NOW() - INTERVAL '24 hours'
     `;
