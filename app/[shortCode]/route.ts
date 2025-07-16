@@ -20,7 +20,11 @@ async function recordEnhancedClick(
   request: NextRequest, 
   physicalFingerprint: PhysicalDeviceFingerprint
 ) {
-  console.log('🎯 recordEnhancedClick called:', { linkId, deviceFingerprint: physicalFingerprint.deviceFingerprint });
+  const userAgent = request.headers.get('user-agent') || '';
+  const browserType = physicalFingerprint.browserType;
+  
+  // Log iniziale pulito
+  console.log(`\n🔄 CLICK: ${browserType.toUpperCase()} → Link ID: ${linkId}`);
   
   const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
   const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
@@ -45,10 +49,7 @@ async function recordEnhancedClick(
   }
 
   try {
-    // STEP 1: Salva sempre il fingerprint prima di controllare uniqueness
-    // Questo permette alla logica di correlazione di funzionare correttamente
-    
-    // Registra il click nella tabella legacy (per compatibilità)
+    // STEP 1: Registra il click nella tabella legacy (per compatibilità)
     await sql`
       INSERT INTO clicks 
         (link_id, country, referrer, browser_name, device_type, user_fingerprint, clicked_at_rome) 
@@ -63,102 +64,72 @@ async function recordEnhancedClick(
       )
     `;
     
-    // Salva o aggiorna il fingerprint migliorato
+    // STEP 2: Gestisci fingerprint nella tabella enhanced_fingerprints PRIMA
     const existingFingerprint = await sql`
-      SELECT id FROM enhanced_fingerprints 
+      SELECT id, visit_count FROM enhanced_fingerprints 
       WHERE browser_fingerprint = ${physicalFingerprint.browserFingerprint}
       AND link_id = ${linkId}
     `;
 
+    let isFirstVisitFromBrowser = false;
+    
     if (existingFingerprint.rows.length > 0) {
       // Aggiorna fingerprint esistente
+      const currentVisitCount = existingFingerprint.rows[0].visit_count || 0;
       await sql`
         UPDATE enhanced_fingerprints SET
           last_seen = NOW() AT TIME ZONE 'Europe/Rome',
           visit_count = visit_count + 1
         WHERE id = ${existingFingerprint.rows[0].id}
       `;
+      console.log(`   📊 Visita #${currentVisitCount + 1} da questo browser`);
     } else {
       // Inserisci nuovo fingerprint
+      isFirstVisitFromBrowser = true;
       await sql`
         INSERT INTO enhanced_fingerprints (
-          link_id,
-          device_fingerprint,
-          browser_fingerprint,
-          session_fingerprint,
-          fingerprint_hash,
-          ip_hash,
-          timezone_fingerprint,
-          hardware_profile,
-          device_category,
-          os_family,
-          browser_type,
-          user_agent,
-          country,
-          region,
-          city,
-          confidence,
-          correlation_factors,
-          created_at,
-          last_seen
+          link_id, device_fingerprint, browser_fingerprint, session_fingerprint,
+          fingerprint_hash, ip_hash, timezone_fingerprint, hardware_profile,
+          device_category, os_family, browser_type, user_agent,
+          country, region, city, confidence, correlation_factors,
+          created_at, last_seen, visit_count
         ) VALUES (
-          ${linkId},
-          ${physicalFingerprint.deviceFingerprint},
-          ${physicalFingerprint.browserFingerprint},
-          ${physicalFingerprint.sessionFingerprint},
-          ${physicalFingerprint.browserFingerprint},
-          ${physicalFingerprint.ipHash},
-          ${physicalFingerprint.timezoneFingerprint},
-          ${physicalFingerprint.hardwareProfile},
-          ${physicalFingerprint.deviceCategory},
-          ${physicalFingerprint.osFamily},
-          ${physicalFingerprint.browserType},
-          ${request.headers.get('user-agent') || ''},
-          ${country},
-          ${region},
-          ${city},
-          ${physicalFingerprint.confidence},
+          ${linkId}, ${physicalFingerprint.deviceFingerprint}, 
+          ${physicalFingerprint.browserFingerprint}, ${physicalFingerprint.sessionFingerprint},
+          ${physicalFingerprint.browserFingerprint}, ${physicalFingerprint.ipHash},
+          ${physicalFingerprint.timezoneFingerprint}, ${physicalFingerprint.hardwareProfile},
+          ${physicalFingerprint.deviceCategory}, ${physicalFingerprint.osFamily},
+          ${physicalFingerprint.browserType}, ${userAgent},
+          ${country}, ${region}, ${city}, ${physicalFingerprint.confidence},
           ${JSON.stringify(physicalFingerprint.correlationFactors)},
-          NOW() AT TIME ZONE 'Europe/Rome',
-          NOW() AT TIME ZONE 'Europe/Rome'
+          NOW() AT TIME ZONE 'Europe/Rome', NOW() AT TIME ZONE 'Europe/Rome', 1
         )
       `;
+      console.log(`   ✨ Prima visita da ${browserType.toUpperCase()}`);
     }
     
-    // STEP 2: Ora che il fingerprint è salvato, determina se questo è un visit unico
-    // La logica di correlazione può ora funzionare correttamente
+    // STEP 3: ORA determina se questo è un visit unico (DOPO aver inserito/aggiornato)
     const uniqueCheckResult = await isUniqueVisit(linkId, physicalFingerprint, sql);
     const isUniqueVisitor = uniqueCheckResult.isUnique;
     
-    // Log per debug (rimuovere in produzione)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Enhanced fingerprint check:', {
-        isUnique: isUniqueVisitor,
-        reason: uniqueCheckResult.reason,
-        deviceFingerprint: physicalFingerprint.deviceFingerprint,
-        browserFingerprint: physicalFingerprint.browserFingerprint,
-        confidence: physicalFingerprint.confidence,
-        correlationFactors: physicalFingerprint.correlationFactors,
-        relatedFingerprints: uniqueCheckResult.relatedFingerprints
-      });
-    }
-    
-    // STEP 3: Aggiorna i contatori del link con la nuova logica
+    // STEP 4: Aggiorna i contatori del link
     if (isUniqueVisitor) {
-      await sql`
+      const updateResult = await sql`
         UPDATE links SET 
           click_count = click_count + 1,
           unique_click_count = unique_click_count + 1 
         WHERE id = ${linkId}
       `;
+      console.log(`   ✅ TOTALI: +1 | UNICI: +1 (${uniqueCheckResult.reason})`);
     } else {
-      await sql`
+      const updateResult = await sql`
         UPDATE links SET click_count = click_count + 1 WHERE id = ${linkId}
       `;
+      console.log(`   ✅ TOTALI: +1 | UNICI: = (${uniqueCheckResult.reason})`);
     }
     
   } catch (error) {
-    console.error("Failed to record enhanced click:", error);
+    console.error(`❌ ERRORE per ${browserType.toUpperCase()}:`, error instanceof Error ? error.message : String(error));
     
     // Fallback al sistema legacy in caso di errore
     try {
@@ -190,8 +161,6 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const shortCode = url.pathname.slice(1);
 
-  console.log('🚀 REDIRECT REQUEST:', { shortCode, userAgent: request.headers.get('user-agent')?.substring(0, 50) });
-
   if (!shortCode) {
     return NextResponse.redirect(new URL('/', request.url));
   }
@@ -209,15 +178,10 @@ export async function GET(request: NextRequest) {
 
     // Genera fingerprint fisico del dispositivo migliorato
     const physicalFingerprint = generatePhysicalDeviceFingerprint(request);
-    console.log('🔑 Generated fingerprint:', { 
-      deviceFingerprint: physicalFingerprint.deviceFingerprint,
-      browserFingerprint: physicalFingerprint.browserFingerprint 
-    });
     
     // Per tutti (bot e utenti reali): registra il click con il nuovo sistema
     try {
       await recordEnhancedClick(link.id, request, physicalFingerprint);
-      console.log('✅ Click recorded successfully');
     } catch (error) {
       console.error('❌ Error recording click:', error);
     }

@@ -115,10 +115,10 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       const startTimeUTC = new Date(adjustedStartDate).toISOString();
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
-      // Per i filtri, usa il range di date specificato
+      // Per i filtri, usa il range di date specificato - CORRETTO per usare dati da tabella links
       query = sql<ClickAnalytics>`
         WITH link_data AS (
-          SELECT id FROM links 
+          SELECT id, click_count, unique_click_count FROM links 
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
         ),
         filtered_enhanced AS (
@@ -135,8 +135,8 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         ),
         click_stats AS (
           SELECT 
-            COUNT(*) as total_clicks,
-            COUNT(DISTINCT device_fingerprint) as unique_clicks,
+            (SELECT click_count FROM link_data) as total_clicks,
+            (SELECT unique_click_count FROM link_data) as unique_clicks,
             COUNT(DISTINCT country) as unique_countries,
             COUNT(DISTINCT referrer) as unique_referrers,
             COUNT(DISTINCT device_category) as unique_devices
@@ -183,13 +183,13 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
     } else {
       query = sql<ClickAnalytics>`
         WITH link_data AS (
-          SELECT id FROM links 
+          SELECT id, click_count, unique_click_count FROM links 
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
         ),
         click_stats AS (
           SELECT 
-            COUNT(ef.id) as total_clicks,
-            COUNT(DISTINCT ef.device_fingerprint) as unique_clicks,
+            (SELECT click_count FROM link_data) as total_clicks,
+            (SELECT unique_click_count FROM link_data) as unique_clicks,
             COUNT(DISTINCT ef.country) as unique_countries,
             COUNT(DISTINCT ef.referrer) as unique_referrers,
             COUNT(DISTINCT ef.device_category) as unique_devices,
@@ -367,44 +367,91 @@ async function getFilteredGeographicData(userId: string, workspaceId: string, sh
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<GeographicData>`
-        WITH total_clicks AS (
-          SELECT COUNT(*) as total
-          FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        WITH link_data AS (
+          SELECT id, click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        filtered_enhanced AS (
+          SELECT * FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
           AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
           AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
+        ),
+        total_calculated AS (
+          SELECT COUNT(*) as total_from_enhanced FROM filtered_enhanced
+        ),
+        scaling_factor AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as factor
+          FROM total_calculated tc
+        ),
+        country_clicks AS (
+          SELECT 
+            ef.country, 
+            COUNT(*) as raw_clicks
+          FROM filtered_enhanced ef
+          GROUP BY ef.country
+        ),
+        scaled_country_clicks AS (
+          SELECT 
+            cc.country,
+            ROUND(cc.raw_clicks * (SELECT factor FROM scaling_factor))::integer as clicks
+          FROM country_clicks cc
+        ),
+        total_scaled AS (
+          SELECT SUM(clicks) as total FROM scaled_country_clicks
         )
         SELECT 
-          ef.country, 
-          COUNT(*) as clicks,
-          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
-        AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
-        GROUP BY ef.country
-        ORDER BY clicks DESC
+          scc.country,
+          scc.clicks,
+          COALESCE(ROUND((scc.clicks * 100.0 / NULLIF(ts.total, 0)), 1), 0) as percentage
+        FROM scaled_country_clicks scc, total_scaled ts
+        ORDER BY scc.clicks DESC
         LIMIT 10
       `;
     } else {
       query = sql<GeographicData>`
-        WITH total_clicks AS (
-          SELECT COUNT(*) as total
+        WITH link_data AS (
+          SELECT id, click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        total_calculated AS (
+          SELECT COUNT(*) as total_from_enhanced
           FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        scaling_factor AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as factor
+          FROM total_calculated tc
+        ),
+        country_clicks AS (
+          SELECT 
+            ef.country, 
+            COUNT(*) as raw_clicks
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+          GROUP BY ef.country
+        ),
+        scaled_country_clicks AS (
+          SELECT 
+            cc.country,
+            ROUND(cc.raw_clicks * (SELECT factor FROM scaling_factor))::integer as clicks
+          FROM country_clicks cc
+        ),
+        total_scaled AS (
+          SELECT SUM(clicks) as total FROM scaled_country_clicks
         )
         SELECT 
-          ef.country, 
-          COUNT(*) as clicks,
-          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        GROUP BY ef.country
-        ORDER BY clicks DESC
+          scc.country,
+          scc.clicks,
+          COALESCE(ROUND((scc.clicks * 100.0 / NULLIF(ts.total, 0)), 1), 0) as percentage
+        FROM scaled_country_clicks scc, total_scaled ts
+        ORDER BY scc.clicks DESC
         LIMIT 10
       `;
     }
@@ -436,43 +483,90 @@ async function getFilteredDeviceData(userId: string, workspaceId: string, shortC
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<DeviceData>`
-        WITH total_clicks AS (
-          SELECT COUNT(*) as total
-          FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        WITH link_data AS (
+          SELECT id, click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        filtered_enhanced AS (
+          SELECT * FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
           AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
           AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
+        ),
+        total_calculated AS (
+          SELECT COUNT(*) as total_from_enhanced FROM filtered_enhanced
+        ),
+        scaling_factor AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as factor
+          FROM total_calculated tc
+        ),
+        device_clicks AS (
+          SELECT 
+            ef.device_category as device_type, 
+            COUNT(*) as raw_clicks
+          FROM filtered_enhanced ef
+          GROUP BY ef.device_category
+        ),
+        scaled_device_clicks AS (
+          SELECT 
+            dc.device_type,
+            ROUND(dc.raw_clicks * (SELECT factor FROM scaling_factor))::integer as clicks
+          FROM device_clicks dc
+        ),
+        total_scaled AS (
+          SELECT SUM(clicks) as total FROM scaled_device_clicks
         )
         SELECT 
-          ef.device_category as device_type, 
-          COUNT(*) as clicks,
-          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
-        AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
-        GROUP BY ef.device_category
-        ORDER BY clicks DESC
+          sdc.device_type,
+          sdc.clicks,
+          COALESCE(ROUND((sdc.clicks * 100.0 / NULLIF(ts.total, 0)), 1), 0) as percentage
+        FROM scaled_device_clicks sdc, total_scaled ts
+        ORDER BY sdc.clicks DESC
       `;
     } else {
       query = sql<DeviceData>`
-        WITH total_clicks AS (
-          SELECT COUNT(*) as total
+        WITH link_data AS (
+          SELECT id, click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        total_calculated AS (
+          SELECT COUNT(*) as total_from_enhanced
           FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        scaling_factor AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as factor
+          FROM total_calculated tc
+        ),
+        device_clicks AS (
+          SELECT 
+            ef.device_category as device_type, 
+            COUNT(*) as raw_clicks
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+          GROUP BY ef.device_category
+        ),
+        scaled_device_clicks AS (
+          SELECT 
+            dc.device_type,
+            ROUND(dc.raw_clicks * (SELECT factor FROM scaling_factor))::integer as clicks
+          FROM device_clicks dc
+        ),
+        total_scaled AS (
+          SELECT SUM(clicks) as total FROM scaled_device_clicks
         )
         SELECT 
-          ef.device_category as device_type, 
-          COUNT(*) as clicks,
-          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        GROUP BY ef.device_category
-        ORDER BY clicks DESC
+          sdc.device_type,
+          sdc.clicks,
+          COALESCE(ROUND((sdc.clicks * 100.0 / NULLIF(ts.total, 0)), 1), 0) as percentage
+        FROM scaled_device_clicks sdc, total_scaled ts
+        ORDER BY sdc.clicks DESC
       `;
     }
     const { rows } = await query;
@@ -503,44 +597,91 @@ async function getFilteredBrowserData(userId: string, workspaceId: string, short
       const endTimeUTC = new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
       
       query = sql<BrowserData>`
-        WITH total_clicks AS (
-          SELECT COUNT(*) as total
-          FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+        WITH link_data AS (
+          SELECT id, click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        filtered_enhanced AS (
+          SELECT * FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
           AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
           AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
+        ),
+        total_calculated AS (
+          SELECT COUNT(*) as total_from_enhanced FROM filtered_enhanced
+        ),
+        scaling_factor AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as factor
+          FROM total_calculated tc
+        ),
+        browser_clicks AS (
+          SELECT 
+            ef.browser_type as browser_name, 
+            COUNT(*) as raw_clicks
+          FROM filtered_enhanced ef
+          GROUP BY ef.browser_type
+        ),
+        scaled_browser_clicks AS (
+          SELECT 
+            bc.browser_name,
+            ROUND(bc.raw_clicks * (SELECT factor FROM scaling_factor))::integer as clicks
+          FROM browser_clicks bc
+        ),
+        total_scaled AS (
+          SELECT SUM(clicks) as total FROM scaled_browser_clicks
         )
         SELECT 
-          ef.browser_type as browser_name, 
-          COUNT(*) as clicks,
-          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        AND (ef.created_at AT TIME ZONE 'Europe/Rome') >= ${startTimeUTC}::timestamptz 
-        AND (ef.created_at AT TIME ZONE 'Europe/Rome') < ${endTimeUTC}::timestamptz
-        GROUP BY ef.browser_type
-        ORDER BY clicks DESC
+          sbc.browser_name,
+          sbc.clicks,
+          COALESCE(ROUND((sbc.clicks * 100.0 / NULLIF(ts.total, 0)), 1), 0) as percentage
+        FROM scaled_browser_clicks sbc, total_scaled ts
+        ORDER BY sbc.clicks DESC
         LIMIT 10
       `;
     } else {
       query = sql<BrowserData>`
-        WITH total_clicks AS (
-          SELECT COUNT(*) as total
+        WITH link_data AS (
+          SELECT id, click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        total_calculated AS (
+          SELECT COUNT(*) as total_from_enhanced
           FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        scaling_factor AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as factor
+          FROM total_calculated tc
+        ),
+        browser_clicks AS (
+          SELECT 
+            ef.browser_type as browser_name, 
+            COUNT(*) as raw_clicks
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+          GROUP BY ef.browser_type
+        ),
+        scaled_browser_clicks AS (
+          SELECT 
+            bc.browser_name,
+            ROUND(bc.raw_clicks * (SELECT factor FROM scaling_factor))::integer as clicks
+          FROM browser_clicks bc
+        ),
+        total_scaled AS (
+          SELECT SUM(clicks) as total FROM scaled_browser_clicks
         )
         SELECT 
-          ef.browser_type as browser_name, 
-          COUNT(*) as clicks,
-          COALESCE(ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1), 0) as percentage
-        FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId} AND l.short_code = ${shortCode}
-        GROUP BY ef.browser_type
-        ORDER BY clicks DESC
+          sbc.browser_name,
+          sbc.clicks,
+          COALESCE(ROUND((sbc.clicks * 100.0 / NULLIF(ts.total, 0)), 1), 0) as percentage
+        FROM scaled_browser_clicks sbc, total_scaled ts
+        ORDER BY sbc.clicks DESC
         LIMIT 10
       `;
     }
@@ -664,9 +805,13 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         return rows;
       }
       
-      // Altrimenti usa la data di creazione del link
+      // Altrimenti usa la data di creazione del link con SCALING
       const { rows } = await sql<TimeSeriesData>`
-        WITH link_creation_date AS (
+        WITH link_data AS (
+          SELECT id, click_count, unique_click_count FROM links 
+          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+        ),
+        link_creation_date AS (
           -- Trova la data di creazione del link
           SELECT (created_at AT TIME ZONE 'Europe/Rome')::date as creation_date
           FROM links
@@ -677,6 +822,23 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
         current_date_italy AS (
           -- Data corrente in Italia
           SELECT (NOW() AT TIME ZONE 'Europe/Rome')::date as current_date
+        ),
+        total_calculated AS (
+          SELECT 
+            COUNT(*) as total_from_enhanced,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        scaling_factors AS (
+          SELECT 
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+                 ELSE 1.0 END as total_factor,
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN (SELECT unique_click_count FROM link_data)::float / tc.unique_from_enhanced 
+                 ELSE 1.0 END as unique_factor
+          FROM total_calculated tc
         ),
         date_series AS (
           SELECT generate_series(
@@ -689,19 +851,16 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           SELECT 
             -- Raggruppa i click per giorno utilizzando enhanced_fingerprints
             ef.created_at::date as date,
-            COUNT(ef.id) as total_clicks,
-            COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
+            COUNT(ef.id) as raw_total_clicks,
+            COUNT(DISTINCT ef.device_fingerprint) as raw_unique_clicks
           FROM enhanced_fingerprints ef
-          JOIN links l ON ef.link_id = l.id
-          WHERE l.user_id = ${userId} 
-            AND l.workspace_id = ${workspaceId} 
-            AND l.short_code = ${shortCode}
+          WHERE ef.link_id IN (SELECT id FROM link_data)
           GROUP BY ef.created_at::date
         )
         SELECT 
           ds.date::text as date,
-          COALESCE(dc.total_clicks, 0) as total_clicks,
-          COALESCE(dc.unique_clicks, 0) as unique_clicks
+          ROUND(COALESCE(dc.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer as total_clicks,
+          ROUND(COALESCE(dc.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer as unique_clicks
         FROM date_series ds
         LEFT JOIN daily_clicks dc ON ds.date = dc.date
         ORDER BY ds.date
@@ -835,11 +994,33 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
   }
 }
 
-// Function to get monthly data
+// Function to get monthly data - CORRETTO per usare scaling basato su tabella links
 async function getMonthlyData(userId: string, workspaceId: string, shortCode: string): Promise<MonthlyData[]> {
   try {
     const { rows } = await sql<MonthlyData>`
-      WITH month_series AS (
+      WITH link_data AS (
+        SELECT id, click_count, unique_click_count FROM links 
+        WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+      ),
+      total_calculated AS (
+        SELECT 
+          COUNT(*) as total_from_enhanced,
+          COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
+        FROM enhanced_fingerprints ef
+        WHERE ef.link_id IN (SELECT id FROM link_data)
+          AND EXTRACT(YEAR FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+      ),
+      scaling_factors AS (
+        SELECT 
+          CASE WHEN tc.total_from_enhanced > 0 
+               THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+               ELSE 1.0 END as total_factor,
+          CASE WHEN tc.unique_from_enhanced > 0 
+               THEN (SELECT unique_click_count FROM link_data)::float / tc.unique_from_enhanced 
+               ELSE 1.0 END as unique_factor
+        FROM total_calculated tc
+      ),
+      month_series AS (
         SELECT 
           generate_series(1, 12) as month_number,
           EXTRACT(YEAR FROM CURRENT_DATE) as year,
@@ -849,13 +1030,10 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
         SELECT 
           EXTRACT(MONTH FROM ef.created_at)::integer as month_number,
           EXTRACT(YEAR FROM ef.created_at)::integer as year,
-          COUNT(*)::integer as total_clicks,
-          COUNT(DISTINCT ef.device_fingerprint)::integer as unique_clicks
+          COUNT(*)::integer as raw_total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint)::integer as raw_unique_clicks
         FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} 
-          AND l.workspace_id = ${workspaceId} 
-          AND l.short_code = ${shortCode}
+        WHERE ef.link_id IN (SELECT id FROM link_data)
           AND EXTRACT(YEAR FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
         GROUP BY EXTRACT(MONTH FROM ef.created_at), EXTRACT(YEAR FROM ef.created_at)
       )
@@ -863,8 +1041,8 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
         TRIM(ms.month) as month,
         ms.month_number::integer,
         ms.year::integer,
-        COALESCE(mc.total_clicks, 0) as total_clicks,
-        COALESCE(mc.unique_clicks, 0) as unique_clicks
+        ROUND(COALESCE(mc.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer as total_clicks,
+        ROUND(COALESCE(mc.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer as unique_clicks
       FROM month_series ms
       LEFT JOIN monthly_clicks mc ON ms.month_number = mc.month_number AND ms.year = mc.year
       ORDER BY ms.month_number
@@ -876,11 +1054,33 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
   }
 }
 
-// Function to get weekly data
+// Function to get weekly data - CORRETTO per usare scaling basato su tabella links
 async function getWeeklyData(userId: string, workspaceId: string, shortCode: string): Promise<WeeklyData[]> {
   try {
     const { rows } = await sql<WeeklyData>`
-      WITH week_boundaries AS (
+      WITH link_data AS (
+        SELECT id, click_count, unique_click_count FROM links 
+        WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
+      ),
+      total_calculated AS (
+        SELECT 
+          COUNT(*) as total_from_enhanced,
+          COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
+        FROM enhanced_fingerprints ef
+        WHERE ef.link_id IN (SELECT id FROM link_data)
+          AND EXTRACT(isoyear FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+      ),
+      scaling_factors AS (
+        SELECT 
+          CASE WHEN tc.total_from_enhanced > 0 
+               THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
+               ELSE 1.0 END as total_factor,
+          CASE WHEN tc.unique_from_enhanced > 0 
+               THEN (SELECT unique_click_count FROM link_data)::float / tc.unique_from_enhanced 
+               ELSE 1.0 END as unique_factor
+        FROM total_calculated tc
+      ),
+      week_boundaries AS (
         -- Calcola le settimane ISO per il 2025
         -- La settimana 1 del 2025 va dal 30 dicembre 2024 al 5 gennaio 2025
         SELECT 
@@ -897,13 +1097,10 @@ async function getWeeklyData(userId: string, workspaceId: string, shortCode: str
           -- Usa la settimana ISO standard di PostgreSQL
           EXTRACT(week FROM ef.created_at)::integer as week,
           EXTRACT(isoyear FROM ef.created_at)::integer as year,
-          COUNT(*)::integer as total_clicks,
-          COUNT(DISTINCT ef.device_fingerprint)::integer as unique_clicks
+          COUNT(*)::integer as raw_total_clicks,
+          COUNT(DISTINCT ef.device_fingerprint)::integer as raw_unique_clicks
         FROM enhanced_fingerprints ef
-        JOIN links l ON ef.link_id = l.id
-        WHERE l.user_id = ${userId} 
-          AND l.workspace_id = ${workspaceId} 
-          AND l.short_code = ${shortCode}
+        WHERE ef.link_id IN (SELECT id FROM link_data)
           -- Filtra per l'anno ISO 2025 (che include i click dal 30-12-2024)
           AND EXTRACT(isoyear FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
         GROUP BY 
@@ -915,8 +1112,8 @@ async function getWeeklyData(userId: string, workspaceId: string, shortCode: str
         wb.year::integer,
         wb.week_start::text,
         wb.week_end::text,
-        COALESCE(wc.total_clicks, 0) as total_clicks,
-        COALESCE(wc.unique_clicks, 0) as unique_clicks
+        ROUND(COALESCE(wc.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer as total_clicks,
+        ROUND(COALESCE(wc.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer as unique_clicks
       FROM week_boundaries wb
       LEFT JOIN weekly_clicks wc ON wb.week_num = wc.week AND wb.year = wc.year
       ORDER BY wb.week_num

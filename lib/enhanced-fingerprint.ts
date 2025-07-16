@@ -43,7 +43,7 @@ export interface EnhancedCorrelation {
 /**
  * Genera un fingerprint fisico del dispositivo che sia stabile tra browser
  */
-function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDeviceFingerprint {
+export function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDeviceFingerprint {
   const userAgent = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language') || '';
   
@@ -52,6 +52,15 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   const browser = parser.getBrowser();
   const os = parser.getOS();
   const device = parser.getDevice();
+
+  // Debug logging per Opera e altri browser
+  console.log('🔍 Browser parsing details:', {
+    userAgent: userAgent.substring(0, 100),
+    browserName: browser.name,
+    browserVersion: browser.version,
+    osName: os.name,
+    deviceType: device.type
+  });
 
   // 1. ELEMENTI FISICI DEL DISPOSITIVO (stabili tra browser)
   // Estrazione IP più robusta che gestisce le differenze tra browser
@@ -154,6 +163,21 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   
   // 2. ELEMENTI DEL BROWSER SPECIFICO (cambiano tra browser)
   const browserName = browser.name || 'unknown';
+  
+  // Normalizza i nomi dei browser per una migliore correlazione
+  let normalizedBrowserName = browserName.toLowerCase();
+  if (normalizedBrowserName.includes('opera') || normalizedBrowserName.includes('opr')) {
+    normalizedBrowserName = 'opera';
+  } else if (normalizedBrowserName.includes('chrome')) {
+    normalizedBrowserName = 'chrome';  
+  } else if (normalizedBrowserName.includes('firefox')) {
+    normalizedBrowserName = 'firefox';
+  } else if (normalizedBrowserName.includes('safari')) {
+    normalizedBrowserName = 'safari';
+  } else if (normalizedBrowserName.includes('edge')) {
+    normalizedBrowserName = 'edge';
+  }
+  
   const browserVersion = browser.version || 'unknown';
   const fullUserAgent = userAgent;
   
@@ -215,7 +239,7 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   // Combina elementi specifici del browser
   const browserElements = [
     deviceFingerprint,         // Include base device
-    browserName,
+    normalizedBrowserName,     // Usa nome normalizzato
     browserVersion,
     acceptEncoding,
     accept,
@@ -266,7 +290,7 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
   
   confidence = Math.min(confidence, 100);
   
-  return {
+  const result = {
     deviceFingerprint,
     ipHash,
     screenResolution: 'server-side', // Non disponibile lato server
@@ -274,12 +298,26 @@ function generatePhysicalDeviceFingerprint(request: NextRequest): PhysicalDevice
     hardwareProfile: `${osFamily}-${deviceCategory}`,
     browserFingerprint,
     sessionFingerprint,
-    browserType: browserName.toLowerCase(),
+    browserType: normalizedBrowserName,
     deviceCategory: deviceCategory,
     osFamily: osFamily,
     confidence,
     correlationFactors
   };
+
+  console.log('🔑 Generated fingerprint result:', {
+    deviceFingerprint: result.deviceFingerprint,
+    browserFingerprint: result.browserFingerprint,
+    browserType: result.browserType,
+    osFamily: result.osFamily,
+    deviceCategory: result.deviceCategory,
+    confidence: result.confidence,
+    correlationFactors: result.correlationFactors,
+    ipHash: result.ipHash.substring(0, 8) + '...',
+    timezoneFingerprint: result.timezoneFingerprint
+  });
+
+  return result;
 }
 
 // Tipi per le query SQL - compatibile con Vercel Postgres
@@ -436,74 +474,67 @@ export async function isUniqueVisit(
     // AGGIORNA CORRELAZIONI: Popola la tabella fingerprint_correlations
     await updateFingerprintCorrelations(currentFingerprint, sql);
 
-    // CONTROLLO PRINCIPALE: Verifica se questo DEVICE_FINGERPRINT ha già visitato
-    // Questo è il controllo più importante per rilevare lo stesso utente su browser diversi
+    // CONTROLLO 1: Verifica se questo DEVICE_FINGERPRINT ha già visitato (escludendo browser corrente)
     const deviceMatch = await sql`
       SELECT COUNT(*) as count, 
-             array_agg(DISTINCT browser_fingerprint) as browser_fingerprints
+             array_agg(DISTINCT browser_fingerprint) as browser_fingerprints,
+             array_agg(DISTINCT browser_type) as browser_types
       FROM enhanced_fingerprints 
       WHERE link_id = ${linkId} 
       AND device_fingerprint = ${currentFingerprint.deviceFingerprint}
+      AND browser_fingerprint != ${currentFingerprint.browserFingerprint}
     `;
     
     if (deviceMatch.rows.length > 0 && ((deviceMatch.rows[0] as Record<string, unknown>).count as number) > 0) {
       const relatedBrowsers = ((deviceMatch.rows[0] as Record<string, unknown>).browser_fingerprints as string[]) || [];
+      
       return {
         isUnique: false,
-        reason: 'same_physical_device',
-        relatedFingerprints: relatedBrowsers.filter((fp: string) => fp !== currentFingerprint.browserFingerprint)
-      };
-    }
-
-    // CONTROLLO SECONDARIO: Verifica se questo browser specifico ha già visitato
-    // (per compatibilità con sistema legacy)
-    const browserMatch = await sql`
-      SELECT COUNT(*) as count 
-      FROM enhanced_fingerprints 
-      WHERE link_id = ${linkId} 
-      AND browser_fingerprint = ${currentFingerprint.browserFingerprint}
-    `;
-    
-    if (browserMatch.rows.length > 0 && ((browserMatch.rows[0] as Record<string, unknown>).count as number) > 0) {
-      return {
-        isUnique: false,
-        reason: 'same_browser_session',
-        relatedFingerprints: [currentFingerprint.browserFingerprint]
-      };
-    }
-
-    // CONTROLLO TERZIARIO: Verifica correlazioni avanzate (IP + Geo + Timezone)
-    // Solo se i controlli principali non hanno trovato match
-    const advancedMatch = await sql`
-      SELECT COUNT(*) as count,
-             array_agg(DISTINCT browser_fingerprint) as browser_fingerprints
-      FROM enhanced_fingerprints 
-      WHERE link_id = ${linkId}
-      AND ip_hash = ${currentFingerprint.ipHash}
-      AND timezone_fingerprint = ${currentFingerprint.timezoneFingerprint}
-      AND device_category = ${currentFingerprint.deviceCategory}
-      AND created_at >= NOW() - INTERVAL '24 hours'
-      AND browser_fingerprint != ${currentFingerprint.browserFingerprint}
-    `;
-    
-    if (advancedMatch.rows.length > 0 && ((advancedMatch.rows[0] as Record<string, unknown>).count as number) > 0) {
-      const relatedBrowsers = ((advancedMatch.rows[0] as Record<string, unknown>).browser_fingerprints as string[]) || [];
-      return {
-        isUnique: false,
-        reason: 'same_device_advanced_correlation',
+        reason: 'same_device_different_browser',
         relatedFingerprints: relatedBrowsers
       };
     }
+
+    // CONTROLLO 2: Verifica se questo SPECIFICO browser ha già visitato
+    const browserMatch = await sql`
+      SELECT visit_count 
+      FROM enhanced_fingerprints 
+      WHERE link_id = ${linkId} 
+      AND browser_fingerprint = ${currentFingerprint.browserFingerprint}
+      ORDER BY last_seen DESC
+      LIMIT 1
+    `;
     
-    // Se nessun match, è un visitatore unico
+    if (browserMatch.rows.length > 0) {
+      const visitCount = ((browserMatch.rows[0] as Record<string, unknown>).visit_count as number) || 1;
+      
+      // Se visit_count > 1, significa che questo browser ha già visitato prima
+      if (visitCount > 1) {
+        return {
+          isUnique: false,
+          reason: 'repeat_visit_same_browser',
+          relatedFingerprints: [currentFingerprint.browserFingerprint]
+        };
+      }
+      
+      // Se visit_count = 1, è la prima visita da questo browser E
+      // non ci sono altri browser dallo stesso device (controllo 1 già fatto)
+      return {
+        isUnique: true,
+        reason: 'first_visit_new_device',
+        relatedFingerprints: []
+      };
+    }
+
+    // Se arriviamo qui, non dovrebbe succedere (bug), ma consideriamo come unico
     return {
       isUnique: true,
-      reason: 'new_device',
+      reason: 'fallback_new_device',
       relatedFingerprints: []
     };
     
   } catch (error) {
-    console.error('Error checking unique visit:', error);
+    console.error('❌ Error checking unique visit:', error);
     // In caso di errore, considera come unico per non perdere dati
     return {
       isUnique: true,
@@ -513,4 +544,3 @@ export async function isUniqueVisit(
   }
 }
 
-export { generatePhysicalDeviceFingerprint };

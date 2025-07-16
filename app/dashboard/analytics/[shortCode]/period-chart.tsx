@@ -77,9 +77,6 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
   const [showUniqueClicks, setShowUniqueClicks] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Debug: Log the received data
-  console.log('PeriodChart received data:', { monthlyData, weeklyData });
-
   // Ensure data is properly formatted and fallback to empty arrays if needed
   const safeMonthlyData = useMemo(() => Array.isArray(monthlyData) ? monthlyData : [], [monthlyData]);
   const safeWeeklyData = useMemo(() => Array.isArray(weeklyData) ? weeklyData : [], [weeklyData]);
@@ -158,23 +155,12 @@ export default function PeriodChart({ monthlyData, weeklyData }: PeriodChartProp
       });
     }
     
-    console.log('Generated weekly chart data for all 52 weeks of 2025:', completeData.slice(0, 5));
-    console.log('Current week:', currentWeek);
     return completeData;
   };
 
   // Otteniamo i dati completi
   const monthlyChartData = generateCompleteMonthlyData();
   const weeklyChartData = generateCompleteWeeklyData();
-
-  // Debug: Log the chart data
-  console.log('Chart data generated:', { 
-    viewMode, 
-    monthlyChartData: monthlyChartData.slice(0, 3), // Log first 3 items
-    weeklyChartData: weeklyChartData.slice(0, 3),  // Log first 3 items
-    monthlyDataLength: monthlyChartData.length,
-    weeklyDataLength: weeklyChartData.length
-  });
 
   // Otteniamo i dati da visualizzare
   const displayData = useMemo(() => {
