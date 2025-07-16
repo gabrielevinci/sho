@@ -19,6 +19,11 @@ interface MigrationResult {
   error?: string;
 }
 
+interface TableCount {
+  table_name: string;
+  total_records: number;
+}
+
 export default function MigrationPage() {
   const [status, setStatus] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -176,7 +181,7 @@ export default function MigrationPage() {
                   <div>
                     <h3 className="font-semibold">📋 Conteggio Tabelle:</h3>
                     <div className="grid grid-cols-3 gap-2 mt-2">
-                      {result.data.tableCounts.map((table: any) => (
+                      {result.data.tableCounts.map((table: TableCount) => (
                         <div key={table.table_name} className="text-center p-2 bg-gray-100 rounded">
                           <div className="font-bold">{table.total_records}</div>
                           <div className="text-xs">{table.table_name}</div>

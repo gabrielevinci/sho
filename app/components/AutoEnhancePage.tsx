@@ -46,7 +46,7 @@ export default function AutoEnhancePage({
           window.location.replace(targetUrl);
         }, 50);
 
-      } catch (error) {
+      } catch {
         // Se c'è un errore, redirect comunque
         window.location.replace(targetUrl);
       }
