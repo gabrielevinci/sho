@@ -133,6 +133,22 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           FROM enhanced_fingerprints ef
           WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
+        total_calculated AS (
+          SELECT 
+            COUNT(*) as total_from_enhanced,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
+          FROM all_enhanced
+        ),
+        period_stats AS (
+          SELECT 
+            COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as raw_clicks_today,
+            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as raw_clicks_this_week,
+            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as raw_clicks_this_month,
+            COUNT(DISTINCT CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN ef.device_fingerprint END) as raw_unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN ef.device_fingerprint END) as raw_unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN ef.device_fingerprint END) as raw_unique_clicks_this_month
+          FROM all_enhanced ef
+        ),
         click_stats AS (
           SELECT 
             (SELECT click_count FROM link_data) as total_clicks,
@@ -144,14 +160,27 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         ),
         time_stats AS (
           SELECT
-            -- Usa created_at convertito al fuso orario italiano
-            COUNT(CASE WHEN (created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN (created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN device_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN device_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN device_fingerprint END) as unique_clicks_this_month
-          FROM all_enhanced
+            -- Calcola click per periodo usando distribuzione proporzionale
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
+                 ELSE 0 END as clicks_today,
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN ROUND(ps.raw_clicks_this_week::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
+                 ELSE 0 END as clicks_this_week,
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN ROUND(ps.raw_clicks_this_month::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
+                 ELSE 0 END as clicks_this_month,
+            -- Calcola click unici per periodo usando distribuzione proporzionale
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN ROUND(ps.raw_unique_clicks_today::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+                 ELSE 0 END as unique_clicks_today,
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN ROUND(ps.raw_unique_clicks_this_week::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+                 ELSE 0 END as unique_clicks_this_week,
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN ROUND(ps.raw_unique_clicks_this_month::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+                 ELSE 0 END as unique_clicks_this_month
+          FROM total_calculated tc, period_stats ps
         ),
         top_stats AS (
           SELECT 
@@ -172,12 +201,12 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           ts.top_referrer,
           ts.most_used_browser,
           ts.most_used_device,
-          tms.clicks_today,
-          tms.clicks_this_week,
-          tms.clicks_this_month,
-          tms.unique_clicks_today,
-          tms.unique_clicks_this_week,
-          tms.unique_clicks_this_month
+          tms.clicks_today::integer,
+          tms.clicks_this_week::integer,
+          tms.clicks_this_month::integer,
+          tms.unique_clicks_today::integer,
+          tms.unique_clicks_this_week::integer,
+          tms.unique_clicks_this_month::integer
         FROM click_stats cs, top_stats ts, time_stats tms
       `;
     } else {
@@ -186,6 +215,24 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           SELECT id, click_count, unique_click_count FROM links 
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
         ),
+        total_calculated AS (
+          SELECT 
+            COUNT(*) as total_from_enhanced,
+            COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
+        period_stats AS (
+          SELECT 
+            COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as raw_clicks_today,
+            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as raw_clicks_this_week,
+            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as raw_clicks_this_month,
+            COUNT(DISTINCT CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN ef.device_fingerprint END) as raw_unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN ef.device_fingerprint END) as raw_unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN ef.device_fingerprint END) as raw_unique_clicks_this_month
+          FROM enhanced_fingerprints ef
+          WHERE ef.link_id IN (SELECT id FROM link_data)
+        ),
         click_stats AS (
           SELECT 
             (SELECT click_count FROM link_data) as total_clicks,
@@ -193,15 +240,29 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT ef.country) as unique_countries,
             COUNT(DISTINCT ef.referrer) as unique_referrers,
             COUNT(DISTINCT ef.device_category) as unique_devices,
-            -- Usa created_at convertito al fuso orario italiano
-            COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as clicks_today,
-            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as clicks_this_week,
-            COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as clicks_this_month,
-            COUNT(DISTINCT CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN ef.device_fingerprint END) as unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN ef.device_fingerprint END) as unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN ef.device_fingerprint END) as unique_clicks_this_month
-          FROM enhanced_fingerprints ef
+            -- Calcola click per periodo usando distribuzione proporzionale
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
+                 ELSE 0 END as clicks_today,
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN ROUND(ps.raw_clicks_this_week::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
+                 ELSE 0 END as clicks_this_week,
+            CASE WHEN tc.total_from_enhanced > 0 
+                 THEN ROUND(ps.raw_clicks_this_month::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
+                 ELSE 0 END as clicks_this_month,
+            -- Calcola click unici per periodo usando distribuzione proporzionale
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN ROUND(ps.raw_unique_clicks_today::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+                 ELSE 0 END as unique_clicks_today,
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN ROUND(ps.raw_unique_clicks_this_week::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+                 ELSE 0 END as unique_clicks_this_week,
+            CASE WHEN tc.unique_from_enhanced > 0 
+                 THEN ROUND(ps.raw_unique_clicks_this_month::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+                 ELSE 0 END as unique_clicks_this_month
+          FROM enhanced_fingerprints ef, total_calculated tc, period_stats ps
           WHERE ef.link_id IN (SELECT id FROM link_data)
+          GROUP BY tc.total_from_enhanced, tc.unique_from_enhanced, ps.raw_clicks_today, ps.raw_clicks_this_week, ps.raw_clicks_this_month, ps.raw_unique_clicks_today, ps.raw_unique_clicks_this_week, ps.raw_unique_clicks_this_month
         ),
         top_stats AS (
           SELECT 
@@ -224,12 +285,12 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           ts.top_referrer,
           ts.most_used_browser,
           ts.most_used_device,
-          cs.clicks_today,
-          cs.clicks_this_week,
-          cs.clicks_this_month,
-          cs.unique_clicks_today,
-          cs.unique_clicks_this_week,
-          cs.unique_clicks_this_month,
+          cs.clicks_today::integer,
+          cs.clicks_this_week::integer,
+          cs.clicks_this_month::integer,
+          cs.unique_clicks_today::integer,
+          cs.unique_clicks_this_week::integer,
+          cs.unique_clicks_this_month::integer,
           0 as avg_total_clicks_per_period,
           0 as avg_unique_clicks_per_period
         FROM click_stats cs, top_stats ts
@@ -994,7 +1055,7 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
   }
 }
 
-// Function to get monthly data - CORRETTO per usare scaling basato su tabella links
+// Function to get monthly data - CORRETTO per usare distribuzione proporzionale dai click reali
 async function getMonthlyData(userId: string, workspaceId: string, shortCode: string): Promise<MonthlyData[]> {
   try {
     const { rows } = await sql<MonthlyData>`
@@ -1009,16 +1070,6 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
         FROM enhanced_fingerprints ef
         WHERE ef.link_id IN (SELECT id FROM link_data)
           AND EXTRACT(YEAR FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-      ),
-      scaling_factors AS (
-        SELECT 
-          CASE WHEN tc.total_from_enhanced > 0 
-               THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
-               ELSE 1.0 END as total_factor,
-          CASE WHEN tc.unique_from_enhanced > 0 
-               THEN (SELECT unique_click_count FROM link_data)::float / tc.unique_from_enhanced 
-               ELSE 1.0 END as unique_factor
-        FROM total_calculated tc
       ),
       month_series AS (
         SELECT 
@@ -1036,15 +1087,27 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
         WHERE ef.link_id IN (SELECT id FROM link_data)
           AND EXTRACT(YEAR FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
         GROUP BY EXTRACT(MONTH FROM ef.created_at), EXTRACT(YEAR FROM ef.created_at)
+      ),
+      distribution_factors AS (
+        SELECT 
+          mc.month_number,
+          mc.year,
+          CASE WHEN tc.total_from_enhanced > 0 
+               THEN mc.raw_total_clicks::float / tc.total_from_enhanced 
+               ELSE 0 END as total_distribution,
+          CASE WHEN tc.unique_from_enhanced > 0 
+               THEN mc.raw_unique_clicks::float / tc.unique_from_enhanced 
+               ELSE 0 END as unique_distribution
+        FROM monthly_clicks mc, total_calculated tc
       )
       SELECT 
         TRIM(ms.month) as month,
         ms.month_number::integer,
         ms.year::integer,
-        ROUND(COALESCE(mc.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer as total_clicks,
-        ROUND(COALESCE(mc.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer as unique_clicks
+        ROUND(COALESCE(df.total_distribution, 0) * (SELECT click_count FROM link_data))::integer as total_clicks,
+        ROUND(COALESCE(df.unique_distribution, 0) * (SELECT unique_click_count FROM link_data))::integer as unique_clicks
       FROM month_series ms
-      LEFT JOIN monthly_clicks mc ON ms.month_number = mc.month_number AND ms.year = mc.year
+      LEFT JOIN distribution_factors df ON ms.month_number = df.month_number AND ms.year = df.year
       ORDER BY ms.month_number
     `;
     return rows || [];
@@ -1054,7 +1117,7 @@ async function getMonthlyData(userId: string, workspaceId: string, shortCode: st
   }
 }
 
-// Function to get weekly data - CORRETTO per usare scaling basato su tabella links
+// Function to get weekly data - CORRETTO per usare distribuzione proporzionale dai click reali
 async function getWeeklyData(userId: string, workspaceId: string, shortCode: string): Promise<WeeklyData[]> {
   try {
     const { rows } = await sql<WeeklyData>`
@@ -1069,16 +1132,6 @@ async function getWeeklyData(userId: string, workspaceId: string, shortCode: str
         FROM enhanced_fingerprints ef
         WHERE ef.link_id IN (SELECT id FROM link_data)
           AND EXTRACT(isoyear FROM ef.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-      ),
-      scaling_factors AS (
-        SELECT 
-          CASE WHEN tc.total_from_enhanced > 0 
-               THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
-               ELSE 1.0 END as total_factor,
-          CASE WHEN tc.unique_from_enhanced > 0 
-               THEN (SELECT unique_click_count FROM link_data)::float / tc.unique_from_enhanced 
-               ELSE 1.0 END as unique_factor
-        FROM total_calculated tc
       ),
       week_boundaries AS (
         -- Calcola le settimane ISO per il 2025
@@ -1106,16 +1159,28 @@ async function getWeeklyData(userId: string, workspaceId: string, shortCode: str
         GROUP BY 
           EXTRACT(week FROM ef.created_at), 
           EXTRACT(isoyear FROM ef.created_at)
+      ),
+      distribution_factors AS (
+        SELECT 
+          wc.week,
+          wc.year,
+          CASE WHEN tc.total_from_enhanced > 0 
+               THEN wc.raw_total_clicks::float / tc.total_from_enhanced 
+               ELSE 0 END as total_distribution,
+          CASE WHEN tc.unique_from_enhanced > 0 
+               THEN wc.raw_unique_clicks::float / tc.unique_from_enhanced 
+               ELSE 0 END as unique_distribution
+        FROM weekly_clicks wc, total_calculated tc
       )
       SELECT 
         wb.week_num::integer as week,
         wb.year::integer,
         wb.week_start::text,
         wb.week_end::text,
-        ROUND(COALESCE(wc.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer as total_clicks,
-        ROUND(COALESCE(wc.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer as unique_clicks
+        ROUND(COALESCE(df.total_distribution, 0) * (SELECT click_count FROM link_data))::integer as total_clicks,
+        ROUND(COALESCE(df.unique_distribution, 0) * (SELECT unique_click_count FROM link_data))::integer as unique_clicks
       FROM week_boundaries wb
-      LEFT JOIN weekly_clicks wc ON wb.week_num = wc.week AND wb.year = wc.year
+      LEFT JOIN distribution_factors df ON wb.week_num = df.week AND wb.year = df.year
       ORDER BY wb.week_num
     `;
     return rows || [];

@@ -694,21 +694,21 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
               <div className="relative">
                 <div className="flex items-baseline space-x-2 mb-2">
                   <span className="text-3xl font-bold text-blue-900">
-                    {initialData.clickAnalytics.clicks_today}
+                    {data.clickAnalytics.clicks_today}
                   </span>
                   <span className="text-lg font-semibold text-blue-700">
-                    ({initialData.clickAnalytics.unique_clicks_today})
+                    ({data.clickAnalytics.unique_clicks_today})
                   </span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-blue-800">Oggi</div>
                   <div className="text-xs text-blue-600">
-                    Totali <span className="font-medium">({initialData.clickAnalytics.clicks_today})</span> • 
-                    Unici <span className="font-medium">({initialData.clickAnalytics.unique_clicks_today})</span>
+                    Totali <span className="font-medium">({data.clickAnalytics.clicks_today})</span> • 
+                    Unici <span className="font-medium">({data.clickAnalytics.unique_clicks_today})</span>
                   </div>
-                  {initialData.clickAnalytics.clicks_today > 0 && (
+                  {data.clickAnalytics.clicks_today > 0 && (
                     <div className="text-xs text-blue-500 mt-2">
-                      Tasso unicità: {Math.round((initialData.clickAnalytics.unique_clicks_today / initialData.clickAnalytics.clicks_today) * 100)}%
+                      Tasso unicità: {Math.round((data.clickAnalytics.unique_clicks_today / data.clickAnalytics.clicks_today) * 100)}%
                     </div>
                   )}
                 </div>
@@ -721,25 +721,25 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
               <div className="relative">
                 <div className="flex items-baseline space-x-2 mb-2">
                   <span className="text-3xl font-bold text-green-900">
-                    {initialData.clickAnalytics.clicks_this_week}
+                    {data.clickAnalytics.clicks_this_week}
                   </span>
                   <span className="text-lg font-semibold text-green-700">
-                    ({initialData.clickAnalytics.unique_clicks_this_week})
+                    ({data.clickAnalytics.unique_clicks_this_week})
                   </span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-green-800">Ultimi 7 giorni</div>
                   <div className="text-xs text-green-600">
-                    Totali <span className="font-medium">({initialData.clickAnalytics.clicks_this_week})</span> • 
-                    Unici <span className="font-medium">({initialData.clickAnalytics.unique_clicks_this_week})</span>
+                    Totali <span className="font-medium">({data.clickAnalytics.clicks_this_week})</span> • 
+                    Unici <span className="font-medium">({data.clickAnalytics.unique_clicks_this_week})</span>
                   </div>
-                  {initialData.clickAnalytics.clicks_this_week > 0 && (
+                  {data.clickAnalytics.clicks_this_week > 0 && (
                     <div className="text-xs text-green-500 mt-2">
-                      Tasso unicità: {Math.round((initialData.clickAnalytics.unique_clicks_this_week / initialData.clickAnalytics.clicks_this_week) * 100)}%
+                      Tasso unicità: {Math.round((data.clickAnalytics.unique_clicks_this_week / data.clickAnalytics.clicks_this_week) * 100)}%
                     </div>
                   )}
                   <div className="text-xs text-green-500 mt-1">
-                    Media giornaliera: {Math.round(initialData.clickAnalytics.clicks_this_week / 7)} click
+                    Media giornaliera: {Math.round(data.clickAnalytics.clicks_this_week / 7)} click
                   </div>
                 </div>
               </div>
@@ -751,25 +751,25 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
               <div className="relative">
                 <div className="flex items-baseline space-x-2 mb-2">
                   <span className="text-3xl font-bold text-purple-900">
-                    {initialData.clickAnalytics.clicks_this_month}
+                    {data.clickAnalytics.clicks_this_month}
                   </span>
                   <span className="text-lg font-semibold text-purple-700">
-                    ({initialData.clickAnalytics.unique_clicks_this_month})
+                    ({data.clickAnalytics.unique_clicks_this_month})
                   </span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-purple-800">Ultimi 30 giorni</div>
                   <div className="text-xs text-purple-600">
-                    Totali <span className="font-medium">({initialData.clickAnalytics.clicks_this_month})</span> • 
-                    Unici <span className="font-medium">({initialData.clickAnalytics.unique_clicks_this_month})</span>
+                    Totali <span className="font-medium">({data.clickAnalytics.clicks_this_month})</span> • 
+                    Unici <span className="font-medium">({data.clickAnalytics.unique_clicks_this_month})</span>
                   </div>
-                  {initialData.clickAnalytics.clicks_this_month > 0 && (
+                  {data.clickAnalytics.clicks_this_month > 0 && (
                     <div className="text-xs text-purple-500 mt-2">
-                      Tasso unicità: {Math.round((initialData.clickAnalytics.unique_clicks_this_month / initialData.clickAnalytics.clicks_this_month) * 100)}%
+                      Tasso unicità: {Math.round((data.clickAnalytics.unique_clicks_this_month / data.clickAnalytics.clicks_this_month) * 100)}%
                     </div>
                   )}
                   <div className="text-xs text-purple-500 mt-1">
-                    Media giornaliera: {Math.round(initialData.clickAnalytics.clicks_this_month / 30)} click
+                    Media giornaliera: {Math.round(data.clickAnalytics.clicks_this_month / 30)} click
                   </div>
                 </div>
               </div>
