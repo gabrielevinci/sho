@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest) {
         `;
         
         await sql.query(deleteAdvancedFingerprintsQuery, linkIds);
-      } catch (error) {
+      } catch {
         // La tabella advanced_fingerprints potrebbe non esistere, ignora l'errore
         console.log('Tabella advanced_fingerprints non trovata o vuota, continuando...');
       }
