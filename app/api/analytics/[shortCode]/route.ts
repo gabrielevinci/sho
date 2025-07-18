@@ -18,6 +18,7 @@ type ClickAnalytics = {
   unique_countries: number;
   unique_referrers: number;
   unique_devices: number;
+  unique_browsers: number;
   top_referrer: string | null;
   most_used_browser: string | null;
   most_used_device: string | null;
@@ -155,7 +156,8 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             (SELECT unique_click_count FROM link_data) as unique_clicks,
             COUNT(DISTINCT country) as unique_countries,
             COUNT(DISTINCT referrer) as unique_referrers,
-            COUNT(DISTINCT device_category) as unique_devices
+            COUNT(DISTINCT device_category) as unique_devices,
+            COUNT(DISTINCT browser_type) as unique_browsers
           FROM filtered_enhanced
         ),
         time_stats AS (
@@ -198,6 +200,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           cs.unique_countries,
           cs.unique_referrers,
           cs.unique_devices,
+          cs.unique_browsers,
           ts.top_referrer,
           ts.most_used_browser,
           ts.most_used_device,
@@ -240,6 +243,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT ef.country) as unique_countries,
             COUNT(DISTINCT ef.referrer) as unique_referrers,
             COUNT(DISTINCT ef.device_category) as unique_devices,
+            COUNT(DISTINCT ef.browser_type) as unique_browsers,
             -- Calcola click per periodo usando distribuzione proporzionale
             CASE WHEN tc.total_from_enhanced > 0 
                  THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
@@ -282,6 +286,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           cs.unique_countries,
           cs.unique_referrers,
           cs.unique_devices,
+          cs.unique_browsers,
           ts.top_referrer,
           ts.most_used_browser,
           ts.most_used_device,
@@ -303,6 +308,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       unique_countries: 0,
       unique_referrers: 0,
       unique_devices: 0,
+      unique_browsers: 0,
       top_referrer: null,
       most_used_browser: null,
       most_used_device: null,
@@ -393,6 +399,7 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
       unique_countries: 0,
       unique_referrers: 0,
       unique_devices: 0,
+      unique_browsers: 0,
       top_referrer: null,
       most_used_browser: null,
       most_used_device: null,

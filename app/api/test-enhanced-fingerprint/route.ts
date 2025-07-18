@@ -24,8 +24,9 @@ export async function POST(request: NextRequest) {
       headers: {
         userAgent: request.headers.get('user-agent')?.substring(0, 100),
         acceptLanguage: request.headers.get('accept-language'),
-        country: request.headers.get('x-vercel-ip-country'),
-        city: request.headers.get('x-vercel-ip-city'),
+        country: physicalFingerprint.country,
+        region: physicalFingerprint.region,
+        city: physicalFingerprint.city,
         timezone: request.headers.get('x-vercel-ip-timezone')
       }
     });

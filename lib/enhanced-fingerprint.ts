@@ -26,6 +26,11 @@ export interface PhysicalDeviceFingerprint {
   deviceCategory: string;             // mobile, tablet, desktop
   osFamily: string;                   // windows, macos, linux, android, ios
   
+  // Informazioni geografiche
+  country: string;                    // Paese dell'utente
+  region: string;                     // Regione dell'utente  
+  city: string;                       // Città dell'utente
+  
   // Scoring per correlazione
   confidence: number;                 // 0-100: confidenza che sia stesso utente
   correlationFactors: string[];       // Fattori usati per correlazione
@@ -38,6 +43,30 @@ export interface EnhancedCorrelation {
   lastSeen: Date;
   totalVisits: number;
   uniqueBrowsers: string[];
+}
+
+/**
+ * Estrae informazioni geografiche dagli header Vercel con fallback per sviluppo locale
+ */
+export function extractGeoInfo(request: NextRequest): { country: string; region: string; city: string } {
+  const country = request.headers.get('x-vercel-ip-country') || null;
+  const region = request.headers.get('x-vercel-ip-country-region') || null;
+  const city = request.headers.get('x-vercel-ip-city') || null;
+  
+  // Se siamo in sviluppo locale (headers Vercel nulli), usa valori di default
+  if (!country || country === 'Unknown') {
+    return {
+      country: 'IT',      // Default per sviluppo locale
+      region: 'LZ',       // Lazio
+      city: 'Rome'        // Roma
+    };
+  }
+  
+  return {
+    country: country || 'Unknown',
+    region: region || 'Unknown', 
+    city: city || 'Unknown'
+  };
 }
 
 /**
@@ -130,28 +159,7 @@ export function generatePhysicalDeviceFingerprint(request: NextRequest): Physica
   const timezoneFingerprint = extractStableTimezone(request);
   
   // Informazioni geografiche (stabili a breve termine) - con fallback per sviluppo locale
-  function extractStableGeo(request: NextRequest) {
-    const country = request.headers.get('x-vercel-ip-country') || null;
-    const region = request.headers.get('x-vercel-ip-country-region') || null;
-    const city = request.headers.get('x-vercel-ip-city') || null;
-    
-    // Se siamo in sviluppo locale (headers Vercel nulli), usa valori di default
-    if (!country || country === 'Unknown') {
-      return {
-        country: 'IT',      // Default per sviluppo locale
-        region: 'LZ',       // Lazio
-        city: 'Rome'        // Roma
-      };
-    }
-    
-    return {
-      country: country || 'Unknown',
-      region: region || 'Unknown', 
-      city: city || 'Unknown'
-    };
-  }
-  
-  const geoInfo = extractStableGeo(request);
+  const geoInfo = extractGeoInfo(request);
   const { country, region, city } = geoInfo;
   
   // Hardware info - più generico per stabilità cross-browser
@@ -301,6 +309,9 @@ export function generatePhysicalDeviceFingerprint(request: NextRequest): Physica
     browserType: normalizedBrowserName,
     deviceCategory: deviceCategory,
     osFamily: osFamily,
+    country,
+    region,
+    city,
     confidence,
     correlationFactors
   };
@@ -311,6 +322,9 @@ export function generatePhysicalDeviceFingerprint(request: NextRequest): Physica
     browserType: result.browserType,
     osFamily: result.osFamily,
     deviceCategory: result.deviceCategory,
+    country: result.country,
+    region: result.region,
+    city: result.city,
     confidence: result.confidence,
     correlationFactors: result.correlationFactors,
     ipHash: result.ipHash.substring(0, 8) + '...',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { extractGeoInfo } from '@/lib/enhanced-fingerprint';
 
 // Tipi per i dati del fingerprint ricevuti dal client
 type FingerprintData = {
@@ -58,11 +59,9 @@ export async function POST(request: NextRequest) {
   try {
     const data: FingerprintData = await request.json();
     
-    // Ottieni informazioni aggiuntive dall'header
+    // Ottieni informazioni aggiuntive dall'header con fallback per sviluppo locale
     const realIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
-    const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
-    const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
+    const { country, region, city } = extractGeoInfo(request);
     const referer = request.headers.get('referer') || 'Direct';
 
     // Trova il link dal shortCode

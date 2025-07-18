@@ -24,6 +24,7 @@ type ClickAnalytics = {
   unique_countries: number;
   unique_referrers: number;
   unique_devices: number;
+  unique_browsers: number;
   top_referrer: string | null;
   most_used_browser: string | null;
   most_used_device: string | null;
@@ -334,7 +335,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             Statistiche Generali
           </h2>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             {/* Click totali */}
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
               <div className="flex items-center justify-between mb-2">
@@ -385,7 +386,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-orange-600 text-2xl">📱</div>
-                <div className="text-xs text-orange-600 font-medium uppercase tracking-wide">Device</div>
+                <div className="text-xs text-orange-600 font-medium uppercase tracking-wide">Dispositivi</div>
               </div>
               <div className="text-2xl font-bold text-orange-900 mb-1">
                 {data.clickAnalytics.unique_devices}
@@ -393,11 +394,23 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
               <div className="text-sm text-orange-700">Dispositivi</div>
             </div>
 
+            {/* Browser */}
+            <div className="bg-gradient-to-br from-violet-50 to-violet-100 rounded-lg p-4 border border-violet-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-violet-600 text-2xl">🌐</div>
+                <div className="text-xs text-violet-600 font-medium uppercase tracking-wide">Browser</div>
+              </div>
+              <div className="text-2xl font-bold text-violet-900 mb-1">
+                {data.clickAnalytics.unique_browsers}
+              </div>
+              <div className="text-sm text-violet-700">Browser unici</div>
+            </div>
+
             {/* Paesi */}
             <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-4 border border-teal-200">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-teal-600 text-2xl">🗺️</div>
-                <div className="text-xs text-teal-600 font-medium uppercase tracking-wide">Global</div>
+                <div className="text-xs text-teal-600 font-medium uppercase tracking-wide">Paesi</div>
               </div>
               <div className="text-2xl font-bold text-teal-900 mb-1">
                 {data.clickAnalytics.unique_countries}

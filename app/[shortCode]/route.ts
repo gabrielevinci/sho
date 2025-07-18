@@ -26,9 +26,8 @@ async function recordEnhancedClick(
   // Log iniziale pulito
   console.log(`\n🔄 CLICK: ${browserType.toUpperCase()} → Link ID: ${linkId}`);
   
-  const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
-  const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
-  const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
+  // Estrai informazioni geografiche dal fingerprint (che ha la logica di fallback)
+  const { country, region, city } = physicalFingerprint;
   
   // Usa la libreria di rilevamento QR per determinare la sorgente di traffico
   const referrer = getTrafficSource(request);
