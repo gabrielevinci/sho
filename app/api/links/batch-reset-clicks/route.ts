@@ -28,6 +28,28 @@ export async function PUT(request: NextRequest) {
     const linkIds = linkRows.map(row => row.id);
     
     if (linkIds.length > 0) {
+      // Elimina tutti i record dalla tabella enhanced_fingerprints per questi link
+      const enhancedFingerprintPlaceholders = linkIds.map((_, index) => `$${index + 1}`).join(', ');
+      const deleteEnhancedFingerprintsQuery = `
+        DELETE FROM enhanced_fingerprints
+        WHERE link_id IN (${enhancedFingerprintPlaceholders})
+      `;
+      
+      await sql.query(deleteEnhancedFingerprintsQuery, linkIds);
+      
+      // Elimina tutti i record dalla tabella advanced_fingerprints per questi link (se esiste)
+      try {
+        const deleteAdvancedFingerprintsQuery = `
+          DELETE FROM advanced_fingerprints
+          WHERE link_id IN (${enhancedFingerprintPlaceholders})
+        `;
+        
+        await sql.query(deleteAdvancedFingerprintsQuery, linkIds);
+      } catch (error) {
+        // La tabella advanced_fingerprints potrebbe non esistere, ignora l'errore
+        console.log('Tabella advanced_fingerprints non trovata o vuota, continuando...');
+      }
+      
       // Elimina tutti i record dalla tabella clicks per questi link
       const clickPlaceholders = linkIds.map((_, index) => `$${index + 1}`).join(', ');
       const deleteClicksQuery = `

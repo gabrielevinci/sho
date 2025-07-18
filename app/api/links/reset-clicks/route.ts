@@ -37,11 +37,33 @@ export async function PUT(request: NextRequest) {
     // Ottieni l'ID del link per eliminare i record clicks
     const linkId = linkRows[0].id;
 
+    console.log(`🔄 Inizio reset click per link ${shortCode} (ID: ${linkId})`);
+
+    // Elimina tutti i record dalla tabella enhanced_fingerprints per questo link
+    const enhancedResult = await sql`
+      DELETE FROM enhanced_fingerprints
+      WHERE link_id = ${linkId}
+    `;
+    console.log(`✅ Eliminati ${enhancedResult.rowCount || 0} record da enhanced_fingerprints`);
+
+    // Elimina tutti i record dalla tabella advanced_fingerprints per questo link (se esiste)
+    try {
+      const advancedResult = await sql`
+        DELETE FROM advanced_fingerprints
+        WHERE link_id = ${linkId}
+      `;
+      console.log(`✅ Eliminati ${advancedResult.rowCount || 0} record da advanced_fingerprints`);
+    } catch (error) {
+      // La tabella advanced_fingerprints potrebbe non esistere, ignora l'errore
+      console.log('⚠️ Tabella advanced_fingerprints non trovata o vuota, continuando...');
+    }
+
     // Elimina tutti i record dalla tabella clicks per questo link
-    await sql`
+    const clicksResult = await sql`
       DELETE FROM clicks
       WHERE link_id = ${linkId}
     `;
+    console.log(`✅ Eliminati ${clicksResult.rowCount || 0} record da clicks`);
 
     // Azzera i contatori del link nella tabella links
     await sql`
@@ -49,6 +71,7 @@ export async function PUT(request: NextRequest) {
       SET click_count = 0, unique_click_count = 0
       WHERE short_code = ${shortCode} AND user_id = ${session.userId}
     `;
+    console.log(`✅ Azzerati contatori per link ${shortCode}`);
 
     return NextResponse.json({ 
       message: 'Click azzerati con successo',

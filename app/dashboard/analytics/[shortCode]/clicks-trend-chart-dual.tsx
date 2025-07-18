@@ -40,9 +40,15 @@ const formatDate = (dateString: string, filterType: DateFilter = 'all'): string 
   }
   
   // Per altri filtri, il backend restituisce date in formato YYYY-MM-DD
-  // Aggiungiamo 'T00:00:00' per creare un timestamp valido
-  const dateToFormat = dateString.includes('T') ? dateString : `${dateString}T00:00:00`;
-  const date = new Date(dateToFormat);
+  // Per evitare problemi di timezone, parsifichiamo la data come locale italiana
+  let date: Date;
+  if (dateString.includes('T')) {
+    date = new Date(dateString);
+  } else {
+    // Parse della data YYYY-MM-DD come data locale italiana
+    const [year, month, day] = dateString.split('-').map(Number);
+    date = new Date(year, month - 1, day); // month è 0-indexed
+  }
   
   // Verifica che la data sia valida
   if (isNaN(date.getTime())) {
@@ -138,8 +144,14 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
               month: 'short'
             });
           } else {
-            // È una data completa
-            const date = new Date(`${dataPoint.date}T00:00:00`);
+            // È una data completa - parse come data locale italiana
+            let date: Date;
+            if (dataPoint.date.includes('T')) {
+              date = new Date(dataPoint.date);
+            } else {
+              const [year, month, day] = dataPoint.date.split('-').map(Number);
+              date = new Date(year, month - 1, day); // month è 0-indexed
+            }
             if (!isNaN(date.getTime())) {
               dateString = date.toLocaleDateString('it-IT', {
                 weekday: 'short',
@@ -186,8 +198,14 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
           // Ricostruiamo la data completa dal payload per il tooltip
           const dataPoint = payload[0].payload;
           if (dataPoint && dataPoint.date) {
-            const dateToFormat = dataPoint.date.includes('T') ? dataPoint.date : `${dataPoint.date}T00:00:00`;
-            const fullDate = new Date(dateToFormat);
+            let fullDate: Date;
+            if (dataPoint.date.includes('T')) {
+              fullDate = new Date(dataPoint.date);
+            } else {
+              // Parse della data YYYY-MM-DD come data locale italiana
+              const [year, month, day] = dataPoint.date.split('-').map(Number);
+              fullDate = new Date(year, month - 1, day); // month è 0-indexed
+            }
             if (!isNaN(fullDate.getTime())) {
               const fullFormattedDate = fullDate.toLocaleDateString('it-IT', {
                 weekday: 'long',
