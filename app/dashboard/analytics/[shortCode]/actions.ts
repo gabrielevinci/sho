@@ -53,32 +53,16 @@ export async function resetLinkStats(shortCode: string) {
   }
 
   try {
-    // Eliminiamo tutti i click associati al link
-    await sql`
-      DELETE FROM clicks 
-      WHERE link_id IN (
-        SELECT id FROM links 
-        WHERE user_id = ${session.userId} 
-        AND workspace_id = ${session.workspaceId} 
-        AND short_code = ${shortCode}
-      )
-    `;
+    // Usa la logica condivisa per il reset
+    const { resetLinkClicks } = await import('@/lib/reset-clicks-shared');
+    const result = await resetLinkClicks(shortCode, session.userId, session.workspaceId);
 
-    // Aggiorniamo il contatore dei click nel link a 0
-    const result = await sql`
-      UPDATE links 
-      SET click_count = 0 
-      WHERE user_id = ${session.userId} 
-      AND workspace_id = ${session.workspaceId} 
-      AND short_code = ${shortCode}
-    `;
-
-    if (result.rowCount === 0) {
-      throw new Error('Link non trovato');
+    if (!result.success) {
+      throw new Error(result.error || 'Errore durante il reset');
     }
 
     revalidatePath(`/dashboard/analytics/${shortCode}`);
-    return { success: true };
+    return { success: true, message: result.message };
   } catch (error) {
     console.error('Errore durante il reset delle statistiche:', error);
     throw new Error('Errore durante il reset delle statistiche');
