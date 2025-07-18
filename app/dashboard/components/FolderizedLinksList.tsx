@@ -909,14 +909,30 @@ export default function FolderizedLinksList({
                     onClick={async () => {
                       try {
                         const selectedLinkArray = Array.from(selectedLinks);
-                        for (const linkId of selectedLinkArray) {
-                          const link = links.find(l => l.id === linkId);
-                          if (link) {
-                            await onDeleteLink(link.short_code);
-                          }
+                        const linksToDelete = links.filter(l => selectedLinks.has(l.id))
+                          .map(l => l.short_code);
+                        
+                        if (linksToDelete.length === 0) {
+                          onToast?.('Nessun link selezionato da eliminare', 'error');
+                          return;
                         }
+                        
+                        // Chiamata API batch per eliminazione
+                        const response = await fetch('/api/links/batch-delete', {
+                          method: 'DELETE',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ shortCodes: linksToDelete })
+                        });
+                        
+                        if (!response.ok) {
+                          throw new Error(`Errore API: ${response.status}`);
+                        }
+                        
                         handleClearSelection();
-                        onToast?.(`${selectedLinkArray.length} link eliminati`, 'success');
+                        onToast?.(`${linksToDelete.length} link eliminati`, 'success');
+                        
+                        // Rimuovi i link eliminati dalla lista locale
+                        onUpdateLinks();
                       } catch (error) {
                         console.error('Errore durante l\'eliminazione batch:', error);
                         onToast?.('Errore durante l\'eliminazione dei link', 'error');
