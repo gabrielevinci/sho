@@ -908,7 +908,6 @@ export default function FolderizedLinksList({
                   <button
                     onClick={async () => {
                       try {
-                        const selectedLinkArray = Array.from(selectedLinks);
                         const linksToDelete = links.filter(l => selectedLinks.has(l.id))
                           .map(l => l.short_code);
                         
