@@ -100,75 +100,55 @@ async function getFilteredClickAnalytics(
     let dateParams: any[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
+      dateCondition = `AND clicked_at_rome >= $4::timestamptz AND clicked_at_rome < $5::timestamptz`;
       dateParams.push(startDate, endDate);
     }
 
-    // Query che utilizza tutte e tre le tabelle per calcoli accurati
+    // Query semplificata che usa solo la tabella clicks
     const query = `
       WITH link_info AS (
         SELECT id, click_count, unique_click_count, created_at
         FROM links 
         WHERE user_id = $1 AND workspace_id = $2 AND short_code = $3
       ),
-      -- Ottieni tutti i click con enhanced fingerprints
       filtered_clicks AS (
-        SELECT DISTINCT
-          c.id as click_id,
+        SELECT 
           c.country,
           c.referrer,
           c.browser_name,
           c.device_type,
           c.user_fingerprint,
-          c.clicked_at_rome,
-          COALESCE(ef.fingerprint_hash, c.user_fingerprint) as enhanced_fingerprint,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as device_cluster
+          c.clicked_at_rome
         FROM clicks c
         JOIN link_info li ON c.link_id = li.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
         WHERE 1=1 ${dateCondition}
       ),
       stats AS (
         SELECT 
           COUNT(*) as filtered_total_clicks,
-          COUNT(DISTINCT device_cluster) as filtered_unique_clicks,
+          COUNT(DISTINCT user_fingerprint) as filtered_unique_clicks,
           COUNT(DISTINCT country) as unique_countries,
           COUNT(DISTINCT referrer) as unique_referrers,
           COUNT(DISTINCT device_type) as unique_devices,
           COUNT(DISTINCT browser_name) as unique_browsers
         FROM filtered_clicks
       ),
-      -- Statistiche per periodi fissi (ultime 24 ore, settimana, mese)
       period_stats AS (
         SELECT 
-          COUNT(CASE WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' THEN 1 END) as clicks_today,
-          COUNT(CASE WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-          COUNT(CASE WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
-          COUNT(DISTINCT CASE 
-            WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' 
-            THEN COALESCE(fc.device_cluster_id, c.user_fingerprint) 
-          END) as unique_clicks_today,
-          COUNT(DISTINCT CASE 
-            WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' 
-            THEN COALESCE(fc.device_cluster_id, c.user_fingerprint) 
-          END) as unique_clicks_this_week,
-          COUNT(DISTINCT CASE 
-            WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' 
-            THEN COALESCE(fc.device_cluster_id, c.user_fingerprint) 
-          END) as unique_clicks_this_month
+          COUNT(CASE WHEN clicked_at_rome::date = CURRENT_DATE THEN 1 END) as clicks_today,
+          COUNT(CASE WHEN clicked_at_rome >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+          COUNT(CASE WHEN clicked_at_rome >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+          COUNT(DISTINCT CASE WHEN clicked_at_rome::date = CURRENT_DATE THEN user_fingerprint END) as unique_clicks_today,
+          COUNT(DISTINCT CASE WHEN clicked_at_rome >= CURRENT_DATE - INTERVAL '7 days' THEN user_fingerprint END) as unique_clicks_this_week,
+          COUNT(DISTINCT CASE WHEN clicked_at_rome >= CURRENT_DATE - INTERVAL '30 days' THEN user_fingerprint END) as unique_clicks_this_month
         FROM clicks c
         JOIN link_info li ON c.link_id = li.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
       ),
       top_values AS (
         SELECT 
-          (SELECT referrer FROM filtered_clicks WHERE referrer != 'Direct' AND referrer IS NOT NULL GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-          (SELECT browser_name FROM filtered_clicks WHERE browser_name IS NOT NULL GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-          (SELECT device_type FROM filtered_clicks WHERE device_type IS NOT NULL GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+          (SELECT referrer FROM filtered_clicks WHERE referrer != 'Direct' GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+          (SELECT browser_name FROM filtered_clicks GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+          (SELECT device_type FROM filtered_clicks GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
       )
       SELECT 
         CASE WHEN ${startDate ? 'TRUE' : 'FALSE'} THEN s.filtered_total_clicks ELSE li.click_count END as total_clicks,
@@ -241,31 +221,24 @@ async function getFilteredGeographicData(
     let dateParams: any[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
+      dateCondition = `AND clicked_at_rome >= $4::timestamptz AND clicked_at_rome < $5::timestamptz`;
       dateParams.push(startDate, endDate);
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
-          c.country,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
+      WITH total_clicks AS (
+        SELECT COUNT(*) as total
         FROM clicks c
         JOIN links l ON c.link_id = l.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
-      ),
-      total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
       )
       SELECT 
         country,
         COUNT(*) as clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
-      WHERE country IS NOT NULL
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       GROUP BY country
       ORDER BY clicks DESC
       LIMIT 10
@@ -296,31 +269,24 @@ async function getFilteredDeviceData(
     let dateParams: any[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
+      dateCondition = `AND clicked_at_rome >= $4::timestamptz AND clicked_at_rome < $5::timestamptz`;
       dateParams.push(startDate, endDate);
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
-          c.device_type,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
+      WITH total_clicks AS (
+        SELECT COUNT(*) as total
         FROM clicks c
         JOIN links l ON c.link_id = l.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
-      ),
-      total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
       )
       SELECT 
         device_type,
         COUNT(*) as clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
-      WHERE device_type IS NOT NULL
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       GROUP BY device_type
       ORDER BY clicks DESC
     `;
@@ -350,31 +316,24 @@ async function getFilteredBrowserData(
     let dateParams: any[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
+      dateCondition = `AND clicked_at_rome >= $4::timestamptz AND clicked_at_rome < $5::timestamptz`;
       dateParams.push(startDate, endDate);
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
-          c.browser_name,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
+      WITH total_clicks AS (
+        SELECT COUNT(*) as total
         FROM clicks c
         JOIN links l ON c.link_id = l.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
-      ),
-      total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
       )
       SELECT 
         browser_name,
         COUNT(*) as clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
-      WHERE browser_name IS NOT NULL
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       GROUP BY browser_name
       ORDER BY clicks DESC
       LIMIT 10
@@ -405,31 +364,24 @@ async function getFilteredReferrerData(
     let dateParams: any[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
+      dateCondition = `AND clicked_at_rome >= $4::timestamptz AND clicked_at_rome < $5::timestamptz`;
       dateParams.push(startDate, endDate);
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
-          c.referrer,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
+      WITH total_clicks AS (
+        SELECT COUNT(*) as total
         FROM clicks c
         JOIN links l ON c.link_id = l.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
-      ),
-      total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
       )
       SELECT 
         referrer,
         COUNT(*) as clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
-      WHERE referrer IS NOT NULL
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       GROUP BY referrer
       ORDER BY clicks DESC
       LIMIT 10
@@ -462,45 +414,20 @@ async function getFilteredTimeSeriesData(
       const query = `
         WITH hour_series AS (
           SELECT generate_series(
-            DATE_TRUNC('hour', (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '23 hours'),
+            DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '23 hours'),
             DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome'),
             INTERVAL '1 hour'
           ) AS hour
-        ),
-        -- Conteggio dei click totali orari
-        hourly_total_clicks AS (
-          SELECT 
-            DATE_TRUNC('hour', c.clicked_at_rome) as hour,
-            COUNT(*) as total_clicks
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
-          WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3
-            AND c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '24 hours'
-          GROUP BY DATE_TRUNC('hour', c.clicked_at_rome)
-        ),
-        -- Conteggio dei click unici orari
-        hourly_unique_clicks AS (
-          SELECT 
-            DATE_TRUNC('hour', c.clicked_at_rome) as hour,
-            COUNT(DISTINCT COALESCE(fc.device_cluster_id, ef.fingerprint_hash, c.user_fingerprint)) as unique_clicks
-          FROM clicks c
-          JOIN links l ON c.link_id = l.id
-          LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-            AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-          LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
-          WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3
-            AND c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '24 hours'
-          GROUP BY DATE_TRUNC('hour', c.clicked_at_rome)
         )
         SELECT 
           TO_CHAR(hs.hour, 'HH24:MI') as date,
           hs.hour as full_datetime,
-          COALESCE(htc.total_clicks, 0) as total_clicks,
-          COALESCE(huc.unique_clicks, 0) as unique_clicks
+          COALESCE(COUNT(c.id), 0) as total_clicks,
+          COALESCE(COUNT(DISTINCT c.user_fingerprint), 0) as unique_clicks
         FROM hour_series hs
-        LEFT JOIN hourly_total_clicks htc ON htc.hour = hs.hour
-        LEFT JOIN hourly_unique_clicks huc ON huc.hour = hs.hour
-        GROUP BY hs.hour, htc.total_clicks, huc.unique_clicks
+        LEFT JOIN clicks c ON DATE_TRUNC('hour', c.clicked_at_rome) = hs.hour
+        LEFT JOIN links l ON c.link_id = l.id AND l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3
+        GROUP BY hs.hour
         ORDER BY hs.hour
       `;
       
@@ -517,28 +444,12 @@ async function getFilteredTimeSeriesData(
     let startDateForSeries = startDate;
     let endDateForSeries = endDate;
 
-    // Se non ci sono filtri di data specifici, determina il range basandoti sulla data di creazione del link
     if (!startDate || !endDate) {
-      // Prima ottieni la data di creazione del link
-      const linkCreationQuery = await sql`
-        SELECT created_at
-        FROM links
-        WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
-        LIMIT 1
-      `;
-      
-      if (linkCreationQuery.rows.length === 0) {
-        throw new Error('Link not found');
-      }
-      
-      const linkCreatedAt = new Date(linkCreationQuery.rows[0].created_at);
-      const today = new Date();
-      
-      // Per il filtro "always", usa dalla data di creazione fino ad oggi
-      startDateForSeries = linkCreatedAt.toISOString().split('T')[0];
-      endDateForSeries = today.toISOString().split('T')[0];
-      
-      console.log(`Time series range for "always": ${startDateForSeries} to ${endDateForSeries}`);
+      // Se non ci sono filtri di data, mostra gli ultimi 30 giorni
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      startDateForSeries = thirtyDaysAgo.toISOString().split('T')[0];
+      endDateForSeries = new Date().toISOString().split('T')[0];
     }
 
     const query = `
@@ -548,67 +459,19 @@ async function getFilteredTimeSeriesData(
           $5::date,
           INTERVAL '1 day'
         )::date AS date
-      ),
-      -- Conteggio dei click totali giornalieri (tutti i click, senza distinzione)
-      daily_total_clicks AS (
-        SELECT 
-          c.clicked_at_rome::date as click_date,
-          COUNT(*) as total_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
-        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3
-          AND c.clicked_at_rome::date >= $4::date
-          AND c.clicked_at_rome::date <= $5::date
-        GROUP BY c.clicked_at_rome::date
-      ),
-      -- Conteggio dei click unici giornalieri usando enhanced fingerprints e correlazioni
-      daily_unique_clicks AS (
-        SELECT 
-          c.clicked_at_rome::date as click_date,
-          COUNT(DISTINCT COALESCE(fc.device_cluster_id, ef.fingerprint_hash, c.user_fingerprint)) as unique_clicks
-        FROM clicks c
-        JOIN links l ON c.link_id = l.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
-        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3
-          AND c.clicked_at_rome::date >= $4::date
-          AND c.clicked_at_rome::date <= $5::date
-        GROUP BY c.clicked_at_rome::date
       )
       SELECT 
         ds.date::text as date,
-        COALESCE(dtc.total_clicks, 0) as total_clicks,
-        COALESCE(duc.unique_clicks, 0) as unique_clicks
+        COALESCE(COUNT(c.id), 0) as total_clicks,
+        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0) as unique_clicks
       FROM date_series ds
-      LEFT JOIN daily_total_clicks dtc ON dtc.click_date = ds.date
-      LEFT JOIN daily_unique_clicks duc ON duc.click_date = ds.date
-      GROUP BY ds.date, dtc.total_clicks, duc.unique_clicks
+      LEFT JOIN clicks c ON c.clicked_at_rome::date = ds.date
+      LEFT JOIN links l ON c.link_id = l.id AND l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3
+      GROUP BY ds.date
       ORDER BY ds.date
     `;
 
     const { rows } = await sql.query(query, [userId, workspaceId, shortCode, startDateForSeries, endDateForSeries]);
-    
-    console.log(`Time series query executed for ${shortCode}:`);
-    console.log(`- Date range: ${startDateForSeries} to ${endDateForSeries}`);
-    console.log(`- Filter type: ${filterType}`);
-    console.log(`- Results: ${rows.length} data points`);
-    
-    if (rows.length > 0) {
-      const totalSum = rows.reduce((sum, row) => sum + parseInt(row.total_clicks || 0), 0);
-      const uniqueSum = rows.reduce((sum, row) => sum + parseInt(row.unique_clicks || 0), 0);
-      console.log(`- Total clicks sum: ${totalSum}`);
-      console.log(`- Unique clicks sum: ${uniqueSum}`);
-      
-      // Log anomalie
-      const anomalies = rows.filter(row => parseInt(row.unique_clicks || 0) > parseInt(row.total_clicks || 0));
-      if (anomalies.length > 0) {
-        console.warn(`⚠️  ${anomalies.length} anomalies detected in time series data`);
-        anomalies.forEach(row => {
-          console.warn(`  ${row.date}: unique=${row.unique_clicks}, total=${row.total_clicks}`);
-        });
-      }
-    }
     
     return rows.map(row => ({
       date: row.date,

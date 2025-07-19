@@ -264,11 +264,20 @@ const CustomTooltip = ({ active, payload, label, filterType, isPercentageView }:
         {/* Footer con totale se ci sono entrambi i valori */}
         {payload.length === 2 && !isPercentageView && (
           <div className="mt-3 pt-2 border-t border-gray-200">
-            <div className="flex items-center justify-between text-xs text-gray-600">
+            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
               <span>Tasso conversione:</span>
               <span className="font-medium">
                 {payload[0].value > 0 
                   ? `${Math.round((payload[1].value / payload[0].value) * 100)}%`
+                  : '0%'
+                }
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>Efficacia unica:</span>
+              <span className="font-medium">
+                {payload[0].value > 0 
+                  ? `${((payload[1].value / payload[0].value) * 100).toFixed(1)}%`
                   : '0%'
                 }
               </span>
@@ -286,22 +295,34 @@ export default function ClicksTrendChartDual({
   filterType = 'all',
 }: ClicksTrendChartDualProps) {
 
-  // Prepara i dati per il grafico - sempre valori assoluti
+  // Prepara i dati per il grafico - sempre valori assoluti con validazione
   const chartData = useMemo(() => {
-    return data.map(item => ({
-      ...item,
-      displayDate: formatDate(item.date, filterType)
-    }));
+    const validatedData = data.map(item => {
+      // Assicurati che unique_clicks non sia mai maggiore di total_clicks
+      const validatedUniqueClicks = Math.min(item.unique_clicks, item.total_clicks);
+      
+      if (item.unique_clicks > item.total_clicks) {
+        console.warn(`Data anomaly detected for ${item.date}: unique_clicks (${item.unique_clicks}) > total_clicks (${item.total_clicks}). Correcting to ${validatedUniqueClicks}.`);
+      }
+      
+      return {
+        ...item,
+        unique_clicks: validatedUniqueClicks,
+        displayDate: formatDate(item.date, filterType)
+      };
+    });
+    
+    return validatedData;
   }, [data, filterType]);
 
-  // Calcola il massimo per l'asse Y - sempre valori assoluti
+  // Calcola il massimo per l'asse Y usando i dati validati
   const maxValue = useMemo(() => {
-    const maxTotal = Math.max(...data.map(d => d.total_clicks));
-    const maxUnique = Math.max(...data.map(d => d.unique_clicks));
-    const rawMax = Math.max(maxTotal, maxUnique);
+    const maxTotal = Math.max(...chartData.map(d => d.total_clicks));
+    const maxUnique = Math.max(...chartData.map(d => d.unique_clicks));
+    const rawMax = Math.max(maxTotal, maxUnique, 1); // Assicura almeno 1
     // Arrotonda per eccesso e aggiungi padding intero per avere solo numeri interi
     return Math.ceil(rawMax * 1.1);
-  }, [data]);
+  }, [chartData]);
 
   if (!data || data.length === 0) {
     return (
@@ -349,6 +370,7 @@ export default function ClicksTrendChartDual({
                 filterType === 'month' ? Math.max(0, Math.floor(data.length / 8)) : // Per mese, mostra circa 8 date
                 filterType === '3months' ? Math.max(0, Math.floor(data.length / 10)) : // Per 3 mesi, mostra circa 10 date
                 filterType === 'year' ? Math.max(0, Math.floor(data.length / 15)) : // Per anno, mostra circa 15-20 etichette per evitare sovraffollamento
+                filterType === 'all' ? Math.max(0, Math.floor(data.length / 12)) : // Per "sempre", mostra circa 12 etichette distribuite uniformemente
                 'preserveStartEnd' // Per altri filtri, mostra inizio e fine
               }
             />
@@ -392,19 +414,32 @@ export default function ClicksTrendChartDual({
       </div>
 
       {/* Footer con informazioni aggiuntive */}
-      {data.length > 0 && (
+      {chartData.length > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>
               {filterType === 'today' 
-                ? `Periodo: Ultime 24 ore (${data[0].date} - ${data[data.length - 1].date})`
-                : `Periodo: ${formatDate(data[0].date, filterType)} - ${formatDate(data[data.length - 1].date, filterType)}`
+                ? `Periodo: Ultime 24 ore (${chartData[0].date} - ${chartData[chartData.length - 1].date})`
+                : `Periodo: ${formatDate(chartData[0].date, filterType)} - ${formatDate(chartData[chartData.length - 1].date, filterType)}`
               }
             </span>
             <span>
-              {data.length} {filterType === 'today' ? 'ore' : 'punti dati'}
+              {chartData.length} {filterType === 'today' ? 'ore' : 'punti dati'}
             </span>
           </div>
+          {filterType === 'all' && (
+            <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
+              <span>
+                Totali: {chartData.reduce((sum, d) => sum + d.total_clicks, 0)} click, {chartData.reduce((sum, d) => sum + d.unique_clicks, 0)} unici
+              </span>
+              <span>
+                Efficacia media: {chartData.length > 0 ? 
+                  ((chartData.reduce((sum, d) => sum + d.unique_clicks, 0) / chartData.reduce((sum, d) => sum + d.total_clicks, 0)) * 100).toFixed(1) + '%' 
+                  : '0%'
+                }
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

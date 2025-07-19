@@ -790,6 +790,41 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
           </div>
         </div>
 
+        {/* 7. Grafico andamento temporale */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+            Grafico Andamento Click
+          </h3>
+          
+          {/* Filtro visualizzazione */}
+          <div className="mb-4 flex items-center space-x-4">
+            <span className="text-sm font-medium text-gray-700">Visualizzazione:</span>
+            <select 
+              className="text-sm border border-gray-300 rounded-md px-2 py-1"
+              defaultValue="total"
+            >
+              <option value="total">Click Totali</option>
+              <option value="unique">Click Unici</option>
+              <option value="both">Entrambi</option>
+            </select>
+          </div>
+          
+          {data.timeSeriesData && data.timeSeriesData.length > 0 ? (
+            <ClicksTrendChartDual 
+              data={data.timeSeriesData} 
+              filterType={currentFilter}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              <div className="text-center">
+                <BarChart3 className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <p>Nessun dato disponibile per il grafico</p>
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
