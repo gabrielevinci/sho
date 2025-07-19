@@ -8,6 +8,12 @@ import PeriodChart from './period-chart';
 import AnalyticsFilters, { DateFilter, DateRange } from './analytics-filters';
 import LinkHeader from './link-header';
 
+// Funzione helper per formattare le percentuali in modo sicuro
+const formatPercentage = (value: number | null | undefined): string => {
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  return numValue.toFixed(1);
+};
+
 // Tipi per i dati delle statistiche
 type LinkAnalytics = {
   short_code: string;
@@ -462,16 +468,16 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.geographicData.map((country, index) => {
-                      // Calcola i click unici proporzionalmente ai click totali globali
+                      // Usa i click unici reali dal backend se disponibili, altrimenti fallback al calcolo proporzionale
                       const uniqueClicks = country.unique_clicks !== undefined 
                         ? country.unique_clicks 
                         : data.clickAnalytics.total_clicks > 0 
                           ? Math.round((country.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
-                      // Calcola la percentuale basata sui click totali del link
-                      const percentage = data.clickAnalytics.total_clicks > 0 
-                        ? (country.clicks / data.clickAnalytics.total_clicks) * 100
+                      // Usa la percentuale dal backend che è basata sui dati filtrati
+                      const percentage = typeof country.percentage === 'number' && !isNaN(country.percentage) 
+                        ? country.percentage 
                         : 0;
                       
                       return (
@@ -490,7 +496,7 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="text-sm font-medium text-green-600">
-                              {percentage.toFixed(1)}%
+                              {formatPercentage(percentage)}%
                             </span>
                           </td>
                         </tr>
@@ -523,16 +529,16 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.deviceData.map((device) => {
-                      // Calcola i click unici proporzionalmente ai click totali globali
+                      // Usa i click unici reali dal backend se disponibili, altrimenti fallback al calcolo proporzionale
                       const uniqueClicks = device.unique_clicks !== undefined 
                         ? device.unique_clicks 
                         : data.clickAnalytics.total_clicks > 0 
                           ? Math.round((device.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
-                      // Calcola la percentuale basata sui click totali del link
-                      const percentage = data.clickAnalytics.total_clicks > 0 
-                        ? (device.clicks / data.clickAnalytics.total_clicks) * 100
+                      // Usa la percentuale dal backend che è basata sui dati filtrati
+                      const percentage = typeof device.percentage === 'number' && !isNaN(device.percentage) 
+                        ? device.percentage 
                         : 0;
                       
                       return (
@@ -588,16 +594,16 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.browserData.map((browser, index) => {
-                      // Calcola i click unici proporzionalmente ai click totali globali
+                      // Usa i click unici reali dal backend se disponibili, altrimenti fallback al calcolo proporzionale
                       const uniqueClicks = browser.unique_clicks !== undefined 
                         ? browser.unique_clicks 
                         : data.clickAnalytics.total_clicks > 0 
                           ? Math.round((browser.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
-                      // Calcola la percentuale basata sui click totali del link
-                      const percentage = data.clickAnalytics.total_clicks > 0 
-                        ? (browser.clicks / data.clickAnalytics.total_clicks) * 100
+                      // Usa la percentuale dal backend che è basata sui dati filtrati
+                      const percentage = typeof browser.percentage === 'number' && !isNaN(browser.percentage) 
+                        ? browser.percentage 
                         : 0;
                       
                       return (
@@ -649,16 +655,16 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
                   </thead>
                   <tbody>
                     {data.referrerData.map((referrer, index) => {
-                      // Calcola i click unici proporzionalmente ai click totali globali
+                      // Usa i click unici reali dal backend se disponibili, altrimenti fallback al calcolo proporzionale
                       const uniqueClicks = referrer.unique_clicks !== undefined 
                         ? referrer.unique_clicks 
                         : data.clickAnalytics.total_clicks > 0 
                           ? Math.round((referrer.clicks / data.clickAnalytics.total_clicks) * data.clickAnalytics.unique_clicks)
                           : 0;
                       
-                      // Calcola la percentuale basata sui click totali del link
-                      const percentage = data.clickAnalytics.total_clicks > 0 
-                        ? (referrer.clicks / data.clickAnalytics.total_clicks) * 100
+                      // Usa la percentuale dal backend che è basata sui dati filtrati
+                      const percentage = typeof referrer.percentage === 'number' && !isNaN(referrer.percentage) 
+                        ? referrer.percentage 
                         : 0;
                       
                       return (

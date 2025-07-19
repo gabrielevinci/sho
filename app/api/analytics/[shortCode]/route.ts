@@ -36,24 +36,28 @@ type ClickAnalytics = {
 type GeographicData = {
   country: string;
   clicks: number;
+  unique_clicks: number;
   percentage: number;
 };
 
 type DeviceData = {
   device_type: string;
   clicks: number;
+  unique_clicks: number;
   percentage: number;
 };
 
 type BrowserData = {
   browser_name: string;
   clicks: number;
+  unique_clicks: number;
   percentage: number;
 };
 
 type ReferrerData = {
   referrer: string;
   clicks: number;
+  unique_clicks: number;
   percentage: number;
 };
 
@@ -197,15 +201,6 @@ async function getFilteredClickAnalytics(
       throw new Error('No analytics data found');
     }
 
-    // Debug per filtro 24 ore
-    if (startDate && endDate) {
-      console.log('🔍 [DEBUG ANALYTICS] Query filtrata eseguita');
-      console.log('🔍 [DEBUG ANALYTICS] Total clicks filtrati:', result.total_clicks);
-      console.log('🔍 [DEBUG ANALYTICS] Unique clicks filtrati:', result.unique_clicks);
-      console.log('🔍 [DEBUG ANALYTICS] Clicks today (fisso):', result.clicks_today);
-      console.log('🔍 [DEBUG ANALYTICS] Unique clicks today (fisso):', result.unique_clicks_today);
-    }
-
     // Calcola le medie giornaliere
     const createdAt = new Date(result.created_at);
     const now = new Date();
@@ -255,9 +250,10 @@ async function getFilteredGeographicData(
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
+      WITH all_clicks AS (
+        SELECT 
           c.country,
+          c.user_fingerprint,
           COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
         FROM clicks c
         JOIN links l ON c.link_id = l.id
@@ -267,13 +263,17 @@ async function getFilteredGeographicData(
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       ),
       total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
+        SELECT COUNT(*) as total FROM all_clicks
+      ),
+      total_unique_clicks AS (
+        SELECT COUNT(DISTINCT unique_device) as total_unique FROM all_clicks
       )
       SELECT 
         country,
         COUNT(*) as clicks,
+        COUNT(DISTINCT unique_device) as unique_clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
+      FROM all_clicks
       WHERE country IS NOT NULL
       GROUP BY country
       ORDER BY clicks DESC
@@ -284,6 +284,7 @@ async function getFilteredGeographicData(
     return rows.map(row => ({
       country: row.country,
       clicks: parseInt(row.clicks),
+      unique_clicks: parseInt(row.unique_clicks) || 0,
       percentage: parseFloat(row.percentage) || 0
     }));
   } catch (error) {
@@ -310,9 +311,10 @@ async function getFilteredDeviceData(
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
+      WITH all_clicks AS (
+        SELECT 
           c.device_type,
+          c.user_fingerprint,
           COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
         FROM clicks c
         JOIN links l ON c.link_id = l.id
@@ -322,13 +324,17 @@ async function getFilteredDeviceData(
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       ),
       total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
+        SELECT COUNT(*) as total FROM all_clicks
+      ),
+      total_unique_clicks AS (
+        SELECT COUNT(DISTINCT unique_device) as total_unique FROM all_clicks
       )
       SELECT 
         device_type,
         COUNT(*) as clicks,
+        COUNT(DISTINCT unique_device) as unique_clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
+      FROM all_clicks
       WHERE device_type IS NOT NULL
       GROUP BY device_type
       ORDER BY clicks DESC
@@ -338,6 +344,7 @@ async function getFilteredDeviceData(
     return rows.map(row => ({
       device_type: row.device_type,
       clicks: parseInt(row.clicks),
+      unique_clicks: parseInt(row.unique_clicks) || 0,
       percentage: parseFloat(row.percentage) || 0
     }));
   } catch (error) {
@@ -364,9 +371,10 @@ async function getFilteredBrowserData(
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
+      WITH all_clicks AS (
+        SELECT 
           c.browser_name,
+          c.user_fingerprint,
           COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
         FROM clicks c
         JOIN links l ON c.link_id = l.id
@@ -376,13 +384,17 @@ async function getFilteredBrowserData(
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       ),
       total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
+        SELECT COUNT(*) as total FROM all_clicks
+      ),
+      total_unique_clicks AS (
+        SELECT COUNT(DISTINCT unique_device) as total_unique FROM all_clicks
       )
       SELECT 
         browser_name,
         COUNT(*) as clicks,
+        COUNT(DISTINCT unique_device) as unique_clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
+      FROM all_clicks
       WHERE browser_name IS NOT NULL
       GROUP BY browser_name
       ORDER BY clicks DESC
@@ -393,6 +405,7 @@ async function getFilteredBrowserData(
     return rows.map(row => ({
       browser_name: row.browser_name,
       clicks: parseInt(row.clicks),
+      unique_clicks: parseInt(row.unique_clicks) || 0,
       percentage: parseFloat(row.percentage) || 0
     }));
   } catch (error) {
@@ -419,9 +432,10 @@ async function getFilteredReferrerData(
     }
 
     const query = `
-      WITH enhanced_clicks AS (
-        SELECT DISTINCT
+      WITH all_clicks AS (
+        SELECT 
           c.referrer,
+          c.user_fingerprint,
           COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
         FROM clicks c
         JOIN links l ON c.link_id = l.id
@@ -431,13 +445,17 @@ async function getFilteredReferrerData(
         WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
       ),
       total_clicks AS (
-        SELECT COUNT(*) as total FROM enhanced_clicks
+        SELECT COUNT(*) as total FROM all_clicks
+      ),
+      total_unique_clicks AS (
+        SELECT COUNT(DISTINCT unique_device) as total_unique FROM all_clicks
       )
       SELECT 
         referrer,
         COUNT(*) as clicks,
+        COUNT(DISTINCT unique_device) as unique_clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
-      FROM enhanced_clicks
+      FROM all_clicks
       WHERE referrer IS NOT NULL
       GROUP BY referrer
       ORDER BY clicks DESC
@@ -448,6 +466,7 @@ async function getFilteredReferrerData(
     return rows.map(row => ({
       referrer: row.referrer,
       clicks: parseInt(row.clicks),
+      unique_clicks: parseInt(row.unique_clicks) || 0,
       percentage: parseFloat(row.percentage) || 0
     }));
   } catch (error) {
@@ -811,14 +830,6 @@ export async function GET(
     const filterType = searchParams.get('filterType') || undefined;
 
     console.log('Analytics API called with:', { shortCode, startDate, endDate, filterType });
-    
-    // Debug specifico per filtro 24 ore
-    if (filterType === 'today') {
-      console.log('🔍 [DEBUG 24H] Filtro 24 ore rilevato');
-      console.log('🔍 [DEBUG 24H] Start date:', startDate);
-      console.log('🔍 [DEBUG 24H] End date:', endDate);
-      console.log('🔍 [DEBUG 24H] Ora italiana corrente:', new Date().toLocaleString("it-IT", {timeZone: "Europe/Rome"}));
-    }
 
     // Ottieni tutti i dati in parallelo
     const [
