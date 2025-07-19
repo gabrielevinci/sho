@@ -272,16 +272,17 @@ async function getFilteredTimeSeriesData(
           hourly_clicks AS (
             SELECT 
               -- Raggruppa i click per ora utilizzando clicked_at_rome
-              date_trunc('hour', clicked_at_rome) as hour_rome,
+              date_trunc('hour', c.clicked_at_rome) as hour_rome,
               COUNT(*) as total_clicks,
-              COUNT(DISTINCT user_fingerprint) as unique_clicks
+              COUNT(DISTINCT ef.device_fingerprint) as unique_clicks
             FROM clicks c
             JOIN workspace_links wl ON c.link_id = wl.id
+            JOIN enhanced_fingerprints ef ON ef.link_id = c.link_id AND ef.browser_fingerprint = c.user_fingerprint
             WHERE 
               -- Filtra le ultime 24 ore usando clicked_at_rome
-              date_trunc('hour', clicked_at_rome) >= (SELECT start_hour FROM start_hour_italy)
-              AND date_trunc('hour', clicked_at_rome) <= (SELECT current_hour FROM current_hour_italy)
-            GROUP BY date_trunc('hour', clicked_at_rome)
+              date_trunc('hour', c.clicked_at_rome) >= (SELECT start_hour FROM start_hour_italy)
+              AND date_trunc('hour', c.clicked_at_rome) <= (SELECT current_hour FROM current_hour_italy)
+            GROUP BY date_trunc('hour', c.clicked_at_rome)
           )
           SELECT 
             -- Aggiunge 2 ore al timestamp per correggere il tooltip
@@ -329,10 +330,11 @@ async function getFilteredTimeSeriesData(
         SELECT 
           ds.date::text,
           COALESCE(COUNT(c.id), 0) as total_clicks,
-          COALESCE(COUNT(DISTINCT c.user_fingerprint), 0) as unique_clicks
+          COALESCE(COUNT(DISTINCT ef.device_fingerprint), 0) as unique_clicks
         FROM date_series ds
         LEFT JOIN clicks c ON c.clicked_at_rome::date = ds.date
         LEFT JOIN workspace_links wl ON c.link_id = wl.id
+        LEFT JOIN enhanced_fingerprints ef ON ef.link_id = c.link_id AND ef.browser_fingerprint = c.user_fingerprint
         GROUP BY ds.date
         ORDER BY ds.date ASC
       `;
@@ -366,10 +368,11 @@ async function getFilteredTimeSeriesData(
       SELECT 
         ds.date::text,
         COALESCE(COUNT(c.id), 0) as total_clicks,
-        COALESCE(COUNT(DISTINCT c.user_fingerprint), 0) as unique_clicks
+        COALESCE(COUNT(DISTINCT ef.device_fingerprint), 0) as unique_clicks
       FROM date_series ds
       LEFT JOIN clicks c ON c.clicked_at_rome::date = ds.date
       LEFT JOIN workspace_links wl ON c.link_id = wl.id
+      LEFT JOIN enhanced_fingerprints ef ON ef.link_id = c.link_id AND ef.browser_fingerprint = c.user_fingerprint
       GROUP BY ds.date
       ORDER BY ds.date ASC
     `;

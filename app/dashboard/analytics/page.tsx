@@ -27,6 +27,11 @@ type WorkspaceAnalytics = {
   links_created_today: number;
   links_created_this_week: number;
   links_created_this_month: number;
+  // Dati per il periodo filtrato
+  filtered_period_name: string;
+  filtered_period_clicks: number;
+  filtered_period_unique_clicks: number;
+  filtered_period_links_created: number;
 };
 
 type LinkData = {
@@ -172,6 +177,11 @@ async function getWorkspaceAnalytics(userId: string, workspaceId: string): Promi
       links_created_today: 0,
       links_created_this_week: 0,
       links_created_this_month: 0,
+      // Dati per il periodo filtrato (valori predefiniti)
+      filtered_period_name: 'Tutti i dati',
+      filtered_period_clicks: 0,
+      filtered_period_unique_clicks: 0,
+      filtered_period_links_created: 0,
     };
   } catch (error) {
     console.error("Failed to fetch workspace analytics:", error);
@@ -197,6 +207,11 @@ async function getWorkspaceAnalytics(userId: string, workspaceId: string): Promi
       links_created_today: 0,
       links_created_this_week: 0,
       links_created_this_month: 0,
+      // Dati per il periodo filtrato (valori predefiniti)
+      filtered_period_name: 'Tutti i dati',
+      filtered_period_clicks: 0,
+      filtered_period_unique_clicks: 0,
+      filtered_period_links_created: 0,
     };
   }
 }
