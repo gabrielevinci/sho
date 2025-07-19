@@ -197,6 +197,15 @@ async function getFilteredClickAnalytics(
       throw new Error('No analytics data found');
     }
 
+    // Debug per filtro 24 ore
+    if (startDate && endDate) {
+      console.log('🔍 [DEBUG ANALYTICS] Query filtrata eseguita');
+      console.log('🔍 [DEBUG ANALYTICS] Total clicks filtrati:', result.total_clicks);
+      console.log('🔍 [DEBUG ANALYTICS] Unique clicks filtrati:', result.unique_clicks);
+      console.log('🔍 [DEBUG ANALYTICS] Clicks today (fisso):', result.clicks_today);
+      console.log('🔍 [DEBUG ANALYTICS] Unique clicks today (fisso):', result.unique_clicks_today);
+    }
+
     // Calcola le medie giornaliere
     const createdAt = new Date(result.created_at);
     const now = new Date();
@@ -802,6 +811,14 @@ export async function GET(
     const filterType = searchParams.get('filterType') || undefined;
 
     console.log('Analytics API called with:', { shortCode, startDate, endDate, filterType });
+    
+    // Debug specifico per filtro 24 ore
+    if (filterType === 'today') {
+      console.log('🔍 [DEBUG 24H] Filtro 24 ore rilevato');
+      console.log('🔍 [DEBUG 24H] Start date:', startDate);
+      console.log('🔍 [DEBUG 24H] End date:', endDate);
+      console.log('🔍 [DEBUG 24H] Ora italiana corrente:', new Date().toLocaleString("it-IT", {timeZone: "Europe/Rome"}));
+    }
 
     // Ottieni tutti i dati in parallelo
     const [
