@@ -134,13 +134,17 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           FROM enhanced_fingerprints ef
           WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
-        total_calculated AS (
+        enhanced_count AS (
           SELECT 
             COUNT(*) as total_from_enhanced,
             COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
           FROM all_enhanced
         ),
-        period_stats AS (
+        use_fallback AS (
+          SELECT (ec.total_from_enhanced = 0) as should_use_clicks
+          FROM enhanced_count ec
+        ),
+        period_stats_enhanced AS (
           SELECT 
             COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as raw_clicks_today,
             COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as raw_clicks_this_week,
@@ -149,6 +153,17 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
             COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN ef.device_fingerprint END) as raw_unique_clicks_this_week,
             COUNT(DISTINCT CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN ef.device_fingerprint END) as raw_unique_clicks_this_month
           FROM all_enhanced ef
+        ),
+        period_stats_fallback AS (
+          SELECT 
+            COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as raw_clicks_today,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as raw_clicks_this_week,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as raw_clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as raw_unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as raw_unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as raw_unique_clicks_this_month
+          FROM clicks c
+          WHERE c.link_id IN (SELECT id FROM link_data)
         ),
         click_stats AS (
           SELECT 
@@ -162,27 +177,45 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
         ),
         time_stats AS (
           SELECT
-            -- Calcola click per periodo usando distribuzione proporzionale
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_today,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_week::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_week,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_month::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_month,
-            -- Calcola click unici per periodo usando distribuzione proporzionale
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_today::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_today,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_week::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_week,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_month::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_month
-          FROM total_calculated tc, period_stats ps
+            -- Calcola click per periodo usando distribuzione proporzionale o dati diretti
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_clicks_today FROM period_stats_fallback)
+              WHEN ec.total_from_enhanced > 0 
+                THEN ROUND(pse.raw_clicks_today::float / ec.total_from_enhanced * (SELECT click_count FROM link_data))
+              ELSE 0 
+            END as clicks_today,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_clicks_this_week FROM period_stats_fallback)
+              WHEN ec.total_from_enhanced > 0 
+                THEN ROUND(pse.raw_clicks_this_week::float / ec.total_from_enhanced * (SELECT click_count FROM link_data))
+              ELSE 0 
+            END as clicks_this_week,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_clicks_this_month FROM period_stats_fallback)
+              WHEN ec.total_from_enhanced > 0 
+                THEN ROUND(pse.raw_clicks_this_month::float / ec.total_from_enhanced * (SELECT click_count FROM link_data))
+              ELSE 0 
+            END as clicks_this_month,
+            -- Calcola click unici per periodo usando distribuzione proporzionale o dati diretti
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_unique_clicks_today FROM period_stats_fallback)
+              WHEN ec.unique_from_enhanced > 0 
+                THEN ROUND(pse.raw_unique_clicks_today::float / ec.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+              ELSE 0 
+            END as unique_clicks_today,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_unique_clicks_this_week FROM period_stats_fallback)
+              WHEN ec.unique_from_enhanced > 0 
+                THEN ROUND(pse.raw_unique_clicks_this_week::float / ec.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+              ELSE 0 
+            END as unique_clicks_this_week,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_unique_clicks_this_month FROM period_stats_fallback)
+              WHEN ec.unique_from_enhanced > 0 
+                THEN ROUND(pse.raw_unique_clicks_this_month::float / ec.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+              ELSE 0 
+            END as unique_clicks_this_month
+          FROM enhanced_count ec, period_stats_enhanced pse, period_stats_fallback psf
         ),
         top_stats AS (
           SELECT 
@@ -218,14 +251,18 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           SELECT id, click_count, unique_click_count FROM links 
           WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
         ),
-        total_calculated AS (
+        enhanced_count AS (
           SELECT 
             COUNT(*) as total_from_enhanced,
             COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
           FROM enhanced_fingerprints ef
           WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
-        period_stats AS (
+        use_fallback AS (
+          SELECT (ec.total_from_enhanced = 0) as should_use_clicks
+          FROM enhanced_count ec
+        ),
+        period_stats_enhanced AS (
           SELECT 
             COUNT(CASE WHEN (ef.created_at AT TIME ZONE 'Europe/Rome')::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as raw_clicks_today,
             COUNT(CASE WHEN ef.created_at >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as raw_clicks_this_week,
@@ -236,49 +273,99 @@ async function getFilteredClickAnalytics(userId: string, workspaceId: string, sh
           FROM enhanced_fingerprints ef
           WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
+        period_stats_fallback AS (
+          SELECT 
+            COUNT(CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN 1 END) as raw_clicks_today,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN 1 END) as raw_clicks_this_week,
+            COUNT(CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN 1 END) as raw_clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome::date = (NOW() AT TIME ZONE 'Europe/Rome')::date THEN user_fingerprint END) as raw_unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '7 days') THEN user_fingerprint END) as raw_unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= ((NOW() AT TIME ZONE 'Europe/Rome')::date - INTERVAL '30 days') THEN user_fingerprint END) as raw_unique_clicks_this_month
+          FROM clicks c
+          WHERE c.link_id IN (SELECT id FROM link_data)
+        ),
         click_stats AS (
           SELECT 
             (SELECT click_count FROM link_data) as total_clicks,
             (SELECT unique_click_count FROM link_data) as unique_clicks,
-            COUNT(DISTINCT ef.country) as unique_countries,
-            COUNT(DISTINCT ef.referrer) as unique_referrers,
-            COUNT(DISTINCT ef.device_category) as unique_devices,
-            COUNT(DISTINCT ef.browser_type) as unique_browsers,
-            -- Calcola click per periodo usando distribuzione proporzionale
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_today,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_week::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_week,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_month::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_month,
-            -- Calcola click unici per periodo usando distribuzione proporzionale
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_today::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_today,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_week::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_week,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_month::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_month
-          FROM enhanced_fingerprints ef, total_calculated tc, period_stats ps
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-          GROUP BY tc.total_from_enhanced, tc.unique_from_enhanced, ps.raw_clicks_today, ps.raw_clicks_this_week, ps.raw_clicks_this_month, ps.raw_unique_clicks_today, ps.raw_unique_clicks_this_week, ps.raw_unique_clicks_this_month
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN 0
+              ELSE COUNT(DISTINCT ef.country)
+            END as unique_countries,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN 0
+              ELSE COUNT(DISTINCT ef.referrer)
+            END as unique_referrers,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN 0
+              ELSE COUNT(DISTINCT ef.device_category)
+            END as unique_devices,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN 0
+              ELSE COUNT(DISTINCT ef.browser_type)
+            END as unique_browsers,
+            -- Calcola click per periodo usando distribuzione proporzionale o dati diretti
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_clicks_today FROM period_stats_fallback)
+              WHEN ec.total_from_enhanced > 0 
+                THEN ROUND(pse.raw_clicks_today::float / ec.total_from_enhanced * (SELECT click_count FROM link_data))
+              ELSE 0 
+            END as clicks_today,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_clicks_this_week FROM period_stats_fallback)
+              WHEN ec.total_from_enhanced > 0 
+                THEN ROUND(pse.raw_clicks_this_week::float / ec.total_from_enhanced * (SELECT click_count FROM link_data))
+              ELSE 0 
+            END as clicks_this_week,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_clicks_this_month FROM period_stats_fallback)
+              WHEN ec.total_from_enhanced > 0 
+                THEN ROUND(pse.raw_clicks_this_month::float / ec.total_from_enhanced * (SELECT click_count FROM link_data))
+              ELSE 0 
+            END as clicks_this_month,
+            -- Calcola click unici per periodo usando distribuzione proporzionale o dati diretti
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_unique_clicks_today FROM period_stats_fallback)
+              WHEN ec.unique_from_enhanced > 0 
+                THEN ROUND(pse.raw_unique_clicks_today::float / ec.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+              ELSE 0 
+            END as unique_clicks_today,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_unique_clicks_this_week FROM period_stats_fallback)
+              WHEN ec.unique_from_enhanced > 0 
+                THEN ROUND(pse.raw_unique_clicks_this_week::float / ec.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+              ELSE 0 
+            END as unique_clicks_this_week,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN (SELECT raw_unique_clicks_this_month FROM period_stats_fallback)
+              WHEN ec.unique_from_enhanced > 0 
+                THEN ROUND(pse.raw_unique_clicks_this_month::float / ec.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
+              ELSE 0 
+            END as unique_clicks_this_month
+          FROM enhanced_fingerprints ef, enhanced_count ec, period_stats_enhanced pse, period_stats_fallback psf
+          WHERE ef.link_id IN (SELECT id FROM link_data) OR (SELECT should_use_clicks FROM use_fallback)
+          GROUP BY ec.total_from_enhanced, ec.unique_from_enhanced, pse.raw_clicks_today, pse.raw_clicks_this_week, pse.raw_clicks_this_month, pse.raw_unique_clicks_today, pse.raw_unique_clicks_this_week, pse.raw_unique_clicks_this_month
         ),
         top_stats AS (
           SELECT 
-            (SELECT ef.referrer FROM enhanced_fingerprints ef 
-             WHERE ef.link_id IN (SELECT id FROM link_data) AND ef.referrer != 'Direct' 
-             GROUP BY ef.referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-            (SELECT ef.browser_type FROM enhanced_fingerprints ef 
-             WHERE ef.link_id IN (SELECT id FROM link_data)
-             GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-            (SELECT ef.device_category FROM enhanced_fingerprints ef 
-             WHERE ef.link_id IN (SELECT id FROM link_data)
-             GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN NULL
+              ELSE (SELECT ef.referrer FROM enhanced_fingerprints ef 
+                    WHERE ef.link_id IN (SELECT id FROM link_data) AND ef.referrer != 'Direct' 
+                    GROUP BY ef.referrer ORDER BY COUNT(*) DESC LIMIT 1)
+            END as top_referrer,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN NULL
+              ELSE (SELECT ef.browser_type FROM enhanced_fingerprints ef 
+                    WHERE ef.link_id IN (SELECT id FROM link_data)
+                    GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1)
+            END as most_used_browser,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN NULL
+              ELSE (SELECT ef.device_category FROM enhanced_fingerprints ef 
+                    WHERE ef.link_id IN (SELECT id FROM link_data)
+                    GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1)
+            END as most_used_device
         )
         SELECT 
           cs.total_clicks,
