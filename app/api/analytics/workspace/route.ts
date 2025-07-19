@@ -181,16 +181,6 @@ async function getFilteredTopLinks(
   }
 }
 
-// Funzione helper per costruire condizioni di data
-function buildDateCondition(startDate?: string, endDate?: string, paramOffset: number = 3) {
-  if (!startDate || !endDate) return { condition: '', params: [] };
-  
-  return {
-    condition: `AND c.clicked_at_rome >= $${paramOffset}::timestamptz AND c.clicked_at_rome <= $${paramOffset + 1}::timestamptz`,
-    params: [startDate, endDate]
-  };
-}
-
 // Funzione per ottenere dati geografici filtrati
 async function getFilteredGeographicData(
   userId: string, 
@@ -437,7 +427,11 @@ async function getFilteredDeviceData(
     const params = [userId, workspaceId, ...dateParams];
     const { rows } = await sql.query(query, params);
     
-    return rows.map((row: any) => ({
+    return rows.map((row: {
+      device_type: string;
+      clicks: string;
+      percentage: string;
+    }) => ({
       device_type: row.device_type,
       clicks: Number(row.clicks),
       percentage: Number(row.percentage)
@@ -483,7 +477,11 @@ async function getFilteredBrowserData(
     const params = [userId, workspaceId, ...dateParams];
     const { rows } = await sql.query(query, params);
     
-    return rows.map((row: any) => ({
+    return rows.map((row: {
+      browser_name: string;
+      clicks: string;
+      percentage: string;
+    }) => ({
       browser_name: row.browser_name,
       clicks: Number(row.clicks),
       percentage: Number(row.percentage)
@@ -530,7 +528,11 @@ async function getFilteredReferrerData(
     const params = [userId, workspaceId, ...dateParams];
     const { rows } = await sql.query(query, params);
     
-    return rows.map((row: any) => ({
+    return rows.map((row: {
+      referrer: string;
+      clicks: string;
+      percentage: string;
+    }) => ({
       referrer: row.referrer,
       clicks: Number(row.clicks),
       percentage: Number(row.percentage)

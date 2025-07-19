@@ -97,7 +97,7 @@ export default function WorkspaceAnalyticsClient({
   dailyData: initialDailyData
 }: Props) {
   // Funzione per assicurarsi che i dati abbiano tutti i campi necessari
-  const normalizeWorkspaceAnalytics = (data: any): WorkspaceAnalytics => {
+  const normalizeWorkspaceAnalytics = (data: Partial<WorkspaceAnalytics> | null | undefined): WorkspaceAnalytics => {
     return {
       total_links: Number(data?.total_links) || 0,
       total_clicks: Number(data?.total_clicks) || 0,
