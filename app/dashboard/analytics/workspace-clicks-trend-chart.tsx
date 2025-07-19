@@ -195,10 +195,10 @@ const CustomTooltip = ({
     }
 
     return (
-      <div className="bg-white border-2 border-gray-300 rounded-xl shadow-2xl p-4 min-w-[220px] backdrop-blur-sm">
+      <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-4 min-w-[200px] backdrop-blur-sm">
         {/* Header del tooltip */}
-        <div className="mb-3 pb-2 border-b border-gray-200">
-          <p className="font-bold text-gray-900 text-base">
+        <div className="mb-3 pb-2 border-b border-slate-100">
+          <p className="font-semibold text-slate-900 text-sm">
             {formattedLabel}
           </p>
         </div>
@@ -206,17 +206,17 @@ const CustomTooltip = ({
         {/* Dati */}
         <div className="space-y-2">
           {payload.map((entry, index: number) => (
-            <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+            <div key={index} className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div 
-                  className="w-3 h-3 rounded-full"
+                  className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-xs text-slate-600">
                   {entry.name === 'total_clicks' ? 'Click Totali' : 'Click Unici'}
                 </span>
               </div>
-              <span className="text-lg font-bold text-gray-900">
+              <span className="text-sm font-semibold text-slate-900">
                 {entry.value.toLocaleString('it-IT')}
               </span>
             </div>
@@ -224,15 +224,12 @@ const CustomTooltip = ({
         </div>
         
         {/* Footer con tasso conversione se ci sono entrambi i valori */}
-        {payload.length === 2 && (
-          <div className="mt-3 pt-2 border-t border-gray-200">
-            <div className="flex items-center justify-between text-xs text-gray-600">
-              <span>Tasso conversione:</span>
+        {payload.length === 2 && payload[0].value > 0 && (
+          <div className="mt-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Tasso unici:</span>
               <span className="font-medium">
-                {payload[0].value > 0 
-                  ? `${Math.round((payload[1].value / payload[0].value) * 100)}%`
-                  : '0%'
-                }
+                {Math.round((payload[1].value / payload[0].value) * 100)}%
               </span>
             </div>
           </div>
@@ -267,11 +264,11 @@ export default function WorkspaceClicksTrendChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <div className="flex items-center justify-center h-64 text-slate-500">
           <div className="text-center">
-            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-lg font-medium">Nessun dato disponibile</p>
+            <Calendar className="h-12 w-12 mx-auto mb-4 text-slate-400" />
+            <p className="font-medium">Nessun dato disponibile</p>
             <p className="text-sm">Non ci sono click registrati per questo periodo</p>
           </div>
         </div>
@@ -280,13 +277,16 @@ export default function WorkspaceClicksTrendChart({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-lg border border-slate-200 p-6">
       {/* Header del grafico */}
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-slate-100 rounded-lg">
+            <Calendar className="h-5 w-5 text-slate-600" />
+          </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Andamento Click - Workspace</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-semibold text-slate-900">Andamento Click - Workspace</h3>
+            <p className="text-sm text-slate-500">
               Click totali e unici aggregati per tutti i link del workspace
             </p>
           </div>
@@ -297,11 +297,11 @@ export default function WorkspaceClicksTrendChart({
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis 
               dataKey="displayDate"
-              tick={{ fontSize: 12 }}
-              stroke="#666"
+              tick={{ fontSize: 12, fill: '#64748b' }}
+              stroke="#94a3b8"
               angle={filterType === 'today' ? -45 : -45}
               textAnchor="end"
               height={60}
@@ -316,8 +316,8 @@ export default function WorkspaceClicksTrendChart({
               }
             />
             <YAxis 
-              tick={{ fontSize: 12 }}
-              stroke="#666"
+              tick={{ fontSize: 12, fill: '#64748b' }}
+              stroke="#94a3b8"
               domain={[0, maxValue]}
               allowDecimals={false}
               tickCount={6}
@@ -335,19 +335,19 @@ export default function WorkspaceClicksTrendChart({
             <Line 
               type="monotone" 
               dataKey="total_clicks" 
-              stroke="#10b981" 
-              strokeWidth={3}
-              dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2, fill: '#fff' }}
+              stroke="#059669" 
+              strokeWidth={2}
+              dot={{ fill: '#059669', strokeWidth: 2, r: 3 }}
+              activeDot={{ r: 5, stroke: '#059669', strokeWidth: 2, fill: '#fff' }}
               name="total_clicks"
             />
             <Line 
               type="monotone" 
               dataKey="unique_clicks" 
-              stroke="#3b82f6" 
-              strokeWidth={3}
-              dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
+              stroke="#0f766e" 
+              strokeWidth={2}
+              dot={{ fill: '#0f766e', strokeWidth: 2, r: 3 }}
+              activeDot={{ r: 5, stroke: '#0f766e', strokeWidth: 2, fill: '#fff' }}
               name="unique_clicks"
             />
           </LineChart>
@@ -356,8 +356,8 @@ export default function WorkspaceClicksTrendChart({
 
       {/* Footer con informazioni aggiuntive */}
       {data.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="mt-4 pt-4 border-t border-slate-200">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>
               {filterType === 'today' 
                 ? `Periodo: Ultime 24 ore (${data[0].date} - ${data[data.length - 1].date})`

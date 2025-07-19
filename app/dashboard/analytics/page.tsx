@@ -494,22 +494,26 @@ export default async function WorkspaceAnalyticsPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <div className="min-h-screen bg-slate-50">
+      <header className="bg-white shadow-sm border-b border-slate-200 px-6 py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <Link 
               href="/dashboard"
-              className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
             >
-              ← Torna alla Dashboard
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Dashboard
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900">Statistiche Workspace</h1>
+            <div className="text-slate-300">•</div>
+            <h1 className="text-xl font-semibold text-slate-900">Analytics</h1>
           </div>
         </div>
       </header>
 
-      <div className="p-6">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <WorkspaceAnalyticsClient
           workspaceAnalytics={workspaceAnalytics}
           topLinks={topLinks}

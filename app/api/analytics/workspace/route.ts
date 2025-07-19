@@ -12,10 +12,12 @@ async function getFilteredWorkspaceAnalytics(
   try {
     // Costruisco le condizioni per il filtro temporale
     let dateCondition = '';
+    let dateConditionClicks = '';
     let dateParams: string[] = [];
     
     if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $${3}::timestamptz AND c.clicked_at_rome <= $${4}::timestamptz`;
+      dateCondition = `AND ef.created_at >= $${3}::timestamptz AND ef.created_at <= $${4}::timestamptz`;
+      dateConditionClicks = `AND c.clicked_at_rome >= $${3}::timestamptz AND c.clicked_at_rome <= $${4}::timestamptz`;
       dateParams = [startDate, endDate];
     }
 
@@ -53,15 +55,15 @@ async function getFilteredWorkspaceAnalytics(
       top_stats AS (
         SELECT 
           (SELECT referrer FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           WHERE referrer != 'Direct' ${dateCondition} GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+           WHERE referrer != 'Direct' ${dateConditionClicks} GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
           (SELECT browser_name FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           WHERE 1=1 ${dateCondition} GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+           WHERE 1=1 ${dateConditionClicks} GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
           (SELECT device_type FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           WHERE 1=1 ${dateCondition} GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device,
+           WHERE 1=1 ${dateConditionClicks} GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device,
           (SELECT wl.short_code FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           WHERE 1=1 ${dateCondition} GROUP BY wl.short_code ORDER BY COUNT(*) DESC LIMIT 1) as most_clicked_link,
+           WHERE 1=1 ${dateConditionClicks} GROUP BY wl.short_code ORDER BY COUNT(*) DESC LIMIT 1) as most_clicked_link,
           (SELECT COUNT(*) FROM clicks c JOIN workspace_links wl ON c.link_id = wl.id 
-           WHERE 1=1 ${dateCondition} GROUP BY wl.short_code ORDER BY COUNT(*) DESC LIMIT 1) as most_clicked_link_count
+           WHERE 1=1 ${dateConditionClicks} GROUP BY wl.short_code ORDER BY COUNT(*) DESC LIMIT 1) as most_clicked_link_count
       )
       SELECT 
         ls.total_links,
@@ -197,33 +199,32 @@ async function getFilteredGeographicData(
   endDate?: string
 ) {
   try {
-    const dateFilter = buildDateCondition(startDate, endDate, 3);
+    let dateCondition = '';
+    let dateParams: string[] = [];
+    
+    if (startDate && endDate) {
+      dateCondition = `AND c.clicked_at_rome >= $3::timestamptz AND c.clicked_at_rome <= $4::timestamptz`;
+      dateParams = [startDate, endDate];
+    }
     
     const query = `
-      WITH workspace_links AS (
-        SELECT id FROM links 
-        WHERE user_id = $1 AND workspace_id = $2
-      ),
-      total_clicks AS (
-        SELECT COUNT(*) as total
-        FROM clicks c
-        JOIN workspace_links wl ON c.link_id = wl.id
-        WHERE 1=1 ${dateFilter.condition}
-      )
       SELECT 
-        country,
+        c.country,
         COUNT(*) as clicks,
-        (COUNT(*) * 100.0 / GREATEST(total.total, 1)) as percentage
+        ROUND((COUNT(*)::float / (
+          SELECT COUNT(*) FROM clicks c2 
+          JOIN links l2 ON c2.link_id = l2.id 
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
+        ) * 100), 2) as percentage
       FROM clicks c
-      JOIN workspace_links wl ON c.link_id = wl.id
-      CROSS JOIN total_clicks total
-      WHERE country IS NOT NULL AND country != '' ${dateFilter.condition}
-      GROUP BY country, total.total
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.country IS NOT NULL AND c.country != '' ${dateCondition}
+      GROUP BY c.country
       ORDER BY clicks DESC
       LIMIT 10
     `;
 
-    const params = [userId, workspaceId, ...dateFilter.params];
+    const params = [userId, workspaceId, ...dateParams];
     const { rows } = await sql.query(query, params);
     
     return rows.map((row: { 
@@ -401,6 +402,145 @@ async function getFilteredTimeSeriesData(
   }
 }
 
+// Funzione per ottenere dati dei dispositivi filtrati
+async function getFilteredDeviceData(
+  userId: string, 
+  workspaceId: string,
+  startDate?: string, 
+  endDate?: string
+) {
+  try {
+    let dateCondition = '';
+    let dateParams: string[] = [];
+    
+    if (startDate && endDate) {
+      dateCondition = `AND c.clicked_at_rome >= $3::timestamptz AND c.clicked_at_rome <= $4::timestamptz`;
+      dateParams = [startDate, endDate];
+    }
+
+    const query = `
+      SELECT 
+        c.device_type,
+        COUNT(*) as clicks,
+        ROUND((COUNT(*)::float / (
+          SELECT COUNT(*) FROM clicks c2 
+          JOIN links l2 ON c2.link_id = l2.id 
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
+        ) * 100), 2) as percentage
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.device_type IS NOT NULL ${dateCondition}
+      GROUP BY c.device_type
+      ORDER BY clicks DESC
+    `;
+
+    const params = [userId, workspaceId, ...dateParams];
+    const { rows } = await sql.query(query, params);
+    
+    return rows.map((row: any) => ({
+      device_type: row.device_type,
+      clicks: Number(row.clicks),
+      percentage: Number(row.percentage)
+    }));
+  } catch (error) {
+    console.error("Failed to fetch filtered device data:", error);
+    return [];
+  }
+}
+
+// Funzione per ottenere dati dei browser filtrati
+async function getFilteredBrowserData(
+  userId: string, 
+  workspaceId: string,
+  startDate?: string, 
+  endDate?: string
+) {
+  try {
+    let dateCondition = '';
+    let dateParams: string[] = [];
+    
+    if (startDate && endDate) {
+      dateCondition = `AND c.clicked_at_rome >= $3::timestamptz AND c.clicked_at_rome <= $4::timestamptz`;
+      dateParams = [startDate, endDate];
+    }
+
+    const query = `
+      SELECT 
+        c.browser_name,
+        COUNT(*) as clicks,
+        ROUND((COUNT(*)::float / (
+          SELECT COUNT(*) FROM clicks c2 
+          JOIN links l2 ON c2.link_id = l2.id 
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
+        ) * 100), 2) as percentage
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.browser_name IS NOT NULL ${dateCondition}
+      GROUP BY c.browser_name
+      ORDER BY clicks DESC
+    `;
+
+    const params = [userId, workspaceId, ...dateParams];
+    const { rows } = await sql.query(query, params);
+    
+    return rows.map((row: any) => ({
+      browser_name: row.browser_name,
+      clicks: Number(row.clicks),
+      percentage: Number(row.percentage)
+    }));
+  } catch (error) {
+    console.error("Failed to fetch filtered browser data:", error);
+    return [];
+  }
+}
+
+// Funzione per ottenere dati dei referrer filtrati
+async function getFilteredReferrerData(
+  userId: string, 
+  workspaceId: string,
+  startDate?: string, 
+  endDate?: string
+) {
+  try {
+    let dateCondition = '';
+    let dateParams: string[] = [];
+    
+    if (startDate && endDate) {
+      dateCondition = `AND c.clicked_at_rome >= $3::timestamptz AND c.clicked_at_rome <= $4::timestamptz`;
+      dateParams = [startDate, endDate];
+    }
+
+    const query = `
+      SELECT 
+        c.referrer,
+        COUNT(*) as clicks,
+        ROUND((COUNT(*)::float / (
+          SELECT COUNT(*) FROM clicks c2 
+          JOIN links l2 ON c2.link_id = l2.id 
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
+        ) * 100), 2) as percentage
+      FROM clicks c
+      JOIN links l ON c.link_id = l.id
+      WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.referrer IS NOT NULL ${dateCondition}
+      GROUP BY c.referrer
+      ORDER BY clicks DESC
+      LIMIT 10
+    `;
+
+    const params = [userId, workspaceId, ...dateParams];
+    const { rows } = await sql.query(query, params);
+    
+    return rows.map((row: any) => ({
+      referrer: row.referrer,
+      clicks: Number(row.clicks),
+      percentage: Number(row.percentage)
+    }));
+  } catch (error) {
+    console.error("Failed to fetch filtered referrer data:", error);
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -418,11 +558,17 @@ export async function GET(request: NextRequest) {
       workspaceAnalytics,
       topLinks,
       geographicData,
+      deviceData,
+      browserData,
+      referrerData,
       timeSeriesData
     ] = await Promise.all([
       getFilteredWorkspaceAnalytics(session.userId, session.workspaceId, startDate || undefined, endDate || undefined),
       getFilteredTopLinks(session.userId, session.workspaceId, 10, startDate || undefined, endDate || undefined),
       getFilteredGeographicData(session.userId, session.workspaceId, startDate || undefined, endDate || undefined),
+      getFilteredDeviceData(session.userId, session.workspaceId, startDate || undefined, endDate || undefined),
+      getFilteredBrowserData(session.userId, session.workspaceId, startDate || undefined, endDate || undefined),
+      getFilteredReferrerData(session.userId, session.workspaceId, startDate || undefined, endDate || undefined),
       getFilteredTimeSeriesData(session.userId, session.workspaceId, startDate || undefined, endDate || undefined)
     ]);
 
@@ -430,6 +576,9 @@ export async function GET(request: NextRequest) {
       workspaceAnalytics,
       topLinks,
       geographicData,
+      deviceData,
+      browserData,
+      referrerData,
       timeSeriesData
     });
   } catch (error) {
