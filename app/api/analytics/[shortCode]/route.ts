@@ -621,6 +621,168 @@ async function getFilteredTimeSeriesData(
   }
 }
 
+// Funzione per ottenere i dati mensili aggregati
+async function getMonthlyData(
+  userId: string,
+  workspaceId: string,
+  shortCode: string,
+  startDate?: string,
+  endDate?: string
+): Promise<{ month: string; month_number: number; year: number; total_clicks: number; unique_clicks: number }[]> {
+  try {
+    // Se non ci sono filtri di data, usa l'ultimo anno
+    let dateCondition = '';
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
+    
+    if (startDate && endDate) {
+      dateCondition = `AND c.clicked_at_rome::date >= $4::date AND c.clicked_at_rome::date <= $5::date`;
+      dateParams.push(startDate, endDate);
+    } else {
+      // Default: ultimi 12 mesi
+      dateCondition = `AND c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '12 months'`;
+    }
+
+    const query = `
+      WITH monthly_total_clicks AS (
+        SELECT 
+          EXTRACT(MONTH FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as month_number,
+          EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as year,
+          COUNT(*) as total_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
+        GROUP BY EXTRACT(MONTH FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome'), EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome')
+      ),
+      monthly_unique_clicks AS (
+        SELECT 
+          EXTRACT(MONTH FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as month_number,
+          EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as year,
+          COUNT(DISTINCT COALESCE(fc.device_cluster_id, ef.fingerprint_hash, c.user_fingerprint)) as unique_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
+          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
+        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
+        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
+        GROUP BY EXTRACT(MONTH FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome'), EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome')
+      )
+      SELECT 
+        CASE mtc.month_number
+          WHEN 1 THEN 'Gennaio'
+          WHEN 2 THEN 'Febbraio'
+          WHEN 3 THEN 'Marzo'
+          WHEN 4 THEN 'Aprile'
+          WHEN 5 THEN 'Maggio'
+          WHEN 6 THEN 'Giugno'
+          WHEN 7 THEN 'Luglio'
+          WHEN 8 THEN 'Agosto'
+          WHEN 9 THEN 'Settembre'
+          WHEN 10 THEN 'Ottobre'
+          WHEN 11 THEN 'Novembre'
+          WHEN 12 THEN 'Dicembre'
+        END as month,
+        mtc.month_number::integer,
+        mtc.year::integer,
+        COALESCE(mtc.total_clicks, 0) as total_clicks,
+        COALESCE(muc.unique_clicks, 0) as unique_clicks
+      FROM monthly_total_clicks mtc
+      LEFT JOIN monthly_unique_clicks muc ON mtc.month_number = muc.month_number AND mtc.year = muc.year
+      ORDER BY mtc.year, mtc.month_number
+    `;
+
+    const { rows } = await sql.query(query, dateParams);
+    
+    return rows.map(row => ({
+      month: row.month,
+      month_number: parseInt(row.month_number) || 0,
+      year: parseInt(row.year) || 0,
+      total_clicks: parseInt(row.total_clicks) || 0,
+      unique_clicks: parseInt(row.unique_clicks) || 0
+    }));
+  } catch (error) {
+    console.error("Error fetching monthly data:", error);
+    return [];
+  }
+}
+
+// Funzione per ottenere i dati settimanali aggregati
+async function getWeeklyData(
+  userId: string,
+  workspaceId: string,
+  shortCode: string,
+  startDate?: string,
+  endDate?: string
+): Promise<{ week: number; year: number; week_start: string; week_end: string; total_clicks: number; unique_clicks: number }[]> {
+  try {
+    // Se non ci sono filtri di data, usa le ultime 12 settimane
+    let dateCondition = '';
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
+    
+    if (startDate && endDate) {
+      dateCondition = `AND c.clicked_at_rome::date >= $4::date AND c.clicked_at_rome::date <= $5::date`;
+      dateParams.push(startDate, endDate);
+    } else {
+      // Default: ultime 12 settimane
+      dateCondition = `AND c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '12 weeks'`;
+    }
+
+    const query = `
+      WITH weekly_total_clicks AS (
+        SELECT 
+          EXTRACT(WEEK FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as week,
+          EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as year,
+          DATE_TRUNC('week', c.clicked_at_rome AT TIME ZONE 'Europe/Rome')::date as week_start,
+          (DATE_TRUNC('week', c.clicked_at_rome AT TIME ZONE 'Europe/Rome') + INTERVAL '6 days')::date as week_end,
+          COUNT(*) as total_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
+        GROUP BY EXTRACT(WEEK FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome'), 
+                 EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome'),
+                 DATE_TRUNC('week', c.clicked_at_rome AT TIME ZONE 'Europe/Rome')
+      ),
+      weekly_unique_clicks AS (
+        SELECT 
+          EXTRACT(WEEK FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as week,
+          EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome') as year,
+          COUNT(DISTINCT COALESCE(fc.device_cluster_id, ef.fingerprint_hash, c.user_fingerprint)) as unique_clicks
+        FROM clicks c
+        JOIN links l ON c.link_id = l.id
+        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
+          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
+        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
+        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
+        GROUP BY EXTRACT(WEEK FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome'), 
+                 EXTRACT(YEAR FROM c.clicked_at_rome AT TIME ZONE 'Europe/Rome')
+      )
+      SELECT 
+        wtc.week::integer,
+        wtc.year::integer,
+        wtc.week_start::text,
+        wtc.week_end::text,
+        COALESCE(wtc.total_clicks, 0) as total_clicks,
+        COALESCE(wuc.unique_clicks, 0) as unique_clicks
+      FROM weekly_total_clicks wtc
+      LEFT JOIN weekly_unique_clicks wuc ON wtc.week = wuc.week AND wtc.year = wuc.year
+      ORDER BY wtc.year, wtc.week
+    `;
+
+    const { rows } = await sql.query(query, dateParams);
+    
+    return rows.map(row => ({
+      week: parseInt(row.week) || 0,
+      year: parseInt(row.year) || 0,
+      week_start: row.week_start,
+      week_end: row.week_end,
+      total_clicks: parseInt(row.total_clicks) || 0,
+      unique_clicks: parseInt(row.unique_clicks) || 0
+    }));
+  } catch (error) {
+    console.error("Error fetching weekly data:", error);
+    return [];
+  }
+}
+
 // Handler GET principale
 export async function GET(
   request: NextRequest,
@@ -649,7 +811,9 @@ export async function GET(
       deviceData,
       browserData,
       referrerData,
-      timeSeriesData
+      timeSeriesData,
+      monthlyData,
+      weeklyData
     ] = await Promise.all([
       getLinkData(session.userId, session.workspaceId, shortCode),
       getFilteredClickAnalytics(session.userId, session.workspaceId, shortCode, startDate, endDate),
@@ -657,7 +821,9 @@ export async function GET(
       getFilteredDeviceData(session.userId, session.workspaceId, shortCode, startDate, endDate),
       getFilteredBrowserData(session.userId, session.workspaceId, shortCode, startDate, endDate),
       getFilteredReferrerData(session.userId, session.workspaceId, shortCode, startDate, endDate),
-      getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType)
+      getFilteredTimeSeriesData(session.userId, session.workspaceId, shortCode, startDate, endDate, filterType),
+      getMonthlyData(session.userId, session.workspaceId, shortCode, startDate, endDate),
+      getWeeklyData(session.userId, session.workspaceId, shortCode, startDate, endDate)
     ]);
 
     if (!linkData) {
@@ -671,7 +837,9 @@ export async function GET(
       deviceData,
       browserData,
       referrerData,
-      timeSeriesData
+      timeSeriesData,
+      monthlyData,
+      weeklyData
     });
 
   } catch (error) {

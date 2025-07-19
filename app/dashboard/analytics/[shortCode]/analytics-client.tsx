@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, ExternalLink, Calendar, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Globe, Monitor, Smartphone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import ClicksTrendChartDual from './clicks-trend-chart-dual';
 import PeriodChart from './period-chart';
