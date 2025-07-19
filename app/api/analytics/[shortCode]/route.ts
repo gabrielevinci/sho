@@ -97,7 +97,7 @@ async function getFilteredClickAnalytics(
 
     // Costruiamo le condizioni per il filtro temporale
     let dateCondition = '';
-    let dateParams: any[] = [userId, workspaceId, shortCode];
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
       dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
@@ -238,7 +238,7 @@ async function getFilteredGeographicData(
 ): Promise<GeographicData[]> {
   try {
     let dateCondition = '';
-    let dateParams: any[] = [userId, workspaceId, shortCode];
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
       dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
@@ -293,7 +293,7 @@ async function getFilteredDeviceData(
 ): Promise<DeviceData[]> {
   try {
     let dateCondition = '';
-    let dateParams: any[] = [userId, workspaceId, shortCode];
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
       dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
@@ -347,7 +347,7 @@ async function getFilteredBrowserData(
 ): Promise<BrowserData[]> {
   try {
     let dateCondition = '';
-    let dateParams: any[] = [userId, workspaceId, shortCode];
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
       dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
@@ -402,7 +402,7 @@ async function getFilteredReferrerData(
 ): Promise<ReferrerData[]> {
   try {
     let dateCondition = '';
-    let dateParams: any[] = [userId, workspaceId, shortCode];
+    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
     
     if (startDate && endDate) {
       dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
