@@ -97,233 +97,147 @@ async function getLinkData(userId: string, workspaceId: string, shortCode: strin
   }
 }
 
-// Funzione per ottenere le statistiche di base del link - CORRETTA per usare distribuzione proporzionale
+// Helper per unique visitors uniformi (stesso dell'API route)
+function getUniqueVisitorLogic() {
+  return `COALESCE(fc.device_cluster_id, ef.fingerprint_hash, c.user_fingerprint)`;
+}
+
+// Funzione per ottenere le statistiche di base del link - UNIFICATA con API route
 async function getClickAnalytics(userId: string, workspaceId: string, shortCode: string): Promise<ClickAnalytics> {
   try {
-    // Prima verifichiamo se esiste il campo referrer
-    const hasReferrerField = await sql`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'enhanced_fingerprints' 
-      AND column_name = 'referrer'
+    console.log('🔍 [SSR ANALYTICS] Caricamento dati server-side per:', shortCode);
+
+    const query = `
+      WITH link_info AS (
+        SELECT id, click_count, unique_click_count, created_at
+        FROM links 
+        WHERE user_id = $1 AND workspace_id = $2 AND short_code = $3
+      ),
+      
+      -- STESSA LOGICA DELL'API ROUTE: Tutti i click con enhanced fingerprints
+      all_clicks AS (
+        SELECT DISTINCT
+          c.id as click_id,
+          c.country,
+          c.referrer,
+          c.browser_name,
+          c.device_type,
+          c.clicked_at_rome,
+          ${getUniqueVisitorLogic()} as unique_visitor_id,
+          c.user_fingerprint as original_fingerprint
+        FROM clicks c
+        JOIN link_info li ON c.link_id = li.id
+        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
+          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
+        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
+      ),
+      
+      -- STATISTICHE PRINCIPALI
+      main_stats AS (
+        SELECT 
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT unique_visitor_id) as unique_clicks,
+          COUNT(DISTINCT country) as unique_countries,
+          COUNT(DISTINCT CASE WHEN referrer IS NOT NULL AND referrer != 'Direct' THEN referrer END) as unique_referrers,
+          COUNT(DISTINCT device_type) as unique_devices,
+          COUNT(DISTINCT browser_name) as unique_browsers
+        FROM all_clicks
+      ),
+      
+      -- STATISTICHE PERIODICHE (finestre temporali standard)
+      period_stats AS (
+        SELECT 
+          COUNT(CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' THEN 1 END) as clicks_today,
+          COUNT(CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+          COUNT(CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+          COUNT(DISTINCT CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' THEN unique_visitor_id END) as unique_clicks_today,
+          COUNT(DISTINCT CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' THEN unique_visitor_id END) as unique_clicks_this_week,
+          COUNT(DISTINCT CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' THEN unique_visitor_id END) as unique_clicks_this_month
+        FROM all_clicks
+      ),
+      
+      -- TOP VALUES
+      top_values AS (
+        SELECT 
+          (SELECT referrer FROM all_clicks 
+           WHERE referrer IS NOT NULL AND referrer != 'Direct' 
+           GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+          (SELECT browser_name FROM all_clicks 
+           WHERE browser_name IS NOT NULL 
+           GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+          (SELECT device_type FROM all_clicks 
+           WHERE device_type IS NOT NULL 
+           GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+      )
+      
+      SELECT 
+        -- USA SEMPRE dati calcolati dalle query (stessa logica API route)
+        ms.total_clicks,
+        ms.unique_clicks,
+        ms.unique_countries,
+        ms.unique_referrers,
+        ms.unique_devices,
+        ms.unique_browsers,
+        tv.top_referrer,
+        tv.most_used_browser,
+        tv.most_used_device,
+        ps.clicks_today,
+        ps.clicks_this_week,
+        ps.clicks_this_month,
+        ps.unique_clicks_today,
+        ps.unique_clicks_this_week,
+        ps.unique_clicks_this_month,
+        li.created_at
+      FROM link_info li
+      CROSS JOIN main_stats ms
+      CROSS JOIN period_stats ps  
+      CROSS JOIN top_values tv
     `;
 
-    const hasReferrer = hasReferrerField.rows.length > 0;
+    const { rows } = await sql.query(query, [userId, workspaceId, shortCode]);
+    const result = rows[0];
 
-    if (hasReferrer) {
-      // Query con campo referrer - CORRETTA per usare distribuzione proporzionale
-      const { rows } = await sql<ClickAnalytics>`
-        WITH link_data AS (
-          SELECT id, click_count, unique_click_count FROM links 
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
-        ),
-        total_calculated AS (
-          SELECT 
-            COUNT(*) as total_from_enhanced,
-            COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
-          FROM enhanced_fingerprints ef
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-        ),
-        period_stats AS (
-          SELECT 
-            COUNT(CASE WHEN ef.created_at::date = CURRENT_DATE THEN 1 END) as raw_clicks_today,
-            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as raw_clicks_this_week,
-            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as raw_clicks_this_month,
-            COUNT(DISTINCT CASE WHEN ef.created_at::date = CURRENT_DATE THEN ef.device_fingerprint END) as raw_unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ef.device_fingerprint END) as raw_unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN ef.device_fingerprint END) as raw_unique_clicks_this_month
-          FROM enhanced_fingerprints ef
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-        ),
-        click_stats AS (
-          SELECT 
-            (SELECT click_count FROM link_data) as total_clicks,
-            (SELECT unique_click_count FROM link_data) as unique_clicks,
-            COUNT(DISTINCT ef.country) as unique_countries,
-            COUNT(DISTINCT ef.referrer) as unique_referrers,
-            COUNT(DISTINCT ef.device_category) as unique_devices,
-            COUNT(DISTINCT ef.browser_type) as unique_browsers,
-            -- Calcola click per periodo usando distribuzione proporzionale
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_today,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_week::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_week,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_month::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_month,
-            -- Calcola click unici per periodo usando distribuzione proporzionale
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_today::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_today,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_week::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_week,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_month::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_month
-          FROM enhanced_fingerprints ef, total_calculated tc, period_stats ps
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-          GROUP BY tc.total_from_enhanced, tc.unique_from_enhanced, ps.raw_clicks_today, ps.raw_clicks_this_week, ps.raw_clicks_this_month, ps.raw_unique_clicks_today, ps.raw_unique_clicks_this_week, ps.raw_unique_clicks_this_month
-        ),
-        avg_stats AS (
-          SELECT 
-            CASE 
-              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
-              THEN COUNT(ef.id)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
-              ELSE 0 
-            END as avg_total_clicks_per_period,
-            CASE 
-              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
-              THEN COUNT(DISTINCT ef.device_fingerprint)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
-              ELSE 0 
-            END as avg_unique_clicks_per_period
-          FROM enhanced_fingerprints ef
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-            AND ef.created_at >= CURRENT_DATE - INTERVAL '24 hours'
-        ),
-        top_stats AS (
-          SELECT 
-            (SELECT ef.referrer FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
-             WHERE ef.referrer != 'Direct' AND ef.referrer IS NOT NULL 
-             GROUP BY ef.referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-            (SELECT ef.browser_type FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
-             WHERE ef.browser_type IS NOT NULL
-             GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-            (SELECT ef.device_category FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
-             WHERE ef.device_category IS NOT NULL
-             GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
-        )
-        SELECT 
-          cs.total_clicks,
-          cs.unique_clicks,
-          cs.unique_countries,
-          cs.unique_referrers,
-          cs.unique_devices,
-          cs.unique_browsers,
-          ts.top_referrer,
-          ts.most_used_browser,
-          ts.most_used_device,
-          cs.clicks_today::integer,
-          cs.clicks_this_week::integer,
-          cs.clicks_this_month::integer,
-          cs.unique_clicks_today::integer,
-          cs.unique_clicks_this_week::integer,
-          cs.unique_clicks_this_month::integer,
-          ROUND(avgst.avg_total_clicks_per_period::numeric, 2) as avg_total_clicks_per_period,
-          ROUND(avgst.avg_unique_clicks_per_period::numeric, 2) as avg_unique_clicks_per_period
-        FROM click_stats cs, top_stats ts, avg_stats avgst
-      `;
-      return rows[0] || getDefaultClickAnalytics();
-    } else {
-      // Query senza campo referrer - CORRETTA per usare distribuzione proporzionale
-      const { rows } = await sql<ClickAnalytics>`
-        WITH link_data AS (
-          SELECT id, click_count, unique_click_count FROM links 
-          WHERE user_id = ${userId} AND workspace_id = ${workspaceId} AND short_code = ${shortCode}
-        ),
-        total_calculated AS (
-          SELECT 
-            COUNT(*) as total_from_enhanced,
-            COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
-          FROM enhanced_fingerprints ef
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-        ),
-        period_stats AS (
-          SELECT 
-            COUNT(CASE WHEN ef.created_at::date = CURRENT_DATE THEN 1 END) as raw_clicks_today,
-            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as raw_clicks_this_week,
-            COUNT(CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN 1 END) as raw_clicks_this_month,
-            COUNT(DISTINCT CASE WHEN ef.created_at::date = CURRENT_DATE THEN ef.device_fingerprint END) as raw_unique_clicks_today,
-            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN ef.device_fingerprint END) as raw_unique_clicks_this_week,
-            COUNT(DISTINCT CASE WHEN ef.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN ef.device_fingerprint END) as raw_unique_clicks_this_month
-          FROM enhanced_fingerprints ef
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-        ),
-        click_stats AS (
-          SELECT 
-            (SELECT click_count FROM link_data) as total_clicks,
-            (SELECT unique_click_count FROM link_data) as unique_clicks,
-            COUNT(DISTINCT ef.country) as unique_countries,
-            COUNT(DISTINCT 'unknown') as unique_referrers,
-            COUNT(DISTINCT ef.device_category) as unique_devices,
-            COUNT(DISTINCT ef.browser_type) as unique_browsers,
-            -- Calcola click per periodo usando distribuzione proporzionale
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_today::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_today,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_week::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_week,
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN ROUND(ps.raw_clicks_this_month::float / tc.total_from_enhanced * (SELECT click_count FROM link_data))
-                 ELSE 0 END as clicks_this_month,
-            -- Calcola click unici per periodo usando distribuzione proporzionale
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_today::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_today,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_week::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_week,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN ROUND(ps.raw_unique_clicks_this_month::float / tc.unique_from_enhanced * (SELECT unique_click_count FROM link_data))
-                 ELSE 0 END as unique_clicks_this_month
-          FROM enhanced_fingerprints ef, total_calculated tc, period_stats ps
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-          GROUP BY tc.total_from_enhanced, tc.unique_from_enhanced, ps.raw_clicks_today, ps.raw_clicks_this_week, ps.raw_clicks_this_month, ps.raw_unique_clicks_today, ps.raw_unique_clicks_this_week, ps.raw_unique_clicks_this_month
-        ),
-        avg_stats AS (
-          SELECT 
-            CASE 
-              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
-              THEN COUNT(ef.id)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
-              ELSE 0 
-            END as avg_total_clicks_per_period,
-            CASE 
-              WHEN COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at)) > 0 
-              THEN COUNT(DISTINCT ef.device_fingerprint)::float / COUNT(DISTINCT DATE_TRUNC('hour', ef.created_at))
-              ELSE 0 
-            END as avg_unique_clicks_per_period
-          FROM enhanced_fingerprints ef
-          WHERE ef.link_id IN (SELECT id FROM link_data)
-            AND ef.created_at >= CURRENT_DATE - INTERVAL '24 hours'
-        ),
-        top_stats AS (
-          SELECT 
-            NULL as top_referrer,
-            (SELECT ef.browser_type FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
-             WHERE ef.browser_type IS NOT NULL
-             GROUP BY ef.browser_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-            (SELECT ef.device_category FROM enhanced_fingerprints ef JOIN link_data ld ON ef.link_id = ld.id 
-             WHERE ef.device_category IS NOT NULL
-             GROUP BY ef.device_category ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
-        )
-        SELECT 
-          cs.total_clicks,
-          cs.unique_clicks,
-          cs.unique_countries,
-          cs.unique_referrers,
-          cs.unique_devices,
-          cs.unique_browsers,
-          ts.top_referrer,
-          ts.most_used_browser,
-          ts.most_used_device,
-          cs.clicks_today::integer,
-          cs.clicks_this_week::integer,
-          cs.clicks_this_month::integer,
-          cs.unique_clicks_today::integer,
-          cs.unique_clicks_this_week::integer,
-          cs.unique_clicks_this_month::integer,
-          ROUND(avgst.avg_total_clicks_per_period::numeric, 2) as avg_total_clicks_per_period,
-          ROUND(avgst.avg_unique_clicks_per_period::numeric, 2) as avg_unique_clicks_per_period
-        FROM click_stats cs, top_stats ts, avg_stats avgst
-      `;
-      return rows[0] || getDefaultClickAnalytics();
+    if (!result) {
+      console.error('❌ [SSR ANALYTICS] Nessun risultato dalla query');
+      throw new Error('No analytics data found');
     }
+
+    console.log('✅ [SSR ANALYTICS] Risultati query server-side:', {
+      total_clicks: result.total_clicks,
+      unique_clicks: result.unique_clicks,
+      unique_countries: result.unique_countries,
+      clicks_today: result.clicks_today,
+      clicks_this_week: result.clicks_this_week
+    });
+
+    // Calcola le medie giornaliere
+    const createdAt = new Date(result.created_at);
+    const now = new Date();
+    const daysSinceCreation = Math.max(1, Math.ceil((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    return {
+      total_clicks: parseInt(result.total_clicks) || 0,
+      unique_clicks: parseInt(result.unique_clicks) || 0,
+      unique_countries: parseInt(result.unique_countries) || 0,
+      unique_referrers: parseInt(result.unique_referrers) || 0,
+      unique_devices: parseInt(result.unique_devices) || 0,
+      unique_browsers: parseInt(result.unique_browsers) || 0,
+      top_referrer: result.top_referrer,
+      most_used_browser: result.most_used_browser,
+      most_used_device: result.most_used_device,
+      clicks_today: parseInt(result.clicks_today) || 0,
+      clicks_this_week: parseInt(result.clicks_this_week) || 0,
+      clicks_this_month: parseInt(result.clicks_this_month) || 0,
+      unique_clicks_today: parseInt(result.unique_clicks_today) || 0,
+      unique_clicks_this_week: parseInt(result.unique_clicks_this_week) || 0,
+      unique_clicks_this_month: parseInt(result.unique_clicks_this_month) || 0,
+      avg_total_clicks_per_period: Math.round((parseInt(result.total_clicks) / daysSinceCreation) * 100) / 100,
+      avg_unique_clicks_per_period: Math.round((parseInt(result.unique_clicks) / daysSinceCreation) * 100) / 100
+    };
+
   } catch (error) {
-    console.error("Failed to fetch click analytics:", error);
-    return getDefaultClickAnalytics();
+    console.error("❌ [SSR ANALYTICS] Errore in getClickAnalytics:", error);
+    throw error;
   }
 }
 

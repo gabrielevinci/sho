@@ -121,17 +121,16 @@ const getDateRangeFromFilter = (filter: DateFilter, customRange?: DateRange): { 
   
   switch (filter) {
     case 'today':
-      // Calcola l'ora corrente italiana arrotondata all'ora
-      const currentHourItalian = new Date(italianNow);
-      currentHourItalian.setMinutes(0, 0, 0); 
+      // Ottenere il timestamp corrente locale
+      const now = new Date();
       
-      // Calcola le precedenti 23 ore per un totale di 24 ore
-      const startHourItalian = new Date(currentHourItalian.getTime() - 23 * 60 * 60 * 1000);
+      // Calcola 24 ore fa
+      const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
-      // Passiamo i timestamp italiani al backend che li convertirà in UTC per il database
+      // Restituisce timestamp UTC che il backend convertirà appropriatamente
       return { 
-        startDate: startHourItalian.toISOString().replace('Z', '+02:00'), // Indica che è ora italiana
-        endDate: currentHourItalian.toISOString().replace('Z', '+02:00')   // Indica che è ora italiana
+        startDate: start.toISOString(),
+        endDate: now.toISOString()
       };
     case 'week':
       // Includere il giorno corrente: end date va a fine giornata
@@ -211,6 +210,11 @@ export default function AnalyticsClient({ initialData, shortCode }: AnalyticsCli
         });
       } else {
         const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
+        
+        // Debug per filtro today
+        if (filter === 'today') {
+          console.log('🕐 [DEBUG TODAY] Frontend calculated dates:', { startDate, endDate });
+        }
         
         // Per altri filtri, passiamo anche le date
         params = new URLSearchParams({

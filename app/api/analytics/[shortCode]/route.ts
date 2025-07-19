@@ -68,6 +68,26 @@ type TimeSeriesData = {
   full_datetime?: string | Date;
 };
 
+// Helper per creare filtri temporali uniformi
+function buildDateFilter(startDate?: string, endDate?: string, paramStartIndex: number = 4) {
+  if (!startDate || !endDate) {
+    return {
+      condition: '',
+      params: []
+    };
+  }
+  
+  return {
+    condition: `AND c.clicked_at_rome >= $${paramStartIndex}::timestamptz AND c.clicked_at_rome <= $${paramStartIndex + 1}::timestamptz`,
+    params: [startDate, endDate]
+  };
+}
+
+// Helper per unique visitors uniformi 
+function getUniqueVisitorLogic() {
+  return `COALESCE(fc.device_cluster_id, ef.fingerprint_hash, c.user_fingerprint)`;
+}
+
 // Funzione per ottenere i dati base del link
 async function getLinkData(userId: string, workspaceId: string, shortCode: string): Promise<LinkAnalytics | null> {
   try {
@@ -84,7 +104,7 @@ async function getLinkData(userId: string, workspaceId: string, shortCode: strin
   }
 }
 
-// Funzione per calcolare le statistiche dei click con filtri temporali
+// Funzione per calcolare le statistiche dei click con filtri temporali - VERSIONE CORRETTA
 async function getFilteredClickAnalytics(
   userId: string, 
   workspaceId: string, 
@@ -93,29 +113,35 @@ async function getFilteredClickAnalytics(
   endDate?: string
 ): Promise<ClickAnalytics> {
   try {
+    console.log('🔍 [ANALYTICS] Parametri ricevuti:', {
+      userId, workspaceId, shortCode, startDate, endDate
+    });
+
     // Prima otteniamo i dati base del link
     const linkData = await getLinkData(userId, workspaceId, shortCode);
     if (!linkData) {
       throw new Error('Link not found');
     }
 
-    // Costruiamo le condizioni per il filtro temporale
-    let dateCondition = '';
-    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
-    
-    if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
-      dateParams.push(startDate, endDate);
-    }
+    // Costruzione uniforme del filtro temporale
+    const dateFilter = buildDateFilter(startDate, endDate, 4);
+    const baseParams = [userId, workspaceId, shortCode];
+    const allParams = [...baseParams, ...dateFilter.params];
 
-    // Query che utilizza tutte e tre le tabelle per calcoli accurati
+    console.log('📋 [ANALYTICS] Filtro temporale:', {
+      condition: dateFilter.condition,
+      params: dateFilter.params,
+      hasFilters: !!(startDate && endDate)
+    });
+
     const query = `
       WITH link_info AS (
         SELECT id, click_count, unique_click_count, created_at
         FROM links 
         WHERE user_id = $1 AND workspace_id = $2 AND short_code = $3
       ),
-      -- Ottieni tutti i click con enhanced fingerprints
+      
+      -- UNICA FONTE DI VERITA': Tutti i click filtrati con enhanced fingerprints
       filtered_clicks AS (
         SELECT DISTINCT
           c.id as click_id,
@@ -123,64 +149,74 @@ async function getFilteredClickAnalytics(
           c.referrer,
           c.browser_name,
           c.device_type,
-          c.user_fingerprint,
           c.clicked_at_rome,
-          COALESCE(ef.fingerprint_hash, c.user_fingerprint) as enhanced_fingerprint,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as device_cluster
+          ${getUniqueVisitorLogic()} as unique_visitor_id,
+          c.user_fingerprint as original_fingerprint
         FROM clicks c
         JOIN link_info li ON c.link_id = li.id
         LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
           AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
         LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
-        WHERE 1=1 ${dateCondition}
+        WHERE 1=1 ${dateFilter.condition}
       ),
-      stats AS (
+      
+      -- STATISTICHE PRINCIPALI (rispettano sempre i filtri temporali)
+      main_stats AS (
         SELECT 
-          COUNT(*) as filtered_total_clicks,
-          COUNT(DISTINCT device_cluster) as filtered_unique_clicks,
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT unique_visitor_id) as unique_clicks,
           COUNT(DISTINCT country) as unique_countries,
-          COUNT(DISTINCT referrer) as unique_referrers,
+          COUNT(DISTINCT CASE WHEN referrer IS NOT NULL AND referrer != 'Direct' THEN referrer END) as unique_referrers,
           COUNT(DISTINCT device_type) as unique_devices,
           COUNT(DISTINCT browser_name) as unique_browsers
         FROM filtered_clicks
       ),
-      -- Statistiche per periodi fissi (ultime 24 ore, settimana, mese)
+      
+      -- STATISTICHE PERIODICHE (rispettano i filtri temporali quando presenti)
       period_stats AS (
         SELECT 
-          COUNT(CASE WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' THEN 1 END) as clicks_today,
-          COUNT(CASE WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
-          COUNT(CASE WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
-          COUNT(DISTINCT CASE 
-            WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' 
-            THEN COALESCE(fc.device_cluster_id, c.user_fingerprint) 
-          END) as unique_clicks_today,
-          COUNT(DISTINCT CASE 
-            WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' 
-            THEN COALESCE(fc.device_cluster_id, c.user_fingerprint) 
-          END) as unique_clicks_this_week,
-          COUNT(DISTINCT CASE 
-            WHEN c.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' 
-            THEN COALESCE(fc.device_cluster_id, c.user_fingerprint) 
-          END) as unique_clicks_this_month
-        FROM clicks c
-        JOIN link_info li ON c.link_id = li.id
-        LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
-          AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
-        LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
+          -- Se abbiamo filtri temporali, conta solo nel periodo filtrato
+          -- Altrimenti usa le finestre temporali standard
+          ${startDate && endDate ? `
+            COUNT(*) as clicks_today,
+            COUNT(*) as clicks_this_week,
+            COUNT(*) as clicks_this_month,
+            COUNT(DISTINCT unique_visitor_id) as unique_clicks_today,
+            COUNT(DISTINCT unique_visitor_id) as unique_clicks_this_week,
+            COUNT(DISTINCT unique_visitor_id) as unique_clicks_this_month
+          ` : `
+            COUNT(CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' THEN 1 END) as clicks_today,
+            COUNT(CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' THEN 1 END) as clicks_this_week,
+            COUNT(CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' THEN 1 END) as clicks_this_month,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '1 day' THEN unique_visitor_id END) as unique_clicks_today,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '7 days' THEN unique_visitor_id END) as unique_clicks_this_week,
+            COUNT(DISTINCT CASE WHEN clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '30 days' THEN unique_visitor_id END) as unique_clicks_this_month
+          `}
+        FROM filtered_clicks
       ),
+      
+      -- TOP VALUES (rispettano sempre i filtri temporali)
       top_values AS (
         SELECT 
-          (SELECT referrer FROM filtered_clicks WHERE referrer != 'Direct' AND referrer IS NOT NULL GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
-          (SELECT browser_name FROM filtered_clicks WHERE browser_name IS NOT NULL GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
-          (SELECT device_type FROM filtered_clicks WHERE device_type IS NOT NULL GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
+          (SELECT referrer FROM filtered_clicks 
+           WHERE referrer IS NOT NULL AND referrer != 'Direct' 
+           GROUP BY referrer ORDER BY COUNT(*) DESC LIMIT 1) as top_referrer,
+          (SELECT browser_name FROM filtered_clicks 
+           WHERE browser_name IS NOT NULL 
+           GROUP BY browser_name ORDER BY COUNT(*) DESC LIMIT 1) as most_used_browser,
+          (SELECT device_type FROM filtered_clicks 
+           WHERE device_type IS NOT NULL 
+           GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 1) as most_used_device
       )
+      
       SELECT 
-        CASE WHEN ${startDate ? 'TRUE' : 'FALSE'} THEN s.filtered_total_clicks ELSE li.click_count END as total_clicks,
-        CASE WHEN ${startDate ? 'TRUE' : 'FALSE'} THEN s.filtered_unique_clicks ELSE li.unique_click_count END as unique_clicks,
-        s.unique_countries,
-        s.unique_referrers,
-        s.unique_devices,
-        s.unique_browsers,
+        -- SEMPRE usa dati calcolati dalle query filtrate (eliminata logica CASE WHEN confusa)
+        ms.total_clicks,
+        ms.unique_clicks,
+        ms.unique_countries,
+        ms.unique_referrers,
+        ms.unique_devices,
+        ms.unique_browsers,
         tv.top_referrer,
         tv.most_used_browser,
         tv.most_used_device,
@@ -191,15 +227,28 @@ async function getFilteredClickAnalytics(
         ps.unique_clicks_this_week,
         ps.unique_clicks_this_month,
         li.created_at
-      FROM link_info li, stats s, period_stats ps, top_values tv
+      FROM link_info li
+      CROSS JOIN main_stats ms
+      CROSS JOIN period_stats ps  
+      CROSS JOIN top_values tv
     `;
 
-    const { rows } = await sql.query(query, dateParams);
+    const { rows } = await sql.query(query, allParams);
     const result = rows[0];
 
     if (!result) {
+      console.error('❌ [ANALYTICS] Nessun risultato dalla query');
       throw new Error('No analytics data found');
     }
+
+    console.log('✅ [ANALYTICS] Risultati query:', {
+      total_clicks: result.total_clicks,
+      unique_clicks: result.unique_clicks,
+      unique_countries: result.unique_countries,
+      clicks_today: result.clicks_today,
+      clicks_this_week: result.clicks_this_week,
+      hasFilters: !!(startDate && endDate)
+    });
 
     // Calcola le medie giornaliere
     const createdAt = new Date(result.created_at);
@@ -227,12 +276,12 @@ async function getFilteredClickAnalytics(
     };
 
   } catch (error) {
-    console.error("Error fetching click analytics:", error);
+    console.error("❌ [ANALYTICS] Errore in getFilteredClickAnalytics:", error);
     throw error;
   }
 }
 
-// Funzione per i dati geografici
+// Funzione per i dati geografici - VERSIONE CORRETTA
 async function getFilteredGeographicData(
   userId: string, 
   workspaceId: string, 
@@ -241,37 +290,28 @@ async function getFilteredGeographicData(
   endDate?: string
 ): Promise<GeographicData[]> {
   try {
-    let dateCondition = '';
-    const dateParams: (string | number)[] = [userId, workspaceId, shortCode];
-    
-    if (startDate && endDate) {
-      dateCondition = `AND c.clicked_at_rome >= $4::timestamptz AND c.clicked_at_rome < $5::timestamptz`;
-      dateParams.push(startDate, endDate);
-    }
+    const dateFilter = buildDateFilter(startDate, endDate, 4);
+    const allParams = [userId, workspaceId, shortCode, ...dateFilter.params];
 
     const query = `
       WITH all_clicks AS (
         SELECT 
           c.country,
-          c.user_fingerprint,
-          COALESCE(fc.device_cluster_id, c.user_fingerprint) as unique_device
+          ${getUniqueVisitorLogic()} as unique_visitor_id
         FROM clicks c
         JOIN links l ON c.link_id = l.id
         LEFT JOIN enhanced_fingerprints ef ON c.link_id = ef.link_id 
           AND (c.user_fingerprint = ef.fingerprint_hash OR c.user_fingerprint = ef.device_fingerprint)
         LEFT JOIN fingerprint_correlations fc ON ef.fingerprint_hash = fc.fingerprint_hash
-        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateCondition}
+        WHERE l.user_id = $1 AND l.workspace_id = $2 AND l.short_code = $3 ${dateFilter.condition}
       ),
       total_clicks AS (
         SELECT COUNT(*) as total FROM all_clicks
-      ),
-      total_unique_clicks AS (
-        SELECT COUNT(DISTINCT unique_device) as total_unique FROM all_clicks
       )
       SELECT 
         country,
         COUNT(*) as clicks,
-        COUNT(DISTINCT unique_device) as unique_clicks,
+        COUNT(DISTINCT unique_visitor_id) as unique_clicks,
         ROUND((COUNT(*) * 100.0 / NULLIF((SELECT total FROM total_clicks), 0)), 1) as percentage
       FROM all_clicks
       WHERE country IS NOT NULL
@@ -280,7 +320,7 @@ async function getFilteredGeographicData(
       LIMIT 10
     `;
 
-    const { rows } = await sql.query(query, dateParams);
+    const { rows } = await sql.query(query, allParams);
     return rows.map(row => ({
       country: row.country,
       clicks: parseInt(row.clicks),
