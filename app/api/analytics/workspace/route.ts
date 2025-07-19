@@ -204,8 +204,8 @@ async function getFilteredGeographicData(
         ROUND((COUNT(*)::float / (
           SELECT COUNT(*) FROM clicks c2 
           JOIN links l2 ON c2.link_id = l2.id 
-          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
-        ) * 100), 2) as percentage
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${startDate && endDate ? `AND c2.clicked_at_rome >= $3::timestamptz AND c2.clicked_at_rome <= $4::timestamptz` : ''}
+        ) * 100)::numeric, 2) as percentage
       FROM clicks c
       JOIN links l ON c.link_id = l.id
       WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.country IS NOT NULL AND c.country != '' ${dateCondition}
@@ -415,8 +415,8 @@ async function getFilteredDeviceData(
         ROUND((COUNT(*)::float / (
           SELECT COUNT(*) FROM clicks c2 
           JOIN links l2 ON c2.link_id = l2.id 
-          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
-        ) * 100), 2) as percentage
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${startDate && endDate ? `AND c2.clicked_at_rome >= $3::timestamptz AND c2.clicked_at_rome <= $4::timestamptz` : ''}
+        ) * 100)::numeric, 2) as percentage
       FROM clicks c
       JOIN links l ON c.link_id = l.id
       WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.device_type IS NOT NULL ${dateCondition}
@@ -465,8 +465,8 @@ async function getFilteredBrowserData(
         ROUND((COUNT(*)::float / (
           SELECT COUNT(*) FROM clicks c2 
           JOIN links l2 ON c2.link_id = l2.id 
-          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
-        ) * 100), 2) as percentage
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${startDate && endDate ? `AND c2.clicked_at_rome >= $3::timestamptz AND c2.clicked_at_rome <= $4::timestamptz` : ''}
+        ) * 100)::numeric, 2) as percentage
       FROM clicks c
       JOIN links l ON c.link_id = l.id
       WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.browser_name IS NOT NULL ${dateCondition}
@@ -515,8 +515,8 @@ async function getFilteredReferrerData(
         ROUND((COUNT(*)::float / (
           SELECT COUNT(*) FROM clicks c2 
           JOIN links l2 ON c2.link_id = l2.id 
-          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${dateCondition.replace('c.', 'c2.')}
-        ) * 100), 2) as percentage
+          WHERE l2.user_id = $1 AND l2.workspace_id = $2 ${startDate && endDate ? `AND c2.clicked_at_rome >= $3::timestamptz AND c2.clicked_at_rome <= $4::timestamptz` : ''}
+        ) * 100)::numeric, 2) as percentage
       FROM clicks c
       JOIN links l ON c.link_id = l.id
       WHERE l.user_id = $1 AND l.workspace_id = $2 AND c.referrer IS NOT NULL ${dateCondition}

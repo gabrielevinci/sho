@@ -27,6 +27,11 @@ type WorkspaceAnalytics = {
   links_created_today: number;
   links_created_this_week: number;
   links_created_this_month: number;
+  // Dati per il periodo filtrato
+  filtered_period_name: string;
+  filtered_period_clicks: number;
+  filtered_period_unique_clicks: number;
+  filtered_period_links_created: number;
 };
 
 type LinkData = {
@@ -120,6 +125,11 @@ export default function WorkspaceAnalyticsClient({
       links_created_today: Number(data?.links_created_today) || 0,
       links_created_this_week: Number(data?.links_created_this_week) || 0,
       links_created_this_month: Number(data?.links_created_this_month) || 0,
+      // Dati per il periodo filtrato
+      filtered_period_name: data?.filtered_period_name || 'Periodo selezionato',
+      filtered_period_clicks: Number(data?.filtered_period_clicks) || 0,
+      filtered_period_unique_clicks: Number(data?.filtered_period_unique_clicks) || 0,
+      filtered_period_links_created: Number(data?.filtered_period_links_created) || 0,
     };
   };
 
@@ -147,44 +157,59 @@ export default function WorkspaceAnalyticsClient({
     
     switch (filter) {
       case 'today':
-        const currentHourItalian = new Date(italianNow);
-        currentHourItalian.setMinutes(0, 0, 0); 
-        const startHourItalian = new Date(currentHourItalian.getTime() - 23 * 60 * 60 * 1000);
+        const todayStart = new Date(italianNow);
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(italianNow);
+        todayEnd.setHours(23, 59, 59, 999);
         return { 
-          startDate: startHourItalian.toISOString().replace('Z', '+02:00'),
-          endDate: currentHourItalian.toISOString().replace('Z', '+02:00')
+          startDate: todayStart.toISOString().replace('Z', '+02:00'),
+          endDate: todayEnd.toISOString().replace('Z', '+02:00')
         };
       case 'week':
         const endDate = new Date(italianNow);
         endDate.setHours(23, 59, 59, 999);
         const weekAgo = new Date(italianNow.getTime() - 6 * 24 * 60 * 60 * 1000);
         weekAgo.setHours(0, 0, 0, 0);
-        return { startDate: weekAgo.toISOString().split('T')[0], endDate: endDate.toISOString().split('T')[0] };
+        return { 
+          startDate: weekAgo.toISOString().replace('Z', '+02:00'), 
+          endDate: endDate.toISOString().replace('Z', '+02:00') 
+        };
       case 'month':
         const endDateMonth = new Date(italianNow);
         endDateMonth.setHours(23, 59, 59, 999);
         const monthAgo = new Date(italianNow.getTime() - 29 * 24 * 60 * 60 * 1000);
         monthAgo.setHours(0, 0, 0, 0);
-        return { startDate: monthAgo.toISOString().split('T')[0], endDate: endDateMonth.toISOString().split('T')[0] };
+        return { 
+          startDate: monthAgo.toISOString().replace('Z', '+02:00'), 
+          endDate: endDateMonth.toISOString().replace('Z', '+02:00') 
+        };
       case '3months':
         const endDate3M = new Date(italianNow);
         endDate3M.setHours(23, 59, 59, 999);
         const threeMonthsAgo = new Date(italianNow.getTime() - 89 * 24 * 60 * 60 * 1000);
         threeMonthsAgo.setHours(0, 0, 0, 0);
-        return { startDate: threeMonthsAgo.toISOString().split('T')[0], endDate: endDate3M.toISOString().split('T')[0] };
+        return { 
+          startDate: threeMonthsAgo.toISOString().replace('Z', '+02:00'), 
+          endDate: endDate3M.toISOString().replace('Z', '+02:00') 
+        };
       case 'year':
         const endDateYear = new Date(italianNow);
         endDateYear.setHours(23, 59, 59, 999);
         const yearAgo = new Date(italianNow.getTime() - 364 * 24 * 60 * 60 * 1000);
         yearAgo.setHours(0, 0, 0, 0);
-        return { startDate: yearAgo.toISOString().split('T')[0], endDate: endDateYear.toISOString().split('T')[0] };
+        return { 
+          startDate: yearAgo.toISOString().replace('Z', '+02:00'), 
+          endDate: endDateYear.toISOString().replace('Z', '+02:00') 
+        };
       case 'custom':
         if (customRange?.startDate && customRange?.endDate) {
+          const startDate = new Date(customRange.startDate);
+          startDate.setHours(0, 0, 0, 0);
           const endDate = new Date(customRange.endDate);
           endDate.setHours(23, 59, 59, 999);
           return {
-            startDate: customRange.startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0]
+            startDate: startDate.toISOString().replace('Z', '+02:00'),
+            endDate: endDate.toISOString().replace('Z', '+02:00')
           };
         }
         return { startDate: '', endDate: '' };
@@ -199,15 +224,45 @@ export default function WorkspaceAnalyticsClient({
     setIsLoading(true);
     try {
       let params: URLSearchParams;
+      let periodName = '';
       
       if (filter === 'all') {
         params = new URLSearchParams();
+        periodName = 'Tutti i dati';
       } else {
         const { startDate, endDate } = getDateRangeFromFilter(filter, customRange);
         params = new URLSearchParams({
           startDate: startDate,
           endDate: endDate
         });
+        
+        // Determina il nome del periodo in base al filtro
+        switch (filter) {
+          case 'today':
+            periodName = 'Oggi';
+            break;
+          case 'week':
+            periodName = 'Ultimi 7 giorni';
+            break;
+          case 'month':
+            periodName = 'Ultimi 30 giorni';
+            break;
+          case '3months':
+            periodName = 'Ultimi 90 giorni';
+            break;
+          case 'year':
+            periodName = 'Ultimo anno';
+            break;
+          case 'custom':
+            if (customRange?.startDate && customRange?.endDate) {
+              const start = new Date(customRange.startDate).toLocaleDateString('it-IT');
+              const end = new Date(customRange.endDate).toLocaleDateString('it-IT');
+              periodName = `Dal ${start} al ${end}`;
+            } else {
+              periodName = 'Periodo personalizzato';
+            }
+            break;
+        }
       }
 
       const response = await fetch(`/api/analytics/workspace?${params.toString()}`);
@@ -218,8 +273,18 @@ export default function WorkspaceAnalyticsClient({
 
       const data = await response.json();
       
+      // Arricchisci i dati con informazioni sul periodo filtrato
+      const rawAnalytics = data.workspaceAnalytics || {};
+      const enhancedAnalytics = {
+        ...rawAnalytics,
+        filtered_period_name: periodName,
+        filtered_period_clicks: Number(rawAnalytics.total_clicks) || 0,
+        filtered_period_unique_clicks: Number(rawAnalytics.unique_clicks) || 0,
+        filtered_period_links_created: Number(rawAnalytics.total_links) || 0,
+      };
+      
       // Aggiorna gli stati con i nuovi dati normalizzati
-      setWorkspaceAnalytics(normalizeWorkspaceAnalytics(data.workspaceAnalytics));
+      setWorkspaceAnalytics(normalizeWorkspaceAnalytics(enhancedAnalytics));
       setTopLinks(data.topLinks || []);
       setGeographicData(data.geographicData || []);
       setDeviceData(data.deviceData || []);
@@ -604,20 +669,20 @@ export default function WorkspaceAnalyticsClient({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <h3 className="font-semibold text-slate-900">Oggi</h3>
+            <h3 className="font-semibold text-slate-900">{workspaceAnalytics.filtered_period_name}</h3>
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-600">Click</span>
-              <span className="text-sm font-semibold text-slate-900">{workspaceAnalytics.clicks_today.toLocaleString()}</span>
+              <span className="text-sm font-semibold text-slate-900">{workspaceAnalytics.filtered_period_clicks.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-slate-600">Click Unici</span>
-              <span className="text-sm font-semibold text-slate-900">{workspaceAnalytics.unique_clicks_today.toLocaleString()}</span>
+              <span className="text-sm font-semibold text-slate-900">{workspaceAnalytics.filtered_period_unique_clicks.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Link Creati</span>
-              <span className="text-sm font-semibold text-slate-900">{workspaceAnalytics.links_created_today}</span>
+              <span className="text-sm text-slate-600">Link</span>
+              <span className="text-sm font-semibold text-slate-900">{workspaceAnalytics.filtered_period_links_created}</span>
             </div>
           </div>
         </div>
