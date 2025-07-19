@@ -241,29 +241,6 @@ async function getClickAnalytics(userId: string, workspaceId: string, shortCode:
   }
 }
 
-// Funzione helper per i valori di default
-function getDefaultClickAnalytics(): ClickAnalytics {
-  return {
-    total_clicks: 0,
-    unique_clicks: 0,
-    unique_countries: 0,
-    unique_referrers: 0,
-    unique_devices: 0,
-    unique_browsers: 0,
-    top_referrer: null,
-    most_used_browser: null,
-    most_used_device: null,
-    clicks_today: 0,
-    clicks_this_week: 0,
-    clicks_this_month: 0,
-    unique_clicks_today: 0,
-    unique_clicks_this_week: 0,
-    unique_clicks_this_month: 0,
-    avg_total_clicks_per_period: 0,
-    avg_unique_clicks_per_period: 0
-  };
-}
-
 // Funzione per ottenere i dati geografici - CORRETTA per usare scaling
 async function getGeographicData(userId: string, workspaceId: string, shortCode: string): Promise<GeographicData[]> {
   try {
