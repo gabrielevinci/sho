@@ -891,22 +891,16 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
           -- Data corrente in Italia
           SELECT (NOW() AT TIME ZONE 'Europe/Rome')::date as current_date
         ),
-        total_calculated AS (
+        enhanced_count AS (
           SELECT 
             COUNT(*) as total_from_enhanced,
             COUNT(DISTINCT ef.device_fingerprint) as unique_from_enhanced
           FROM enhanced_fingerprints ef
           WHERE ef.link_id IN (SELECT id FROM link_data)
         ),
-        scaling_factors AS (
-          SELECT 
-            CASE WHEN tc.total_from_enhanced > 0 
-                 THEN (SELECT click_count FROM link_data)::float / tc.total_from_enhanced 
-                 ELSE 1.0 END as total_factor,
-            CASE WHEN tc.unique_from_enhanced > 0 
-                 THEN (SELECT unique_click_count FROM link_data)::float / tc.unique_from_enhanced 
-                 ELSE 1.0 END as unique_factor
-          FROM total_calculated tc
+        use_fallback AS (
+          SELECT (ec.total_from_enhanced = 0) as should_use_clicks
+          FROM enhanced_count ec
         ),
         date_series AS (
           SELECT generate_series(
@@ -915,22 +909,53 @@ async function getFilteredTimeSeriesData(userId: string, workspaceId: string, sh
             INTERVAL '1 day'
           )::date AS date
         ),
-        daily_clicks AS (
+        daily_clicks_enhanced AS (
           SELECT 
-            -- Raggruppa i click per giorno utilizzando enhanced_fingerprints
             ef.created_at::date as date,
             COUNT(ef.id) as raw_total_clicks,
             COUNT(DISTINCT ef.device_fingerprint) as raw_unique_clicks
           FROM enhanced_fingerprints ef
           WHERE ef.link_id IN (SELECT id FROM link_data)
           GROUP BY ef.created_at::date
+        ),
+        daily_clicks_fallback AS (
+          SELECT 
+            clicked_at_rome::date as date,
+            COUNT(*) as raw_total_clicks,
+            COUNT(DISTINCT user_fingerprint) as raw_unique_clicks
+          FROM clicks c
+          WHERE c.link_id IN (SELECT id FROM link_data)
+          GROUP BY clicked_at_rome::date
+        ),
+        scaling_factors AS (
+          SELECT 
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN 1.0
+              WHEN ec.total_from_enhanced > 0 
+                THEN (SELECT click_count FROM link_data)::float / ec.total_from_enhanced 
+              ELSE 1.0 
+            END as total_factor,
+            CASE 
+              WHEN (SELECT should_use_clicks FROM use_fallback) THEN 1.0
+              WHEN ec.unique_from_enhanced > 0 
+                THEN (SELECT unique_click_count FROM link_data)::float / ec.unique_from_enhanced 
+              ELSE 1.0 
+            END as unique_factor
+          FROM enhanced_count ec
         )
         SELECT 
           ds.date::text as date,
-          ROUND(COALESCE(dc.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer as total_clicks,
-          ROUND(COALESCE(dc.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer as unique_clicks
+          CASE 
+            WHEN (SELECT should_use_clicks FROM use_fallback) THEN COALESCE(dcf.raw_total_clicks, 0)
+            ELSE ROUND(COALESCE(dce.raw_total_clicks, 0) * (SELECT total_factor FROM scaling_factors))::integer
+          END as total_clicks,
+          CASE 
+            WHEN (SELECT should_use_clicks FROM use_fallback) THEN COALESCE(dcf.raw_unique_clicks, 0)
+            ELSE ROUND(COALESCE(dce.raw_unique_clicks, 0) * (SELECT unique_factor FROM scaling_factors))::integer
+          END as unique_clicks
         FROM date_series ds
-        LEFT JOIN daily_clicks dc ON ds.date = dc.date
+        LEFT JOIN daily_clicks_enhanced dce ON ds.date = dce.date
+        LEFT JOIN daily_clicks_fallback dcf ON ds.date = dcf.date
         ORDER BY ds.date
       `;
       console.log('Retrieved time series data for "all" filter:', rows.length, 'days');
