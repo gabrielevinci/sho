@@ -344,14 +344,8 @@ export async function GET(request: NextRequest) {
                     timeOnPage: Math.round(performance.now() - startTime)
                 };
 
-                // Try to send fingerprint data (non-blocking)
-                fetch('/api/analytics/fingerprint', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(fingerprintData),
-                }).catch(error => {
-                    console.warn('Failed to send fingerprint:', error);
-                });
+                // Fingerprint data is captured but not sent to analytics (analytics removed)
+                console.log('Fingerprint captured for:', shortCode);
 
                 // Redirect after a short delay
                 setTimeout(() => {

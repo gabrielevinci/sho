@@ -2,7 +2,6 @@
 
 import { SITE_URL } from '@/app/lib/config';
 import Link from 'next/link';
-import { BarChart3 } from 'lucide-react';
 import LinkActions from './components/LinkActions';
 
 // Aggiorniamo il tipo per includere il contatore di click
@@ -36,7 +35,6 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titolo</th>
-              <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Click</th>
               <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Data Creazione</th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shorted</th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Originale</th>
@@ -56,11 +54,6 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
                     <div className="text-sm font-semibold text-gray-900 link-title" title={link.title || 'Nessun Titolo'}>
                       {truncatedTitle || 'Nessun Titolo'}
                     </div>
-                  </td>
-                  <td className="px-4 py-4 text-center">
-                    <span className="text-sm text-gray-800 font-bold bg-gray-100 px-2 py-1 rounded-full">
-                      {link.click_count}
-                    </span>
                   </td>
                   <td className="px-4 py-4 text-center">
                     <span className="text-sm text-gray-500 whitespace-nowrap">
@@ -96,13 +89,6 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
                   </td>
                   <td className="px-4 py-4">
                     <div className="action-buttons">
-                      <Link
-                        href={`/dashboard/analytics/${link.short_code}`}
-                        className="text-gray-400 hover:text-blue-600 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                        title="Visualizza statistiche"
-                      >
-                        <BarChart3 className="h-5 w-5" />
-                      </Link>
                       <LinkActions
                         shortCode={link.short_code}
                         showInline={true}

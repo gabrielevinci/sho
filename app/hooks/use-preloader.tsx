@@ -15,8 +15,8 @@ interface DataPreloaderProps {
  */
 export function DataPreloader({ workspaceId, currentPath }: DataPreloaderProps) {
   useEffect(() => {
-    // Pre-carica i dati della dashboard se siamo nelle analytics
-    if (currentPath.includes('/analytics/')) {
+    // Pre-carica i dati della dashboard
+    if (currentPath.includes('/dashboard')) {
       const preloadDashboardData = async () => {
         try {
           // Pre-carica i link del workspace con supporto cartelle multiple
@@ -42,12 +42,6 @@ export function DataPreloader({ workspaceId, currentPath }: DataPreloaderProps) 
       // Ritarda il preload per non interferire con il caricamento corrente
       const timeout = setTimeout(preloadDashboardData, 1000);
       return () => clearTimeout(timeout);
-    }
-
-    // Pre-carica le analytics se siamo nella dashboard e ci sono link
-    if (currentPath.includes('/dashboard') && !currentPath.includes('/analytics/')) {
-      // Questo potrebbe essere implementato per pre-caricare le analytics più visualizzate
-      // Per ora, lo lasciamo per future ottimizzazioni
     }
   }, [workspaceId, currentPath]);
 

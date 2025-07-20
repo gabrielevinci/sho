@@ -538,3 +538,43 @@ export async function moveLinkToFolder(formData: FormData) {
   
   revalidatePath('/dashboard');
 }
+
+// --- AZIONI LINK ---
+export async function deleteLink(shortCode: string) {
+  const session = await getSession();
+  if (!session?.userId) {
+    throw new Error('Non autorizzato');
+  }
+
+  try {
+    // Prima eliminiamo tutti i click associati al link
+    const { rows: linkRows } = await sql`
+      SELECT id FROM links 
+      WHERE short_code = ${shortCode} AND user_id = ${session.userId}
+    `;
+
+    if (linkRows.length === 0) {
+      throw new Error('Link non trovato');
+    }
+
+    const linkId = linkRows[0].id;
+
+    // Elimina i click associati
+    await sql`DELETE FROM clicks WHERE link_id = ${linkId}`;
+
+    // Elimina enhanced_fingerprints associati
+    await sql`DELETE FROM enhanced_fingerprints WHERE link_id = ${linkId}`;
+
+    // Elimina il link
+    await sql`
+      DELETE FROM links 
+      WHERE short_code = ${shortCode} AND user_id = ${session.userId}
+    `;
+
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Errore durante l\'eliminazione del link:', error);
+    throw new Error('Errore durante l\'eliminazione del link');
+  }
+}

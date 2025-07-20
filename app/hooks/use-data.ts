@@ -1,6 +1,6 @@
 'use client';
 
-import { useCachedLinks, useCachedFolders, useCachedWorkspaces, useCachedAnalytics } from './use-cached-data';
+import { useCachedLinks, useCachedFolders, useCachedWorkspaces } from './use-cached-data';
 import { useState, useEffect } from 'react';
 
 // Tipi per le risposte delle API
@@ -106,21 +106,6 @@ export function useWorkspaces() {
   
   return {
     workspaces: (result.data as WorkspacesResponse)?.workspaces || [],
-    isLoading: result.isLoading,
-    error: result.error,
-    mutate: result.mutate,
-    revalidate: result.revalidate
-  };
-}
-
-/**
- * Hook per ottenere le analytics di un link con cache intelligente
- */
-export function useAnalytics(shortCode: string | null) {
-  const result = useCachedAnalytics(shortCode);
-  
-  return {
-    analytics: result.data,
     isLoading: result.isLoading,
     error: result.error,
     mutate: result.mutate,

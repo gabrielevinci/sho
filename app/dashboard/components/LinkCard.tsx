@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LinkIcon, CalendarIcon, ChartBarIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, CalendarIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 export interface LinkFromDB {
@@ -119,23 +119,11 @@ export default function LinkCard({
               <CalendarIcon className="h-4 w-4" />
               <span>{formatDate(link.created_at)}</span>
             </div>
-            <div className="flex items-center space-x-1">
-              <ChartBarIcon className="h-4 w-4" />
-              <span>{link.click_count} click{link.click_count !== 1 ? 's' : ''}</span>
-            </div>
           </div>
         </div>
 
         {/* Azioni */}
         <div className="flex items-center space-x-2 ml-4">
-          <Link
-            href={`/dashboard/analytics/${link.short_code}`}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            title="Visualizza Analytics"
-          >
-            <ChartBarIcon className="h-5 w-5" />
-          </Link>
-          
           <Link
             href={`/dashboard/edit/${link.short_code}`}
             className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"

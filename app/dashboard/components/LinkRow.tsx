@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LinkIcon, CalendarIcon, ChartBarIcon, PencilIcon, TrashIcon, ClipboardIcon, QrCodeIcon, ArrowPathIcon, FolderIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, CalendarIcon, PencilIcon, TrashIcon, ClipboardIcon, QrCodeIcon, ArrowPathIcon, FolderIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import ConfirmationModal from './ConfirmationModal';
 import QRCodeModal from './QRCodeModal';
@@ -308,22 +308,6 @@ export default function LinkRow({
         </td>
       )}
 
-      {/* Click count */}
-      <td className="px-6 py-4 whitespace-nowrap text-center w-24">
-        <div className="flex items-center justify-center space-x-1">
-          <ChartBarIcon className="h-4 w-4 text-gray-500" />
-          <span className="text-sm text-gray-700">{link.click_count}</span>
-        </div>
-      </td>
-
-      {/* Unique Click count */}
-      <td className="px-6 py-4 whitespace-nowrap text-center w-24">
-        <div className="flex items-center justify-center space-x-1">
-          <ChartBarIcon className="h-4 w-4 text-gray-500" />
-          <span className="text-sm text-gray-700">{link.unique_click_count || 0}</span>
-        </div>
-      </td>
-
       {/* Data creazione */}
       <td className="px-6 py-4 whitespace-nowrap w-44">
         <div className="flex items-center space-x-1">
@@ -360,14 +344,6 @@ export default function LinkRow({
       {/* Azioni */}
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium w-80">
         <div className="flex items-center justify-end space-x-1">
-          {/* Statistiche */}
-          <Link
-            href={`/dashboard/analytics/${link.short_code}`}
-            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            title="Visualizza Analytics"
-          >
-            <ChartBarIcon className="h-4 w-4" />
-          </Link>
           
           {/* Copia link */}
           <button

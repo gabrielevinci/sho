@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import FolderSidebar, { Folder } from './components/FolderSidebar';
 import FolderizedLinksList from './components/FolderizedLinksList';
-import { deleteLink } from './analytics/[shortCode]/actions';
+import { deleteLink } from './actions';
 import ToastContainer from './components/Toast';
 import { useToast } from '../hooks/use-toast';
 

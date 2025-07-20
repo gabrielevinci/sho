@@ -73,7 +73,7 @@ interface FolderizedLinksListProps {
 }
 
 // Tipi per ordinamento
-type SortField = 'created_at' | 'click_count' | 'unique_click_count' | 'title' | 'original_url';
+type SortField = 'created_at' | 'title' | 'original_url';
 type SortDirection = 'asc' | 'desc';
 
 export default function FolderizedLinksList({ 
@@ -165,14 +165,6 @@ export default function FolderizedLinksList({
         case 'created_at':
           valueA = new Date(a.created_at).getTime();
           valueB = new Date(b.created_at).getTime();
-          break;
-        case 'click_count':
-          valueA = a.click_count;
-          valueB = b.click_count;
-          break;
-        case 'unique_click_count':
-          valueA = a.unique_click_count;
-          valueB = b.unique_click_count;
           break;
         case 'title':
           valueA = (a.title || '').toLowerCase();
@@ -589,10 +581,6 @@ export default function FolderizedLinksList({
                   >
                     <option value="created_at-desc">Più recenti</option>
                     <option value="created_at-asc">Più vecchi</option>
-                    <option value="click_count-desc">Più cliccati</option>
-                    <option value="click_count-asc">Meno cliccati</option>
-                    <option value="unique_click_count-desc">Più click unici</option>
-                    <option value="unique_click_count-asc">Meno click unici</option>
                     <option value="title-asc">Titolo A-Z</option>
                     <option value="title-desc">Titolo Z-A</option>
                     <option value="original_url-asc">URL A-Z</option>
@@ -991,10 +979,6 @@ export default function FolderizedLinksList({
                 >
                   <option value="created_at-desc">Più recenti</option>
                   <option value="created_at-asc">Più vecchi</option>
-                  <option value="click_count-desc">Più cliccati</option>
-                  <option value="click_count-asc">Meno cliccati</option>
-                  <option value="unique_click_count-desc">Più click unici</option>
-                  <option value="unique_click_count-asc">Meno click unici</option>
                   <option value="title-asc">Titolo A-Z</option>
                   <option value="title-desc">Titolo Z-A</option>
                   <option value="original_url-asc">URL A-Z</option>
@@ -1102,42 +1086,6 @@ export default function FolderizedLinksList({
                     Cartelle
                   </th>
                 )}
-                <th 
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100"
-                  onClick={() => {
-                    if (sortField === 'click_count') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('click_count');
-                      setSortDirection('desc');
-                    }
-                  }}
-                >
-                  <div className="flex items-center justify-center">
-                    Click Totali
-                    {sortField === 'click_count' && (
-                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </div>
-                </th>
-                <th 
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100"
-                  onClick={() => {
-                    if (sortField === 'unique_click_count') {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField('unique_click_count');
-                      setSortDirection('desc');
-                    }
-                  }}
-                >
-                  <div className="flex items-center justify-center">
-                    Click Unici
-                    {sortField === 'unique_click_count' && (
-                      <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </div>
-                </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44 cursor-pointer hover:bg-gray-100"
                   onClick={() => {

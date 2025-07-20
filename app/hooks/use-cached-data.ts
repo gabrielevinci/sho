@@ -211,21 +211,6 @@ export function useCachedFolders(workspaceId: string | null) {
 }
 
 /**
- * Hook specializzato per le analytics di un link
- */
-export function useCachedAnalytics(shortCode: string | null) {
-  return useCachedData(
-    shortCode ? `/api/analytics/${shortCode}` : null,
-    undefined,
-    {
-      cacheType: 'analytics',
-      revalidateOnFocus: true, // Rivalidare quando si torna su analytics
-      refreshInterval: 2 * 60 * 1000, // Refresh ogni 2 minuti
-    }
-  );
-}
-
-/**
  * Hook specializzato per i workspace dell'utente
  */
 export function useCachedWorkspaces() {

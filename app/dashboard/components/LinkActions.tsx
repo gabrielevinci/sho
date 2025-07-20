@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Edit, Trash2, RotateCcw, QrCode } from 'lucide-react';
-import { deleteLink } from '../analytics/[shortCode]/actions';
+import { Copy, Edit, Trash2, QrCode } from 'lucide-react';
+import { deleteLink } from '../actions';
 import { useRouter } from 'next/navigation';
 import Portal from './Portal';
 import QRCodeModal from './QRCodeModal';
@@ -26,7 +26,6 @@ export default function LinkActions({
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
-  const [showConfirmReset, setShowConfirmReset] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
 
   const router = useRouter();
@@ -35,10 +34,6 @@ export default function LinkActions({
   const deleteModalRef = useClickOutside<HTMLDivElement>(() => {
     setShowConfirmDelete(false);
   }, showConfirmDelete);
-
-  const resetModalRef = useClickOutside<HTMLDivElement>(() => {
-    setShowConfirmReset(false);
-  }, showConfirmReset);
 
   // Funzione per copiare il link
   const handleCopyLink = async () => {
@@ -83,52 +78,6 @@ export default function LinkActions({
     }
   };
 
-  // Funzione per resettare le statistiche
-  const handleResetStats = async () => {
-    setLoading(true);
-    try {
-      console.log('🔄 Tentativo azzera click per:', shortCode);
-      
-      const response = await fetch('/api/links/reset-clicks', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ shortCode }),
-      });
-
-      console.log('📊 Risposta API:', response.status, response.statusText);
-
-      if (response.ok) {
-        console.log('✅ Reset click completato con successo');
-        
-        // Cancella la selezione se presente
-        if (onClearSelection) {
-          onClearSelection();
-        }
-
-        onToast?.('Click azzerati con successo', 'success');
-        if (onUpdate) {
-          onUpdate();
-        } else {
-          // Force refresh per vedere i cambiamenti
-          window.location.reload();
-        }
-      } else {
-        const errorData = await response.text();
-        console.error('❌ Errore API:', response.status, errorData);
-        throw new Error(`Errore ${response.status}: ${errorData}`);
-      }
-    } catch (error) {
-      console.error('❌ Errore durante il reset:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto';
-      onToast?.(`Errore durante il reset delle statistiche: ${errorMessage}`, 'error');
-    } finally {
-      setLoading(false);
-      setShowConfirmReset(false);
-    }
-  };
-
   const buttonBaseClass = showInline 
     ? "inline-flex items-center justify-center w-7 h-7 border rounded-md transition-colors text-xs" 
     : "inline-flex items-center justify-center w-10 h-10 border rounded-md transition-colors";
@@ -170,17 +119,7 @@ export default function LinkActions({
           <QrCode className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {/* 4. Pulsante Reset Statistiche (ROSSO) */}
-        <button
-          onClick={() => setShowConfirmReset(true)}
-          disabled={loading}
-          className={`${buttonBaseClass} border-red-300 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50`}
-          title="Reset statistiche"
-        >
-          <RotateCcw className={showInline ? "h-3 w-3" : "h-4 w-4"} />
-        </button>
-
-        {/* 5. Pulsante Elimina (ROSSO) */}
+        {/* 4. Pulsante Elimina (ROSSO) */}
         <button
           onClick={() => setShowConfirmDelete(true)}
           disabled={loading}
@@ -216,38 +155,6 @@ export default function LinkActions({
                 className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
               >
                 {loading ? 'Eliminazione...' : 'Elimina'}
-              </button>
-            </div>
-          </div>
-          </div>
-        </Portal>
-      )}
-
-      {/* Modal di conferma reset statistiche */}
-      {showConfirmReset && (
-        <Portal>
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div ref={resetModalRef} className="bg-white rounded-3xl p-6 max-w-md w-full mx-4 relative backdrop-blur-sm border border-white/20">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Conferma reset statistiche
-              </h3>
-            <p className="text-gray-600 mb-6">
-              Sei sicuro di voler resettare tutte le statistiche di questo link? Tutti i dati dei click verranno eliminati permanentemente.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowConfirmReset(false)}
-                disabled={loading}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleResetStats}
-                disabled={loading}
-                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50"
-              >
-                {loading ? 'Reset...' : 'Reset'}
               </button>
             </div>
           </div>

@@ -43,7 +43,7 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
-    // Query base per ottenere i link con conteggi dei click usando il nuovo sistema enhanced fingerprinting
+    // Query base per ottenere i link 
     const { rows: links } = await sql`
       SELECT 
         l.id,
@@ -53,15 +53,9 @@ async function getLinksForWorkspace(userId: string, workspaceId: string): Promis
         l.description,
         l.created_at,
         l.folder_id,
-        -- Usa i click totali dalla tabella links (più affidabile)
+        -- Mantieni i campi per compatibilità ma con valori semplici
         l.click_count::integer as click_count,
-        -- Calcola unique visitors basandosi sui device_fingerprint unici (sistema migliorato)
-        COALESCE(
-          (SELECT COUNT(DISTINCT ef.device_fingerprint) 
-           FROM enhanced_fingerprints ef 
-           WHERE ef.link_id = l.id), 
-          l.unique_click_count
-        )::integer as unique_click_count
+        l.unique_click_count::integer as unique_click_count
       FROM links l
       WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
       ORDER BY l.created_at DESC
@@ -163,12 +157,6 @@ export default async function DashboardPage() {
               className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
             >
               Crea Link
-            </Link>
-            <Link 
-              href="/dashboard/analytics"
-              className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75"
-            >
-              Statistiche
             </Link>
           </div>
           <div className="flex items-center space-x-4">

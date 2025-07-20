@@ -217,7 +217,6 @@ export default function MigrationPage() {
           <li><strong>Esegui Migrazione:</strong> Crea/ricrea tutte le tabelle del sistema fingerprinting</li>
           <li><strong>Controlla Stato:</strong> Verifica se il sistema sta raccogliendo dati correttamente</li>
           <li><strong>Test Link:</strong> Crea un link short e cliccalo per testare il sistema</li>
-          <li><strong>Analisi:</strong> Usa la dashboard analytics per vedere i risultati</li>
         </ol>
       </div>
     </div>
