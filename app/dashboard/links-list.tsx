@@ -1,7 +1,6 @@
 'use client';
 
 import { SITE_URL } from '@/app/lib/config';
-import Link from 'next/link';
 import LinkActions from './components/LinkActions';
 
 // Aggiorniamo il tipo per includere il contatore di click
