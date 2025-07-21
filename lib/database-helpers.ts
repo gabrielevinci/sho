@@ -33,8 +33,126 @@ export function generateClickFingerprintHash(fingerprint: ClickFingerprint): str
 }
 
 /**
- * Estrae informazioni geografiche dall'IP utilizzando un servizio di geolocalizzazione
+ * Mappa dei codici regione numerici italiani ai nomi leggibili
  */
+const ITALIAN_REGION_CODES: { [key: string]: string } = {
+  '01': 'Piemonte',
+  '02': 'Valle d\'Aosta',
+  '03': 'Lombardia',
+  '04': 'Trentino-Alto Adige',
+  '05': 'Veneto',
+  '06': 'Friuli-Venezia Giulia',
+  '07': 'Liguria',
+  '08': 'Emilia-Romagna',
+  '09': 'Toscana',
+  '10': 'Umbria',
+  '11': 'Marche',
+  '12': 'Lazio',
+  '13': 'Abruzzo',
+  '14': 'Molise',
+  '15': 'Campania',
+  '16': 'Puglia',
+  '17': 'Basilicata',
+  '18': 'Calabria',
+  '19': 'Sicilia',
+  '20': 'Sardegna',
+  '62': 'Lazio',       // Roma - codice specifico
+  '82': 'Sicilia',     // Palermo - codice specifico
+  '67': 'Campania',    // Napoli - codice comune
+  '25': 'Lombardia',   // Milano - codice comune
+  '45': 'Emilia-Romagna', // Bologna - codice comune
+  '50': 'Toscana',     // Firenze - codice comune
+  '80': 'Piemonte'     // Torino - codice comune
+};
+
+/**
+ * Mappa dei codici regione per altri paesi comuni
+ */
+const REGION_CODE_MAPPINGS: { [country: string]: { [code: string]: string } } = {
+  'US': {
+    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+    'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+    'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+    'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+    'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+    'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+    'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+    'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+    'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+    'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
+  },
+  'GB': {
+    'ENG': 'England',
+    'SCT': 'Scotland', 
+    'WLS': 'Wales',
+    'NIR': 'Northern Ireland'
+  },
+  'AU': {
+    'NSW': 'New South Wales',
+    'VIC': 'Victoria',
+    'QLD': 'Queensland',
+    'WA': 'Western Australia',
+    'SA': 'South Australia',
+    'TAS': 'Tasmania',
+    'ACT': 'Australian Capital Territory',
+    'NT': 'Northern Territory'
+  },
+  'BR': {
+    'SP': 'São Paulo',
+    'RJ': 'Rio de Janeiro',
+    'MG': 'Minas Gerais',
+    'BA': 'Bahia',
+    'PR': 'Paraná',
+    'RS': 'Rio Grande do Sul',
+    'PE': 'Pernambuco',
+    'CE': 'Ceará',
+    'PA': 'Pará',
+    'SC': 'Santa Catarina'
+  },
+  'JP': {
+    '13': 'Tokyo',
+    '14': 'Kanagawa',
+    '27': 'Osaka',
+    '23': 'Aichi',
+    '01': 'Hokkaido',
+    '40': 'Fukuoka',
+    '28': 'Hyogo',
+    '11': 'Saitama',
+    '12': 'Chiba',
+    '26': 'Kyoto'
+  }
+};
+
+/**
+ * Normalizza il nome della regione convertendo codici in nomi leggibili
+ */
+function normalizeRegionName(region: string, countryCode: string): string {
+  if (!region || region === 'Unknown') {
+    return 'Unknown';
+  }
+  
+  // Se è già un nome completo (contiene lettere minuscole o spazi), restituiscilo così com'è
+  if (/[a-z\s]/.test(region) && region.length > 3) {
+    return region;
+  }
+  
+  // Controllo per codici regionali italiani
+  if (countryCode === 'IT' && ITALIAN_REGION_CODES[region]) {
+    return ITALIAN_REGION_CODES[region];
+  }
+  
+  // Controllo per altri paesi
+  if (REGION_CODE_MAPPINGS[countryCode] && REGION_CODE_MAPPINGS[countryCode][region]) {
+    return REGION_CODE_MAPPINGS[countryCode][region];
+  }
+  
+  // Se non trovato nelle mappe ma sembra un codice (tutto maiuscolo, <=3 caratteri), mantienilo
+  if (/^[A-Z0-9]{1,3}$/.test(region)) {
+    return region; // Mantieni il codice se non abbiamo la mappatura
+  }
+  
+  return region;
+}
 export async function getGeoLocation(request: NextRequest): Promise<GeoLocation> {
   const forwardedFor = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
@@ -79,10 +197,14 @@ export async function getGeoLocation(request: NextRequest): Promise<GeoLocation>
       
       // Verifica che i dati siano validi
       if (data && !data.error) {
-        console.log(`🌍 Geolocalizzazione IP ${ip}: ${data.city}, ${data.region}, ${data.country_name}`);
+        // Normalizza il nome della regione
+        const normalizedRegion = normalizeRegionName(data.region || data.region_code || 'Unknown', data.country || 'Unknown');
+        
+        console.log(`🌍 Geolocalizzazione IP ${ip}: ${data.city}, ${normalizedRegion} (era: ${data.region}), ${data.country_name}`);
+        
         return {
           country: data.country_name || 'Unknown',
-          region: data.region || 'Unknown',
+          region: normalizedRegion,
           city: data.city || 'Unknown'
         };
       }
