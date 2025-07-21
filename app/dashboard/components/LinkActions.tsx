@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Edit, Trash2, QrCode } from 'lucide-react';
+import { Copy, Edit, Trash2, QrCode, BarChart3, FolderOpen, RotateCcw } from 'lucide-react';
 import { deleteLink } from '../actions';
 import { useRouter } from 'next/navigation';
 import QRCodeModal from './QRCodeModal';
@@ -25,6 +25,7 @@ export default function LinkActions({
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showConfirmResetClicks, setShowConfirmResetClicks] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
 
   const router = useRouter();
@@ -46,6 +47,32 @@ export default function LinkActions({
   // Funzione per aprire il modal QR Code
   const handleQRCode = () => {
     setShowQrModal(true);
+  };
+
+  // Funzione per azzerare i click
+  const handleResetClicks = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/links/${shortCode}/reset-clicks`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore durante l\'azzeramento dei click');
+      }
+
+      onToast?.('Click azzerati con successo', 'success');
+      
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Errore durante l\'azzeramento:', error);
+      onToast?.('Errore durante l\'azzeramento dei click', 'error');
+    } finally {
+      setLoading(false);
+      setShowConfirmResetClicks(false);
+    }
   };
 
   // Funzione per eliminare il link
@@ -82,7 +109,17 @@ export default function LinkActions({
   return (
     <>
       <div className={`flex items-center ${showInline ? 'space-x-1' : 'space-x-2'} flex-nowrap`}>
-        {/* 1. Pulsante Copia Link */}
+        {/* 1. Pulsante Statistiche */}
+        <button
+          onClick={() => router.push(`/dashboard/stats/${shortCode}`)}
+          disabled={loading}
+          className={`${buttonBaseClass} border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50`}
+          title="Visualizza statistiche"
+        >
+          <BarChart3 className={showInline ? "h-3 w-3" : "h-4 w-4"} />
+        </button>
+
+        {/* 2. Pulsante Copia Link */}
         <button
           onClick={handleCopyLink}
           disabled={loading}
@@ -96,7 +133,7 @@ export default function LinkActions({
           <Copy className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {/* 2. Pulsante Modifica */}
+        {/* 3. Pulsante Modifica */}
         <button
           onClick={() => router.push(`/dashboard/edit/${shortCode}`)}
           disabled={loading}
@@ -106,7 +143,7 @@ export default function LinkActions({
           <Edit className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {        /* 3. Pulsante QR Code */}
+        {/* 4. Pulsante QR Code */}
         <button
           onClick={handleQRCode}
           disabled={loading}
@@ -116,7 +153,27 @@ export default function LinkActions({
           <QrCode className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {/* 4. Pulsante Elimina (ROSSO) */}
+        {/* 5. Pulsante Gestione Cartelle (Placeholder per ora) */}
+        <button
+          onClick={() => {/* TODO: Implementare gestione cartelle */}}
+          disabled={loading}
+          className={`${buttonBaseClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-50`}
+          title="Gestione cartelle"
+        >
+          <FolderOpen className={showInline ? "h-3 w-3" : "h-4 w-4"} />
+        </button>
+
+        {/* 6. Pulsante Azzera Click */}
+        <button
+          onClick={() => setShowConfirmResetClicks(true)}
+          disabled={loading}
+          className={`${buttonBaseClass} border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 disabled:opacity-50`}
+          title="Azzera click"
+        >
+          <RotateCcw className={showInline ? "h-3 w-3" : "h-4 w-4"} />
+        </button>
+
+        {/* 7. Pulsante Elimina (ROSSO) */}
         <button
           onClick={() => setShowConfirmDelete(true)}
           disabled={loading}
@@ -135,6 +192,18 @@ export default function LinkActions({
         title="Elimina Link"
         message="Sei sicuro di voler eliminare questo link? Questa azione non può essere annullata."
         confirmText="Elimina"
+        type="delete"
+        isLoading={loading}
+      />
+
+      {/* Modal di conferma azzeramento click */}
+      <ConfirmationModal
+        isOpen={showConfirmResetClicks}
+        onClose={() => setShowConfirmResetClicks(false)}
+        onConfirm={handleResetClicks}
+        title="Azzera Click"
+        message="Sei sicuro di voler azzerare tutti i click di questo link? Tutti i dati analitici verranno eliminati."
+        confirmText="Azzera"
         type="delete"
         isLoading={loading}
       />

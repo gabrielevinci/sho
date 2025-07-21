@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LinkIcon, CalendarIcon, PencilIcon, TrashIcon, ClipboardIcon, QrCodeIcon, ArrowPathIcon, FolderIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, CalendarIcon, PencilIcon, TrashIcon, ClipboardIcon, QrCodeIcon, ArrowPathIcon, FolderIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import ConfirmationModal from './ConfirmationModal';
 import QRCodeModal from './QRCodeModal';
@@ -359,6 +359,15 @@ export default function LinkRow({
       {/* Azioni */}
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium w-80">
         <div className="flex items-center justify-end space-x-1">
+          
+          {/* Statistiche */}
+          <Link
+            href={`/dashboard/stats/${link.short_code}`}
+            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+            title="Visualizza Statistiche"
+          >
+            <ChartBarIcon className="h-4 w-4" />
+          </Link>
           
           {/* Copia link */}
           <button
