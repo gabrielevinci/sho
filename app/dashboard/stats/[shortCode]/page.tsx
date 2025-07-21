@@ -33,6 +33,7 @@ export default function LinkStatsPage() {
   const shortCode = params.shortCode as string;
   
   const [linkStats, setLinkStats] = useState<LinkStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -50,6 +51,7 @@ export default function LinkStatsPage() {
 
   const fetchStats = useCallback(async (filter: FilterType = activeFilter) => {
     try {
+      setLoading(true);
       let url = `/api/stats/${shortCode}?filter=${filter}`;
       
       if (filter === 'custom' && customStartDate && customEndDate) {
@@ -66,15 +68,15 @@ export default function LinkStatsPage() {
       setLinkStats(data);
     } catch {
       showToast('Errore durante il caricamento delle statistiche', 'error');
+    } finally {
+      setLoading(false);
     }
   }, [shortCode, activeFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     // Carica le statistiche iniziali solo una volta
-    if (!linkStats) {
-      fetchStats();
-    }
-  }, [shortCode, fetchStats, linkStats]);
+    fetchStats();
+  }, [shortCode, fetchStats]);
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
@@ -108,6 +110,17 @@ export default function LinkStatsPage() {
       showToast('Errore durante la copia del link originale', 'error');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Caricamento statistiche...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!linkStats) {
     return (
@@ -155,7 +168,7 @@ export default function LinkStatsPage() {
                 Statistiche Link
               </h1>
               <p className="text-gray-600">
-                {linkStats?.link.title ? linkStats.link.title : 'Analisi dettagliata delle performance'}
+                Analisi dettagliata delle performance
               </p>
             </div>
           </div>
@@ -164,6 +177,13 @@ export default function LinkStatsPage() {
         {/* Blocco 1: Informazioni del Link */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Informazioni Link</h2>
+          
+          {/* Titolo del link se presente */}
+          {link.title && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-xl font-bold text-blue-900">{link.title}</h3>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
