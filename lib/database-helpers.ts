@@ -156,6 +156,24 @@ const REGION_CODE_MAPPINGS: { [country: string]: { [code: string]: string } } = 
     '11': 'Saitama',
     '12': 'Chiba',
     '26': 'Kyoto'
+  },
+  'PL': {
+    '02': 'Lower Silesian Voivodeship',
+    '04': 'Kuyavian-Pomeranian Voivodeship', 
+    '06': 'Lublin Voivodeship',
+    '08': 'Lubusz Voivodeship',
+    '10': 'Łódź Voivodeship',
+    '12': 'Lesser Poland Voivodeship',
+    '14': 'Masovian Voivodeship',
+    '16': 'Opole Voivodeship',
+    '18': 'Subcarpathian Voivodeship',
+    '20': 'Podlaskie Voivodeship',
+    '22': 'Pomeranian Voivodeship',
+    '24': 'Silesian Voivodeship',
+    '26': 'Świętokrzyskie Voivodeship',
+    '28': 'Warmian-Masurian Voivodeship',
+    '30': 'Greater Poland Voivodeship',
+    '32': 'West Pomeranian Voivodeship'
   }
 };
 
@@ -180,6 +198,12 @@ function normalizeRegionName(region: string, countryCode: string): string {
   // Controllo per altri paesi
   if (REGION_CODE_MAPPINGS[countryCode] && REGION_CODE_MAPPINGS[countryCode][region]) {
     return REGION_CODE_MAPPINGS[countryCode][region];
+  }
+
+  // Se è un numero puro e non abbiamo una mappatura, sostituiscilo con "Unknown Region"
+  // per evitare di mostrare numeri confusi agli utenti
+  if (/^\d+$/.test(region)) {
+    return 'Unknown Region';
   }
   
   // Se non trovato nelle mappe ma sembra un codice (tutto maiuscolo, <=3 caratteri), mantienilo
