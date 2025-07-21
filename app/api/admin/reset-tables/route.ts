@@ -1,9 +1,9 @@
 import { getSession } from '@/app/lib/session';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { resetLinksAndClicksTables } from '@/database/migrations/reset-links-clicks-tables';
 
 // API endpoint per resettare le tabelle del database
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Verifica autenticazione e autorizzazione
     const session = await getSession();
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Metodo GET per verificare lo stato delle tabelle
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       instructions: 'Usa POST per eseguire il reset delle tabelle'
     });
     
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
   }
 }

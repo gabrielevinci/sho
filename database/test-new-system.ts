@@ -56,8 +56,8 @@ async function testDatabaseFunctions() {
       original_url: 'https://example.com/test',
       title: 'Link di Test',
       description: 'Questo è un link creato per testare il sistema',
-      user_id: 1,
-      workspace_id: 1,
+      user_id: '1',
+      workspace_id: '1',
       utm_campaign: 'test-campaign',
       utm_source: 'test-source'
     };

@@ -307,7 +307,7 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
     });
 
     // Inserisci il link con la nuova struttura
-    const linkResult = await sql`
+    await sql`
       INSERT INTO links (
         user_id, workspace_id, original_url, short_code, title, description, 
         utm_source, utm_medium, utm_campaign, utm_term, utm_content,
@@ -318,10 +318,7 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
         ${utm_source}, ${utm_medium}, ${utm_campaign}, ${utm_term}, ${utm_content},
         ${selectedFolderIds.length > 0 ? selectedFolderIds[0] : null}
       )
-      RETURNING id, user_id, workspace_id
     `;
-
-    const linkId = linkResult.rows[0].id;
 
     // Nota: Con la nuova struttura, usiamo solo il campo folder_id nella tabella links
     // invece delle associazioni separate. Quindi rimuoviamo il codice delle associazioni.

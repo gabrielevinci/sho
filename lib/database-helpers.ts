@@ -9,7 +9,6 @@ import {
   Link, 
   Click, 
   CreateLinkData, 
-  CreateClickData, 
   GeoLocation, 
   DeviceInfo, 
   ClickFingerprint 
