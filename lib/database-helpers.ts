@@ -445,8 +445,293 @@ export async function isShortCodeTaken(shortCode: string): Promise<boolean> {
 }
 
 /**
- * Registra un click nel database
+ * Analizza il referrer e i parametri URL per determinare la fonte precisa del click
  */
+export function analyzeReferrerSource(request: NextRequest): {
+  referrer: string;
+  source_type: string;
+  source_detail: string;
+} {
+  const url = new URL(request.url);
+  const rawReferrer = request.headers.get('referer') || request.headers.get('referrer') || '';
+  const userAgent = request.headers.get('user-agent') || '';
+  
+  // 1. CONTROLLO QR CODE - Priorità massima
+  const qrParam = url.searchParams.get('qr');
+  if (qrParam === '1' || qrParam === 'true') {
+    return {
+      referrer: 'QR Code',
+      source_type: 'qr_code',
+      source_detail: 'QR Code Scanner'
+    };
+  }
+  
+  // 2. CONTROLLO PARAMETRI UTM E PERSONALIZZATI
+  const utmSource = url.searchParams.get('utm_source');
+  const utmMedium = url.searchParams.get('utm_medium');
+  const utmCampaign = url.searchParams.get('utm_campaign');
+  
+  if (utmSource) {
+    let sourceDetail = utmSource;
+    if (utmMedium) sourceDetail += ` (${utmMedium})`;
+    if (utmCampaign) sourceDetail += ` - ${utmCampaign}`;
+    
+    return {
+      referrer: `UTM: ${sourceDetail}`,
+      source_type: 'utm_campaign',
+      source_detail: sourceDetail
+    };
+  }
+  
+  // Altri parametri comuni
+  const fbclid = url.searchParams.get('fbclid'); // Facebook
+  const gclid = url.searchParams.get('gclid');   // Google Ads
+  const igshid = url.searchParams.get('igshid'); // Instagram
+  
+  if (fbclid) {
+    return {
+      referrer: 'Facebook',
+      source_type: 'social_media',
+      source_detail: 'Facebook Click ID'
+    };
+  }
+  
+  if (gclid) {
+    return {
+      referrer: 'Google Ads',
+      source_type: 'paid_advertising',
+      source_detail: 'Google Click ID'
+    };
+  }
+  
+  if (igshid) {
+    return {
+      referrer: 'Instagram',
+      source_type: 'social_media',
+      source_detail: 'Instagram Share ID'
+    };
+  }
+  
+  // 3. ANALISI REFERRER HEADER
+  if (rawReferrer) {
+    try {
+      const referrerUrl = new URL(rawReferrer);
+      const domain = referrerUrl.hostname.toLowerCase();
+      
+      // Social Media
+      if (domain.includes('facebook.com') || domain.includes('fb.com')) {
+        return {
+          referrer: 'Facebook',
+          source_type: 'social_media',
+          source_detail: 'Facebook Website'
+        };
+      }
+      
+      if (domain.includes('instagram.com')) {
+        return {
+          referrer: 'Instagram',
+          source_type: 'social_media',
+          source_detail: 'Instagram Website'
+        };
+      }
+      
+      if (domain.includes('twitter.com') || domain.includes('t.co') || domain.includes('x.com')) {
+        return {
+          referrer: 'Twitter/X',
+          source_type: 'social_media',
+          source_detail: 'Twitter Website'
+        };
+      }
+      
+      if (domain.includes('linkedin.com')) {
+        return {
+          referrer: 'LinkedIn',
+          source_type: 'social_media',
+          source_detail: 'LinkedIn Website'
+        };
+      }
+      
+      if (domain.includes('tiktok.com')) {
+        return {
+          referrer: 'TikTok',
+          source_type: 'social_media',
+          source_detail: 'TikTok Website'
+        };
+      }
+      
+      if (domain.includes('youtube.com') || domain.includes('youtu.be')) {
+        return {
+          referrer: 'YouTube',
+          source_type: 'social_media',
+          source_detail: 'YouTube Website'
+        };
+      }
+      
+      if (domain.includes('whatsapp.com') || domain.includes('wa.me')) {
+        return {
+          referrer: 'WhatsApp',
+          source_type: 'messaging',
+          source_detail: 'WhatsApp Web'
+        };
+      }
+      
+      if (domain.includes('telegram.org') || domain.includes('t.me')) {
+        return {
+          referrer: 'Telegram',
+          source_type: 'messaging',
+          source_detail: 'Telegram Website'
+        };
+      }
+      
+      // Search Engines
+      if (domain.includes('google.') || domain.includes('google.com')) {
+        return {
+          referrer: 'Google Search',
+          source_type: 'search_engine',
+          source_detail: 'Google Organic'
+        };
+      }
+      
+      if (domain.includes('bing.com')) {
+        return {
+          referrer: 'Bing Search',
+          source_type: 'search_engine',
+          source_detail: 'Bing Organic'
+        };
+      }
+      
+      if (domain.includes('yahoo.com')) {
+        return {
+          referrer: 'Yahoo Search',
+          source_type: 'search_engine',
+          source_detail: 'Yahoo Organic'
+        };
+      }
+      
+      if (domain.includes('duckduckgo.com')) {
+        return {
+          referrer: 'DuckDuckGo',
+          source_type: 'search_engine',
+          source_detail: 'DuckDuckGo Organic'
+        };
+      }
+      
+      // Email providers
+      if (domain.includes('gmail.com') || domain.includes('mail.google.com')) {
+        return {
+          referrer: 'Gmail',
+          source_type: 'email',
+          source_detail: 'Gmail Client'
+        };
+      }
+      
+      if (domain.includes('outlook.') || domain.includes('hotmail.') || domain.includes('live.com')) {
+        return {
+          referrer: 'Outlook',
+          source_type: 'email',
+          source_detail: 'Outlook Client'
+        };
+      }
+      
+      // Se è il nostro stesso dominio, è un click interno
+      if (domain.includes('sho-smoky.vercel.app') || domain.includes('localhost')) {
+        return {
+          referrer: 'Internal',
+          source_type: 'internal',
+          source_detail: 'Same Website'
+        };
+      }
+      
+      // Altri siti web
+      return {
+        referrer: domain,
+        source_type: 'website',
+        source_detail: `External Website: ${domain}`
+      };
+      
+    } catch (error) {
+      // Se non riusciamo a parsare l'URL, usa il referrer raw
+      return {
+        referrer: rawReferrer,
+        source_type: 'unknown',
+        source_detail: 'Unparseable Referrer'
+      };
+    }
+  }
+  
+  // 4. ANALISI USER AGENT (per app mobile)
+  if (userAgent) {
+    // App Instagram
+    if (userAgent.includes('Instagram')) {
+      return {
+        referrer: 'Instagram App',
+        source_type: 'social_media',
+        source_detail: 'Instagram Mobile App'
+      };
+    }
+    
+    // App Facebook
+    if (userAgent.includes('FBAN') || userAgent.includes('FBAV')) {
+      return {
+        referrer: 'Facebook App',
+        source_type: 'social_media',
+        source_detail: 'Facebook Mobile App'
+      };
+    }
+    
+    // WhatsApp
+    if (userAgent.includes('WhatsApp')) {
+      return {
+        referrer: 'WhatsApp App',
+        source_type: 'messaging',
+        source_detail: 'WhatsApp Mobile App'
+      };
+    }
+    
+    // Telegram
+    if (userAgent.includes('Telegram')) {
+      return {
+        referrer: 'Telegram App',
+        source_type: 'messaging',
+        source_detail: 'Telegram Mobile App'
+      };
+    }
+    
+    // TikTok
+    if (userAgent.includes('TikTok')) {
+      return {
+        referrer: 'TikTok App',
+        source_type: 'social_media',
+        source_detail: 'TikTok Mobile App'
+      };
+    }
+    
+    // Twitter
+    if (userAgent.includes('Twitter')) {
+      return {
+        referrer: 'Twitter App',
+        source_type: 'social_media',
+        source_detail: 'Twitter Mobile App'
+      };
+    }
+    
+    // LinkedIn
+    if (userAgent.includes('LinkedInApp')) {
+      return {
+        referrer: 'LinkedIn App',
+        source_type: 'social_media',
+        source_detail: 'LinkedIn Mobile App'
+      };
+    }
+  }
+  
+  // 5. FALLBACK - Click diretto
+  return {
+    referrer: 'Direct',
+    source_type: 'direct',
+    source_detail: 'Direct Access'
+  };
+}
 export async function recordClick(request: NextRequest, linkId: number): Promise<Click> {
   try {
     // Ottieni informazioni geografiche con fallback in caso di errore
@@ -465,12 +750,14 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
     // Ottieni informazioni del dispositivo
     const deviceInfo = getDeviceInfo(request);
     
+    // Analizza il referrer con il nuovo sistema avanzato
+    const referrerInfo = analyzeReferrerSource(request);
+    
     // Ottieni IP e altri dati
     const forwardedFor = request.headers.get('x-forwarded-for');
     const realIp = request.headers.get('x-real-ip');
     const ip_address = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
     const user_agent = request.headers.get('user-agent') || '';
-    const referrer = request.headers.get('referer') || 'Direct';
     
     // Crea fingerprint
     const fingerprint: ClickFingerprint = {
@@ -485,21 +772,22 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
     
     const click_fingerprint_hash = generateClickFingerprintHash(fingerprint);
     
-    // Log delle informazioni rilevate per debug
-    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${geoLocation.country}, Città: ${geoLocation.city}`);
+    // Log delle informazioni rilevate per debug - includi referrer info
+    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${geoLocation.country}, Città: ${geoLocation.city}, Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})`);
     
-    // Inserisci il click nel database
+    // Inserisci il click nel database con i nuovi campi
     const result = await sql`
       INSERT INTO clicks (
         link_id, country, region, city, referrer, browser_name, 
         language_device, device_type, os_name, ip_address, user_agent, 
-        timezone_device, click_fingerprint_hash
+        timezone_device, click_fingerprint_hash, source_type, source_detail
       ) VALUES (
         ${linkId}, ${geoLocation.country}, ${geoLocation.region}, 
-        ${geoLocation.city}, ${referrer}, ${deviceInfo.browser_name},
+        ${geoLocation.city}, ${referrerInfo.referrer}, ${deviceInfo.browser_name},
         ${deviceInfo.language_device}, ${deviceInfo.device_type}, 
         ${deviceInfo.os_name}, ${ip_address}, ${user_agent},
-        ${deviceInfo.timezone_device}, ${click_fingerprint_hash}
+        ${deviceInfo.timezone_device}, ${click_fingerprint_hash},
+        ${referrerInfo.source_type}, ${referrerInfo.source_detail}
       ) RETURNING *
     `;
     

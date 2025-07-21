@@ -54,6 +54,8 @@ export interface Click {
   user_agent?: string;
   timezone_device?: string;
   click_fingerprint_hash: string;
+  source_type?: string;
+  source_detail?: string;
 }
 
 // Dati per registrare un nuovo click
