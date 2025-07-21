@@ -6,8 +6,7 @@ import {
   BarChart3, 
   Copy, 
   ArrowLeft,
-  Calendar,
-  Check
+  Calendar
 } from 'lucide-react';
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
@@ -35,7 +34,6 @@ export default function LinkStatsPage() {
   const shortCode = params.shortCode as string;
   
   const [linkStats, setLinkStats] = useState<LinkStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -54,7 +52,6 @@ export default function LinkStatsPage() {
 
   const fetchStats = useCallback(async (filter: FilterType = activeFilter) => {
     try {
-      setLoading(true);
       let url = `/api/stats/${shortCode}?filter=${filter}`;
       
       if (filter === 'custom' && customStartDate && customEndDate) {
@@ -71,14 +68,15 @@ export default function LinkStatsPage() {
       setLinkStats(data);
     } catch {
       showToast('Errore durante il caricamento delle statistiche', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [shortCode, activeFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
-    fetchStats();
-  }, [shortCode, fetchStats]);
+    // Carica le statistiche iniziali solo una volta
+    if (!linkStats) {
+      fetchStats();
+    }
+  }, [shortCode, fetchStats, linkStats]);
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
@@ -114,16 +112,16 @@ export default function LinkStatsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Caricamento statistiche...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleCopyOriginalLink = async () => {
+    try {
+      if (linkStats?.link.originalUrl) {
+        await navigator.clipboard.writeText(linkStats.link.originalUrl);
+        showToast('Link originale copiato negli appunti!', 'success');
+      }
+    } catch {
+      showToast('Errore durante la copia del link originale', 'error');
+    }
+  };
 
   if (!linkStats) {
     return (
@@ -170,7 +168,9 @@ export default function LinkStatsPage() {
                 <BarChart3 className="h-6 w-6 mr-2 text-blue-600" />
                 Statistiche Link
               </h1>
-              <p className="text-gray-600">Analisi dettagliata delle performance</p>
+              <p className="text-gray-600">
+                {linkStats?.link.title ? linkStats.link.title : 'Analisi dettagliata delle performance'}
+              </p>
             </div>
           </div>
         </div>
@@ -183,38 +183,25 @@ export default function LinkStatsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">URL Shortato</label>
-                <div className="flex items-center space-x-2">
-                  <a 
-                    href={shortUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    {shortUrl.replace(/^https?:\/\//, '')}
-                  </a>
-                  <button
-                    onClick={handleCopyLink}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      copySuccess 
-                        ? 'bg-green-100 text-green-600' 
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {copySuccess ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </button>
-                </div>
+                <a 
+                  href={shortUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {shortUrl.replace(/^https?:\/\//, '')}
+                </a>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Link Originale</label>
-                <a 
-                  href={link.originalUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-gray-700 hover:text-gray-900 break-all"
+                <button
+                  onClick={handleCopyOriginalLink}
+                  className="text-gray-700 hover:text-gray-900 break-all text-left w-full cursor-pointer underline decoration-dotted hover:decoration-solid"
+                  title="Clicca per copiare il link originale"
                 >
                   {link.originalUrl}
-                </a>
+                </button>
               </div>
 
               {link.description && (
@@ -244,6 +231,7 @@ export default function LinkStatsPage() {
                 showInline={false}
                 onUpdate={handleUpdateFromActions}
                 onToast={showToast}
+                hideStatsButton={true}
               />
             </div>
           </div>

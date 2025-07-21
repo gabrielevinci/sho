@@ -13,6 +13,7 @@ interface LinkActionsProps {
   onUpdate?: () => void; // Callback per aggiornare i dati dopo le modifiche
   onToast?: (message: string, type: 'success' | 'error') => void; // Callback per toast messages
   onClearSelection?: () => void; // Callback per cancellare la selezione
+  hideStatsButton?: boolean; // Per nascondere il pulsante delle statistiche
 }
 
 export default function LinkActions({ 
@@ -20,7 +21,8 @@ export default function LinkActions({
   showInline = false,
   onUpdate,
   onToast,
-  onClearSelection
+  onClearSelection,
+  hideStatsButton = false
 }: LinkActionsProps) {
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -109,15 +111,17 @@ export default function LinkActions({
   return (
     <>
       <div className={`flex items-center ${showInline ? 'space-x-1' : 'space-x-2'} flex-nowrap`}>
-        {/* 1. Pulsante Statistiche */}
-        <button
-          onClick={() => router.push(`/dashboard/stats/${shortCode}`)}
-          disabled={loading}
-          className={`${buttonBaseClass} border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50`}
-          title="Visualizza statistiche"
-        >
-          <BarChart3 className={showInline ? "h-3 w-3" : "h-4 w-4"} />
-        </button>
+        {/* 1. Pulsante Statistiche - solo se non nascosto */}
+        {!hideStatsButton && (
+          <button
+            onClick={() => router.push(`/dashboard/stats/${shortCode}`)}
+            disabled={loading}
+            className={`${buttonBaseClass} border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50`}
+            title="Visualizza statistiche"
+          >
+            <BarChart3 className={showInline ? "h-3 w-3" : "h-4 w-4"} />
+          </button>
+        )}
 
         {/* 2. Pulsante Copia Link */}
         <button
