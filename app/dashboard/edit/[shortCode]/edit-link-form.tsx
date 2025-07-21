@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { updateAdvancedLink, UpdateLinkState } from '@/app/dashboard/actions';
 import { SITE_URL } from '@/app/lib/config';
 import { useRouter } from 'next/navigation';
@@ -521,7 +522,7 @@ function UtmFields({ linkData }: { linkData: LinkData }) {
 export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProps) {
   const router = useRouter();
   const initialState: UpdateLinkState = { message: '', errors: {}, success: false };
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     updateAdvancedLink.bind(null, linkData.short_code), 
     initialState
   );

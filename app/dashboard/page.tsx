@@ -43,7 +43,7 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
-    // Query base per ottenere i link 
+    // Query base per ottenere i link con conteggio click dalla nuova struttura
     const { rows: links } = await sql`
       SELECT 
         l.id,
@@ -53,10 +53,18 @@ async function getLinksForWorkspace(userId: string, workspaceId: string): Promis
         l.description,
         l.created_at,
         l.folder_id,
-        -- Mantieni i campi per compatibilità ma con valori semplici
-        l.click_count::integer as click_count,
-        l.unique_click_count::integer as unique_click_count
+        -- Calcola i conteggi dai click effettivi
+        COALESCE(click_stats.total_clicks, 0)::integer as click_count,
+        COALESCE(click_stats.unique_clicks, 0)::integer as unique_click_count
       FROM links l
+      LEFT JOIN (
+        SELECT 
+          link_id,
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_clicks
+        FROM clicks 
+        GROUP BY link_id
+      ) click_stats ON l.id = click_stats.link_id
       WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
       ORDER BY l.created_at DESC
     `;

@@ -278,39 +278,54 @@ export async function createAdvancedLink(prevState: CreateAdvancedLinkState, for
   }
   
   try {
-    // Inserisci il link
+    // Log essenziale per debug
+    if (!userId || !workspaceId) {
+      console.error('❌ createAdvancedLink: Missing userId or workspaceId', { userId, workspaceId });
+      return { success: false, message: '', errors: { general: "Errore di sessione: userId o workspaceId mancanti." } };
+    }
+
+    // DEBUG: Log dettagliato di tutti i parametri
+    console.log('🔍 createAdvancedLink parameters:', {
+      userId, 
+      workspaceId, 
+      originalUrl, 
+      shortCode, 
+      title, 
+      description,
+      utm_source, 
+      utm_medium, 
+      utm_campaign, 
+      utm_term, 
+      utm_content,
+      selectedFolderIds,
+      selectedFolder: selectedFolderIds.length > 0 ? selectedFolderIds[0] : null,
+      typesInfo: {
+        userId: typeof userId,
+        workspaceId: typeof workspaceId,
+        selectedFolder: typeof (selectedFolderIds.length > 0 ? selectedFolderIds[0] : null)
+      }
+    });
+
+    // Inserisci il link con la nuova struttura
     const linkResult = await sql`
       INSERT INTO links (
         user_id, workspace_id, original_url, short_code, title, description, 
-        utm_source, utm_medium, utm_campaign, utm_term, utm_content
+        utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+        folder_id
       )
       VALUES (
         ${userId}, ${workspaceId}, ${originalUrl}, ${shortCode}, ${title}, ${description},
-        ${utm_source}, ${utm_medium}, ${utm_campaign}, ${utm_term}, ${utm_content}
+        ${utm_source}, ${utm_medium}, ${utm_campaign}, ${utm_term}, ${utm_content},
+        ${selectedFolderIds.length > 0 ? selectedFolderIds[0] : null}
       )
-      RETURNING id
+      RETURNING id, user_id, workspace_id
     `;
 
     const linkId = linkResult.rows[0].id;
 
-    // Se ci sono cartelle selezionate, crea le associazioni
-    if (selectedFolderIds.length > 0) {
-      for (const folderId of selectedFolderIds) {
-        // Verifica che la cartella appartenga all'utente
-        const folderCheck = await sql`
-          SELECT id FROM folders 
-          WHERE id = ${folderId} AND user_id = ${userId} AND workspace_id = ${workspaceId}
-        `;
-        
-        if (folderCheck.rowCount && folderCheck.rowCount > 0) {
-          await sql`
-            INSERT INTO link_folder_associations (link_id, folder_id, user_id, workspace_id)
-            VALUES (${linkId}, ${folderId}, ${userId}, ${workspaceId})
-            ON CONFLICT (link_id, folder_id) DO NOTHING
-          `;
-        }
-      }
-    }
+    // Nota: Con la nuova struttura, usiamo solo il campo folder_id nella tabella links
+    // invece delle associazioni separate. Quindi rimuoviamo il codice delle associazioni.
+    
   } catch (error) {
     console.error("Database error during advanced link creation:", error);
     return { success: false, message: '', errors: { general: "Si è verificato un errore del database. Riprova." } };

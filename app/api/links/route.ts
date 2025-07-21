@@ -1,7 +1,12 @@
 import { getSession } from '@/app/lib/session';
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
 import { invalidateLinksCache } from '@/app/lib/cache';
+import { 
+  getUserLinks, 
+  createLink, 
+  isShortCodeTaken 
+} from '@/lib/database-helpers';
+import { CreateLinkData } from '@/lib/types';
 
 // API endpoint per ottenere tutti i link dell'utente in un workspace
 export async function GET(request: NextRequest) {
@@ -22,31 +27,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Esegui query per ottenere i link dell'utente nel workspace specificato
-    // Usa il sistema enhanced fingerprinting per calcoli accurati
-    const { rows } = await sql`
-      SELECT 
-        l.id, 
-        l.short_code, 
-        l.original_url, 
-        l.created_at, 
-        l.title, 
-        l.description, 
-        l.folder_id,
-        -- Usa click_count dalla tabella links (più affidabile e performante)
-        l.click_count::integer as click_count,
-        -- Calcola unique visitors basandosi sui device_fingerprint unici
-        COALESCE(
-          (SELECT COUNT(DISTINCT ef.device_fingerprint) 
-           FROM enhanced_fingerprints ef 
-           WHERE ef.link_id = l.id), 
-          l.unique_click_count
-        )::integer as unique_click_count
-      FROM links l
-      WHERE l.user_id = ${session.userId} AND l.workspace_id = ${workspaceId}
-      ORDER BY l.created_at DESC
-    `;
+    const links = await getUserLinks(parseInt(session.userId), parseInt(workspaceId));
     
-    return NextResponse.json({ links: rows });
+    return NextResponse.json({ links });
   } catch (error) {
     console.error('Errore durante il recupero dei link:', error);
     return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
@@ -65,7 +48,19 @@ export async function POST(request: NextRequest) {
     
     // Ottieni i dati del body
     const body = await request.json();
-    const { originalUrl, shortCode, workspaceId, title, description } = body;
+    const { 
+      originalUrl, 
+      shortCode, 
+      workspaceId, 
+      title, 
+      description, 
+      folderId,
+      utm_campaign,
+      utm_source,
+      utm_content,
+      utm_medium,
+      utm_term
+    } = body;
     
     // Validazione dei dati
     if (!originalUrl || !shortCode || !workspaceId) {
@@ -75,19 +70,29 @@ export async function POST(request: NextRequest) {
     }
     
     // Verifica che il codice breve non sia già in uso
-    const existingLinks = await sql`
-      SELECT short_code FROM links WHERE short_code = ${shortCode}
-    `;
-    
-    if (existingLinks.rowCount && existingLinks.rowCount > 0) {
+    const isCodeTaken = await isShortCodeTaken(shortCode);
+    if (isCodeTaken) {
       return NextResponse.json({ error: 'Codice breve già in uso' }, { status: 409 });
     }
     
-    // Inserisci il nuovo link
-    await sql`
-      INSERT INTO links (short_code, original_url, user_id, workspace_id, title, description)
-      VALUES (${shortCode}, ${originalUrl}, ${session.userId}, ${workspaceId}, ${title || null}, ${description || null})
-    `;
+    // Crea i dati del link
+    const linkData: CreateLinkData = {
+      short_code: shortCode,
+      original_url: originalUrl,
+      title,
+      description,
+      user_id: parseInt(session.userId),
+      workspace_id: parseInt(workspaceId),
+      folder_id: folderId ? parseInt(folderId) : undefined,
+      utm_campaign,
+      utm_source,
+      utm_content,
+      utm_medium,
+      utm_term
+    };
+    
+    // Crea il nuovo link
+    const newLink = await createLink(linkData);
     
     // Invalida la cache dei link
     await invalidateLinksCache();
@@ -95,13 +100,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true,
       link: {
-        short_code: shortCode,
-        original_url: originalUrl,
-        created_at: new Date(),
-        title,
-        description,
+        ...newLink,
         click_count: 0,
-        unique_click_count: 0 // Initialize unique click count
+        unique_click_count: 0
       }
     });
   } catch (error) {

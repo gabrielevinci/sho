@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useState, useEffect, useRef, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { createAdvancedLink, CreateAdvancedLinkState } from '@/app/dashboard/actions';
 import { SITE_URL } from '@/app/lib/config';
@@ -325,7 +325,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
 // Form principale con struttura HTML valida
 export default function AdvancedCreateForm() {
   const initialState: CreateAdvancedLinkState = { message: '', errors: {}, success: false };
-  const [state, formAction] = useFormState(createAdvancedLink, initialState);
+  const [state, formAction] = useActionState(createAdvancedLink, initialState);
   const [showUtm, setShowUtm] = useState(false);
   const [selectedFolders, setSelectedFolders] = useState<Array<{id: string, name: string}>>([]);
   const formRef = useRef<HTMLFormElement>(null);

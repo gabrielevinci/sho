@@ -7,7 +7,10 @@
     "dev-turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "npx tsx database/migrations/index.ts",
+    "reset-tables": "npx tsx database/migrations/reset-links-clicks-tables.ts",
+    "test-db": "npx tsx database/test-new-system.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -45,6 +48,8 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   }
 }
