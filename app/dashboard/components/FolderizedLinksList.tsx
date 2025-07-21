@@ -909,7 +909,7 @@ export default function FolderizedLinksList({
                         }
                         
                         // Chiamata API batch per reset click
-                        const response = await fetch('/api/links/batch-reset-clicks', {
+                        const response = await fetch('/api/links/reset-clicks', {
                           method: 'PUT',
                           headers: {
                             'Content-Type': 'application/json',

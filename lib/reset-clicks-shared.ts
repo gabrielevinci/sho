@@ -68,32 +68,13 @@ export async function resetLinkClicks(shortCode: string, userId: string, workspa
     `;
     console.log(`✅ Eliminati ${clicksDeleteResult.rowCount || 0} click dal database`);
 
-    // Aggiorna i contatori nella tabella links
+    // Aggiorna i contatori nella tabella links direttamente tramite l'ID
     await sql`
       UPDATE links 
       SET click_count = 0, unique_click_count = 0
       WHERE id = ${linkId}
     `;
-    console.log(`✅ Contatori del link aggiornati`);
-
-    // Azzera i contatori del link nella tabella links (per compatibilità con la vecchia logica)
-    const updateQuery = workspaceId
-      ? sql`
-          UPDATE links
-          SET click_count = 0, unique_click_count = 0
-          WHERE short_code = ${shortCode} 
-          AND user_id = ${userId} 
-          AND workspace_id = ${workspaceId}
-        `
-      : sql`
-          UPDATE links
-          SET click_count = 0, unique_click_count = 0
-          WHERE short_code = ${shortCode} 
-          AND user_id = ${userId}
-        `;
-    
-    await updateQuery;
-    console.log(`✅ Azzerati contatori per link ${shortCode}`);
+    console.log(`✅ Contatori azzerati per link ${shortCode}`);
 
     console.log(`🎉 Reset completato con successo per link ${shortCode}`);
     

@@ -109,6 +109,7 @@ export default function LinkRow({
       console.log('📊 Risposta API reset:', response.status, response.statusText);
 
       if (response.ok) {
+        const result = await response.json();
         console.log('✅ Reset completato con successo');
         setShowResetModal(false);
         
@@ -117,7 +118,7 @@ export default function LinkRow({
           onClearSelection();
         }
         
-        onToast?.('Click azzerati con successo', 'success');
+        onToast?.(result.message || 'Click azzerati con successo', 'success');
         
         // Aggiorna il link localmente con click_count e unique_click_count = 0
         if (onUpdateLink) {
@@ -127,9 +128,9 @@ export default function LinkRow({
           });
         }
       } else {
-        const errorData = await response.text();
+        const errorData = await response.json();
         console.error('❌ Errore API reset:', response.status, errorData);
-        throw new Error(`Errore ${response.status}: ${errorData}`);
+        throw new Error(errorData.error || `Errore ${response.status}`);
       }
     } catch (error) {
       console.error('❌ Errore durante l\'azzeramento dei click:', error);
