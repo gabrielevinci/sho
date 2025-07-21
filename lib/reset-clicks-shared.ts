@@ -46,53 +46,37 @@ export async function resetLinkClicks(shortCode: string, userId: string, workspa
 
     const linkId = linkRows[0].id;
 
-    // Prima ottieni gli hash dei fingerprint che saranno eliminati per pulire le correlazioni
-    let fingerprintHashes: string[] = [];
+    // Prima ottieni i dati che saranno eliminati per la reportistica
+    let clicksToDelete = 0;
     try {
-      // Recuperiamo solo dalla tabella enhanced_fingerprints che sappiamo esistere
-      const hashResult = await sql`
-        SELECT DISTINCT browser_fingerprint as hash 
-        FROM enhanced_fingerprints 
+      // Contiamo i click dalla tabella clicks
+      const clickResult = await sql`
+        SELECT COUNT(*) as count
+        FROM clicks 
         WHERE link_id = ${linkId}
       `;
-      fingerprintHashes = hashResult.rows.map(row => (row as {hash: string}).hash).filter(Boolean);
-      console.log(`📋 Trovati ${fingerprintHashes.length} hash fingerprint da eliminare dalle correlazioni`);
+      clicksToDelete = parseInt(clickResult.rows[0]?.count || '0');
+      console.log(`📋 Trovati ${clicksToDelete} click da eliminare`);
     } catch (error) {
-      console.log('⚠️ Impossibile ottenere hash fingerprint per correlazioni:', error);
+      console.log('⚠️ Impossibile contare i click:', error);
     }
 
-    // Elimina tutti i record dalla tabella enhanced_fingerprints per questo link
-    const enhancedResult = await sql`
-      DELETE FROM enhanced_fingerprints
-      WHERE link_id = ${linkId}
-    `;
-    console.log(`✅ Eliminati ${enhancedResult.rowCount || 0} record da enhanced_fingerprints`);
-
-    // Verifichiamo se esiste la tabella fingerprint_correlations e eliminiamo i record
-    if (fingerprintHashes.length > 0) {
-      try {
-        let correlationsDeleted = 0;
-        for (const hash of fingerprintHashes) {
-          const correlationsResult = await sql`
-            DELETE FROM fingerprint_correlations
-            WHERE fingerprint_hash = ${hash}
-          `;
-          correlationsDeleted += correlationsResult.rowCount || 0;
-        }
-        console.log(`✅ Eliminati ${correlationsDeleted} record da fingerprint_correlations`);
-      } catch (error) {
-        console.log('⚠️ Tabella fingerprint_correlations non trovata o errore nella pulizia, continuando...', error);
-      }
-    }
-
-    // Elimina tutti i record dalla tabella clicks per questo link
-    const clicksResult = await sql`
+    // Elimina tutti i click per questo link
+    const clicksDeleteResult = await sql`
       DELETE FROM clicks
       WHERE link_id = ${linkId}
     `;
-    console.log(`✅ Eliminati ${clicksResult.rowCount || 0} record da clicks`);
+    console.log(`✅ Eliminati ${clicksDeleteResult.rowCount || 0} click dal database`);
 
-    // Azzera i contatori del link nella tabella links
+    // Aggiorna i contatori nella tabella links
+    const updateResult = await sql`
+      UPDATE links 
+      SET click_count = 0, unique_click_count = 0
+      WHERE id = ${linkId}
+    `;
+    console.log(`✅ Contatori del link aggiornati`);
+
+    // Azzera i contatori del link nella tabella links (per compatibilità con la vecchia logica)
     const updateQuery = workspaceId
       ? sql`
           UPDATE links
@@ -164,43 +148,6 @@ export async function resetBatchLinkClicks(shortCodes: string[], userId: string,
     }
 
     const linkIdPlaceholders = linkIds.map((_, index) => `$${index + 1}`).join(', ');
-    
-    // Prima ottieni gli hash dei fingerprint che saranno eliminati per pulire le correlazioni
-    let fingerprintHashes: string[] = [];
-    try {
-      // Recuperiamo solo dalla tabella enhanced_fingerprints che sappiamo esistere
-      const fingerprintHashQuery = `
-        SELECT DISTINCT browser_fingerprint as hash 
-        FROM enhanced_fingerprints 
-        WHERE link_id IN (${linkIdPlaceholders})
-      `;
-      const { rows: hashRows } = await sql.query(fingerprintHashQuery, linkIds);
-      fingerprintHashes = hashRows.map(row => row.hash).filter(Boolean);
-    } catch (error) {
-      console.log('Impossibile ottenere hash fingerprint per correlazioni:', error);
-    }
-    
-    // Elimina tutti i record dalla tabella enhanced_fingerprints per questi link
-    const deleteEnhancedFingerprintsQuery = `
-      DELETE FROM enhanced_fingerprints
-      WHERE link_id IN (${linkIdPlaceholders})
-    `;
-    await sql.query(deleteEnhancedFingerprintsQuery, linkIds);
-    
-    // Elimina correlazioni fingerprint usando gli hash salvati
-    if (fingerprintHashes.length > 0) {
-      try {
-        const hashPlaceholders = fingerprintHashes.map((_, index) => `$${index + 1}`).join(', ');
-        const deleteCorrelationsQuery = `
-          DELETE FROM fingerprint_correlations
-          WHERE fingerprint_hash IN (${hashPlaceholders})
-        `;
-        await sql.query(deleteCorrelationsQuery, fingerprintHashes);
-      } catch (error) {
-        // La tabella fingerprint_correlations potrebbe non esistere
-        console.log('Tabella fingerprint_correlations non trovata o errore nella pulizia, continuando...', error);
-      }
-    }
     
     // Elimina tutti i record dalla tabella clicks per questi link
     const deleteClicksQuery = `

@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const folderId = searchParams.get('folderId');
     const includeUnassigned = searchParams.get('includeUnassigned') === 'true';
 
-    // Query base per ottenere i link con conteggi accurati usando enhanced fingerprinting
+    // Query base per ottenere i link con conteggi accurati
     let baseQuery = `
       SELECT 
         l.id,
@@ -43,15 +43,10 @@ export async function GET(request: NextRequest) {
         l.description,
         l.created_at,
         l.folder_id,
-        -- Usa click_count dalla tabella links (più performante)
+        -- Usa click_count dalla tabella links
         l.click_count::integer as click_count,
-        -- Calcola unique visitors basandosi sui device_fingerprint unici
-        COALESCE(
-          (SELECT COUNT(DISTINCT ef.device_fingerprint) 
-           FROM enhanced_fingerprints ef 
-           WHERE ef.link_id = l.id), 
-          l.unique_click_count
-        )::integer as unique_click_count
+        -- Usa unique_click_count dalla tabella links
+        l.unique_click_count::integer as unique_click_count
       FROM links l
       WHERE l.user_id = $1 AND l.workspace_id = $2
     `;

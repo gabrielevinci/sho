@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createAdvancedLink, CreateAdvancedLinkState } from '@/app/dashboard/actions';
 import { SITE_URL } from '@/app/lib/config';
@@ -324,6 +325,7 @@ function FolderSelector({ selectedFolders, onFoldersChange, availableFolders }: 
 
 // Form principale con struttura HTML valida
 export default function AdvancedCreateForm() {
+  const router = useRouter();
   const initialState: CreateAdvancedLinkState = { message: '', errors: {}, success: false };
   const [state, formAction] = useActionState(createAdvancedLink, initialState);
   const [showUtm, setShowUtm] = useState(false);
@@ -341,8 +343,11 @@ export default function AdvancedCreateForm() {
       formRef.current?.reset();
       setShowUtm(false);
       setSelectedFolders([]);
+      
+      // Redirect immediato alla dashboard
+      router.push('/dashboard');
     }
-  }, [state]);
+  }, [state, router]);
 
   return (
     <form ref={formRef} action={formAction} className="space-y-6">
@@ -420,6 +425,9 @@ export default function AdvancedCreateForm() {
           <div className="mt-4 p-4 rounded-md bg-green-50 text-center">
             <p className="font-semibold text-green-800">{state.message}</p>
             <a href={`${SITE_URL}/${state.finalShortCode}`} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-mono bg-green-200 text-green-900 p-2 rounded-md hover:bg-green-300 break-all">{`${SITE_URL}/${state.finalShortCode}`}</a>
+            <p className="mt-3 text-sm text-green-700">
+              Reindirizzamento alla dashboard...
+            </p>
           </div>
         )}
         {state.errors?.general && (

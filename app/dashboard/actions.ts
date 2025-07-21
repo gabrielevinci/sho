@@ -574,9 +574,6 @@ export async function deleteLink(shortCode: string) {
     // Elimina i click associati
     await sql`DELETE FROM clicks WHERE link_id = ${linkId}`;
 
-    // Elimina enhanced_fingerprints associati
-    await sql`DELETE FROM enhanced_fingerprints WHERE link_id = ${linkId}`;
-
     // Elimina il link
     await sql`
       DELETE FROM links 

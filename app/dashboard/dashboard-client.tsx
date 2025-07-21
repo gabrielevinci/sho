@@ -44,6 +44,7 @@ export default function DashboardClient({
   const [links, setLinks] = useState<LinkFromDB[]>(initialLinks);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(initialActiveWorkspace?.id || null);
+  const [isMovingLinks, setIsMovingLinks] = useState(false); // Indicatore di spostamento in corso
   
   // Stati per la cronologia di navigazione
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
@@ -221,7 +222,25 @@ export default function DashboardClient({
   }, []);
   
   const handleLinkDrop = useCallback(async (linkId: string, folderId: string | null, clearSelection?: () => void) => {
+    setIsMovingLinks(true); // Inizia il loading
     try {
+      // Aggiornamento ottimistico: aggiorna subito l'interfaccia
+      setLinks(prev => prev.map(link => {
+        if (link.id === linkId) {
+          return {
+            ...link,
+            folder_id: folderId,
+            // Se si sposta in una cartella specifica, aggiorna anche le cartelle multiple
+            folders: folderId ? [{
+              id: folderId,
+              name: folders.find(f => f.id === folderId)?.name || 'Cartella',
+              parent_folder_id: folders.find(f => f.id === folderId)?.parent_folder_id || null
+            }] : []
+          };
+        }
+        return link;
+      }));
+      
       // Usa l'API batch-move anche per un singolo link per uniformare il comportamento
       const response = await fetch('/api/links/batch-move', {
         method: 'PUT',
@@ -236,8 +255,8 @@ export default function DashboardClient({
       });
 
       if (response.ok) {
-        // IMPORTANTE: Ricarica tutti i link per avere le associazioni multiple aggiornate
-        // Non aggiornare lo stato locale, ma ricarica dal server
+        // IMPORTANTE: Ricarica tutti i link per avere le associazioni multiple aggiornate dal server
+        // Questo assicura che i dati siano sincronizzati con il database
         await handleUpdateLinks();
         
         // Deselect links after moving - use the passed callback or the stored function
@@ -249,15 +268,21 @@ export default function DashboardClient({
         // Non mostrare toast qui, sarà gestito da FolderSidebar per operazioni batch
         // o da altri componenti per operazioni singole
       } else {
+        // Se c'è stato un errore, ripristina lo stato precedente
+        await handleUpdateLinks();
         const errorData = await response.json();
         console.error('❌ Errore API batch-move (drag&drop):', errorData);
         showError('Errore durante lo spostamento del link');
       }
     } catch (error) {
+      // Se c'è stato un errore, ripristina lo stato precedente
+      await handleUpdateLinks();
       console.error('❌ Errore durante lo spostamento del link (drag&drop):', error);
       showError('Errore durante lo spostamento del link');
+    } finally {
+      setIsMovingLinks(false); // Fine loading
     }
-  }, [showError, selectedFolderId, handleUpdateLinks]);
+  }, [showError, selectedFolderId, handleUpdateLinks, folders]);
 
   const handleUpdateLink = useCallback((shortCode: string, updates: Partial<LinkFromDB>) => {
     setLinks(prev => prev.map(link => {
@@ -320,6 +345,7 @@ export default function DashboardClient({
                   navigationHistory={navigationHistory}
                   navigationIndex={navigationIndex}
                   onNavigationChange={handleNavigationChange}
+                  isMovingLinks={isMovingLinks}
                 />
               </div>
             </div>

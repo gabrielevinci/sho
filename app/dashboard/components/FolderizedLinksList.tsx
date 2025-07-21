@@ -70,6 +70,7 @@ interface FolderizedLinksListProps {
   navigationHistory?: string[];
   navigationIndex?: number;
   onNavigationChange?: (history: string[], index: number) => void;
+  isMovingLinks?: boolean;
 }
 
 // Tipi per ordinamento
@@ -94,7 +95,8 @@ export default function FolderizedLinksList({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   navigationIndex,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onNavigationChange
+  onNavigationChange,
+  isMovingLinks = false
 }: FolderizedLinksListProps) {
   const [draggedLink, setDraggedLink] = useState<LinkFromDB | null>(null);
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set());
@@ -308,6 +310,7 @@ export default function FolderizedLinksList({
     });
 
     if (response.ok) {
+      // Aggiorna immediatamente l'interfaccia
       onUpdateLinks();
     } else {
       const errorData = await response.json();
@@ -638,7 +641,17 @@ export default function FolderizedLinksList({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* Overlay di loading per spostamento */}
+      {isMovingLinks && (
+        <div className="absolute inset-0 bg-white/75 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
+          <div className="bg-white p-6 rounded-2xl shadow-lg flex items-center space-x-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-700 font-medium">Spostamento in corso...</span>
+          </div>
+        </div>
+      )}
+      
       <div className="bg-white rounded-3xl shadow-md h-full flex flex-col overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="flex items-center justify-between">
