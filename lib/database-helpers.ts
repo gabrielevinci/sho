@@ -33,8 +33,44 @@ export function generateClickFingerprintHash(fingerprint: ClickFingerprint): str
 }
 
 /**
- * Mappa dei codici regione numerici italiani ai nomi leggibili
+ * Mappa completa dei codici ISO paese ai nomi leggibili
  */
+const COUNTRY_CODE_TO_NAME: { [code: string]: string } = {
+  'US': 'United States', 'IT': 'Italy', 'GB': 'United Kingdom', 'DE': 'Germany',
+  'FR': 'France', 'ES': 'Spain', 'JP': 'Japan', 'CN': 'China', 'IN': 'India',
+  'BR': 'Brazil', 'AU': 'Australia', 'CA': 'Canada', 'RU': 'Russia', 'MX': 'Mexico',
+  'KR': 'South Korea', 'NL': 'Netherlands', 'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark',
+  'FI': 'Finland', 'CH': 'Switzerland', 'AT': 'Austria', 'BE': 'Belgium', 'PT': 'Portugal',
+  'PL': 'Poland', 'CZ': 'Czech Republic', 'HU': 'Hungary', 'RO': 'Romania', 'BG': 'Bulgaria',
+  'HR': 'Croatia', 'SK': 'Slovakia', 'SI': 'Slovenia', 'EE': 'Estonia', 'LV': 'Latvia',
+  'LT': 'Lithuania', 'IE': 'Ireland', 'IS': 'Iceland', 'MT': 'Malta', 'CY': 'Cyprus',
+  'LU': 'Luxembourg', 'TR': 'Turkey', 'GR': 'Greece', 'IL': 'Israel', 'SA': 'Saudi Arabia',
+  'AE': 'United Arab Emirates', 'EG': 'Egypt', 'ZA': 'South Africa', 'NG': 'Nigeria',
+  'KE': 'Kenya', 'MA': 'Morocco', 'TN': 'Tunisia', 'AR': 'Argentina', 'CL': 'Chile',
+  'CO': 'Colombia', 'PE': 'Peru', 'VE': 'Venezuela', 'UY': 'Uruguay', 'EC': 'Ecuador',
+  'BO': 'Bolivia', 'PY': 'Paraguay', 'TH': 'Thailand', 'VN': 'Vietnam', 'MY': 'Malaysia',
+  'SG': 'Singapore', 'ID': 'Indonesia', 'PH': 'Philippines', 'TW': 'Taiwan', 'HK': 'Hong Kong',
+  'NZ': 'New Zealand', 'UA': 'Ukraine', 'BY': 'Belarus', 'MD': 'Moldova', 'RS': 'Serbia',
+  'BA': 'Bosnia and Herzegovina', 'ME': 'Montenegro', 'MK': 'North Macedonia', 'AL': 'Albania',
+  'XK': 'Kosovo', 'AM': 'Armenia', 'AZ': 'Azerbaijan', 'GE': 'Georgia', 'KZ': 'Kazakhstan'
+};
+
+/**
+ * Normalizza il nome del paese convertendo codici ISO in nomi completi
+ */
+function normalizeCountryName(country: string): string {
+  if (!country || country === 'Unknown') {
+    return 'Unknown';
+  }
+  
+  // Se è un codice ISO a 2 lettere, convertilo
+  if (country.length === 2 && /^[A-Z]{2}$/.test(country)) {
+    return COUNTRY_CODE_TO_NAME[country] || country;
+  }
+  
+  // Se è già un nome completo, restituiscilo così com'è
+  return country;
+}
 const ITALIAN_REGION_CODES: { [key: string]: string } = {
   '01': 'Piemonte',
   '02': 'Valle d\'Aosta',
@@ -200,10 +236,13 @@ export async function getGeoLocation(request: NextRequest): Promise<GeoLocation>
         // Normalizza il nome della regione
         const normalizedRegion = normalizeRegionName(data.region || data.region_code || 'Unknown', data.country || 'Unknown');
         
-        console.log(`🌍 Geolocalizzazione IP ${ip}: ${data.city}, ${normalizedRegion} (era: ${data.region}), ${data.country_name}`);
+        // Normalizza il nome del paese (preferisce country_name, poi country, poi conversione ISO)
+        const normalizedCountry = normalizeCountryName(data.country_name || data.country || 'Unknown');
+        
+        console.log(`🌍 Geolocalizzazione IP ${ip}: ${data.city}, ${normalizedRegion}, ${normalizedCountry} (era: ${data.region}, ${data.country_name || data.country})`);
         
         return {
-          country: data.country_name || 'Unknown',
+          country: normalizedCountry,
           region: normalizedRegion,
           city: data.city || 'Unknown'
         };
