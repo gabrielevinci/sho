@@ -261,6 +261,20 @@ export default function LinkRow({
         </div>
       </td>
 
+      {/* Click Totali */}
+      <td className="px-6 py-4 w-32">
+        <div className="text-sm font-medium text-gray-900">
+          {link.click_count || 0}
+        </div>
+      </td>
+
+      {/* Click Unici */}
+      <td className="px-6 py-4 w-32">
+        <div className="text-sm font-medium text-gray-900">
+          {link.unique_click_count || 0}
+        </div>
+      </td>
+
       {/* Cartelle - visualizzazione multipla se abilitata */}
       {showMultipleFolders && (
         <td className="px-6 py-4 w-56">

@@ -43,31 +43,63 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
   try {
-    // Query base per ottenere i link con conteggio click dalla nuova struttura
-    const { rows: links } = await sql`
-      SELECT 
-        l.id,
-        l.short_code,
-        l.original_url,
-        l.title,
-        l.description,
-        l.created_at,
-        l.folder_id,
-        -- Calcola i conteggi dai click effettivi
-        COALESCE(click_stats.total_clicks, 0)::integer as click_count,
-        COALESCE(click_stats.unique_clicks, 0)::integer as unique_click_count
-      FROM links l
-      LEFT JOIN (
-        SELECT 
-          link_id,
-          COUNT(*) as total_clicks,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_clicks
-        FROM clicks 
-        GROUP BY link_id
-      ) click_stats ON l.id = click_stats.link_id
-      WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
-      ORDER BY l.created_at DESC
+    // Prima verifichiamo se la vista unified_click_analytics esiste
+    const { rows: viewExists } = await sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.views 
+        WHERE table_name = 'unified_click_analytics'
+      ) as view_exists
     `;
+
+    let linksQuery;
+    if (viewExists[0]?.view_exists) {
+      // Se la vista esiste, usa quella per le statistiche
+      linksQuery = sql`
+        SELECT 
+          l.id,
+          l.short_code,
+          l.original_url,
+          l.title,
+          l.description,
+          l.created_at,
+          l.folder_id,
+          -- Ottieni i dati dalle statistiche unificate se disponibili, altrimenti usa 0
+          COALESCE(uca.total_clicks_all_time, 0)::integer as click_count,
+          COALESCE(uca.unique_clicks_all_time, 0)::integer as unique_click_count
+        FROM links l
+        LEFT JOIN unified_click_analytics uca ON l.short_code = uca.short_code
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
+        ORDER BY l.created_at DESC
+      `;
+    } else {
+      // Fallback: calcola dai click diretti dalla tabella clicks
+      linksQuery = sql`
+        SELECT 
+          l.id,
+          l.short_code,
+          l.original_url,
+          l.title,
+          l.description,
+          l.created_at,
+          l.folder_id,
+          -- Calcola i conteggi dai click effettivi
+          COALESCE(click_stats.total_clicks, 0)::integer as click_count,
+          COALESCE(click_stats.unique_clicks, 0)::integer as unique_click_count
+        FROM links l
+        LEFT JOIN (
+          SELECT 
+            link_id,
+            COUNT(*) as total_clicks,
+            COUNT(DISTINCT click_fingerprint_hash) as unique_clicks
+          FROM clicks 
+          GROUP BY link_id
+        ) click_stats ON l.id = click_stats.link_id
+        WHERE l.user_id = ${userId} AND l.workspace_id = ${workspaceId}
+        ORDER BY l.created_at DESC
+      `;
+    }
+
+    const { rows: links } = await linksQuery;
 
     // Se non ci sono link, restituisci array vuoto
     if (links.length === 0) {
