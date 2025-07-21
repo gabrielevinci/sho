@@ -57,8 +57,10 @@ const COUNTRY_CODE_TO_NAME: { [code: string]: string } = {
 
 /**
  * Normalizza il nome del paese convertendo codici ISO in nomi completi
+/**
+ * Normalizza il nome del paese convertendo codici ISO in nomi completi
  */
-function normalizeCountryName(country: string): string {
+export function normalizeCountryName(country: string): string {
   if (!country || country === 'Unknown') {
     return 'Unknown';
   }
@@ -180,7 +182,7 @@ const REGION_CODE_MAPPINGS: { [country: string]: { [code: string]: string } } = 
 /**
  * Normalizza il nome della regione convertendo codici in nomi leggibili
  */
-function normalizeRegionName(region: string, countryCode: string): string {
+export function normalizeRegionName(region: string, countryCode: string): string {
   if (!region || region === 'Unknown') {
     return 'Unknown';
   }
@@ -796,17 +798,21 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
     
     const click_fingerprint_hash = generateClickFingerprintHash(fingerprint);
     
-    // Log delle informazioni rilevate per debug - includi referrer info
-    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${geoLocation.country}, Città: ${geoLocation.city}, Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})`);
+    // Normalizza i dati geografici prima del salvataggio
+    const normalizedCountry = normalizeCountryName(geoLocation.country || 'Unknown');
+    const normalizedRegion = normalizeRegionName(geoLocation.region || 'Unknown', geoLocation.country || 'Unknown');
     
-    // Inserisci il click nel database con i nuovi campi
+    // Log delle informazioni rilevate per debug - includi referrer info
+    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${geoLocation.city}, Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})`);
+    
+    // Inserisci il click nel database con i dati normalizzati
     const result = await sql`
       INSERT INTO clicks (
         link_id, country, region, city, referrer, browser_name, 
         language_device, device_type, os_name, ip_address, user_agent, 
         timezone_device, click_fingerprint_hash, source_type, source_detail
       ) VALUES (
-        ${linkId}, ${geoLocation.country}, ${geoLocation.region}, 
+        ${linkId}, ${normalizedCountry}, ${normalizedRegion}, 
         ${geoLocation.city}, ${referrerInfo.referrer}, ${deviceInfo.browser_name},
         ${deviceInfo.language_device}, ${deviceInfo.device_type}, 
         ${deviceInfo.os_name}, ${ip_address}, ${user_agent},

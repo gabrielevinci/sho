@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { UAParser } from 'ua-parser-js';
 import { createHash } from 'crypto';
+import { normalizeCountryName, normalizeRegionName } from '@/lib/database-helpers';
 
 // Tipo per il risultato della query al DB
 type LinkFromDb = {
@@ -86,6 +87,11 @@ async function recordBasicClick(linkId: number, request: NextRequest, fingerprin
   const userAgent = request.headers.get('user-agent') || '';
   let referrer = request.headers.get('referer') || 'Direct';
   const country = request.headers.get('x-vercel-ip-country') || 'Unknown';
+  const region = request.headers.get('x-vercel-ip-country-region') || 'Unknown';
+
+  // Normalizza i dati geografici
+  const normalizedCountry = normalizeCountryName(country);
+  const normalizedRegion = normalizeRegionName(region, country);
 
   // Controlla se il click proviene da un QR code
   const url = new URL(request.url);
@@ -107,10 +113,11 @@ async function recordBasicClick(linkId: number, request: NextRequest, fingerprin
     // Registra il click nella tabella esistente
     await sql`
       INSERT INTO clicks 
-        (link_id, country, referrer, browser_name, device_type, user_fingerprint, clicked_at_rome) 
+        (link_id, country, region, referrer, browser_name, device_type, user_fingerprint, clicked_at_rome) 
       VALUES (
         ${linkId}, 
-        ${country}, 
+        ${normalizedCountry}, 
+        ${normalizedRegion},
         ${referrer}, 
         ${fingerprintInfo.components.browserName}, 
         ${fingerprintInfo.components.deviceType}, 
