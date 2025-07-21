@@ -65,6 +65,7 @@ export default function LinkActions({
 
       onToast?.('Click azzerati con successo', 'success');
       
+      // Forza sempre il refresh dei dati dopo l'azzeramento
       if (onUpdate) {
         onUpdate();
       }
@@ -90,7 +91,14 @@ export default function LinkActions({
       
       // Non mostriamo il toast qui perché viene già mostrato dal dashboard
       
-      if (onUpdate) {
+      // Controlla se siamo nella pagina delle statistiche
+      const currentPath = window.location.pathname;
+      const isFromStats = currentPath.includes('/stats/');
+      
+      if (isFromStats) {
+        // Se siamo nelle statistiche, vai sempre alla dashboard
+        router.push('/dashboard');
+      } else if (onUpdate) {
         onUpdate();
       } else {
         router.push('/dashboard');
@@ -162,9 +170,14 @@ export default function LinkActions({
           <QrCode className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {/* 5. Pulsante Gestione Cartelle (Placeholder per ora) */}
+        {/* 5. Pulsante Gestione Cartelle */}
         <button
-          onClick={() => {/* TODO: Implementare gestione cartelle */}}
+          onClick={() => {
+            const currentPath = window.location.pathname;
+            const isFromStats = currentPath.includes('/stats/');
+            const editUrl = `/dashboard/edit/${shortCode}${isFromStats ? '?from=stats' : ''}`;
+            router.push(editUrl);
+          }}
           disabled={loading}
           className={`${buttonBaseClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-50`}
           title="Gestione cartelle"
