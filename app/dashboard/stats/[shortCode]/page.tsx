@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   BarChart3, 
-  Copy, 
   ArrowLeft,
   Calendar
 } from 'lucide-react';
@@ -37,7 +36,6 @@ export default function LinkStatsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [copySuccess, setCopySuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const filters: { value: FilterType; label: string }[] = [
@@ -98,18 +96,6 @@ export default function LinkStatsPage() {
 
   const handleUpdateFromActions = () => {
     fetchStats(); // Ricarica le statistiche dopo un'azione
-  };
-
-  const handleCopyLink = async () => {
-    try {
-      const shortUrl = `${SITE_URL}/${shortCode}`;
-      await navigator.clipboard.writeText(shortUrl);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-      showToast('Link copiato negli appunti!', 'success');
-    } catch {
-      showToast('Errore durante la copia del link', 'error');
-    }
   };
 
   const handleCopyOriginalLink = async () => {
