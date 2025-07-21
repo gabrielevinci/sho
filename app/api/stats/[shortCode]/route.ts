@@ -56,22 +56,6 @@ export async function GET(
       `;
     } else {
       // Per tutti gli altri filtri, usa la tabella statistiche_link
-      const suffixMap = {
-        'sempre': '_sempre',
-        '24h': '_24h',
-        '7d': '_7d',
-        '30d': '_30d',
-        '90d': '_90d',
-        '365d': '_365d'
-      };
-      
-      const suffix = suffixMap[filter as keyof typeof suffixMap] || '_sempre';
-      
-      // Query sicura usando i nomi dei campi dinamicamente
-      const clickTotaliField = `click_totali${suffix}`;
-      const clickUniciField = `click_unici${suffix}`;
-      const referrerField = `referrer${suffix}`;
-      
       statsResult = await sql`
         SELECT 
           COALESCE(click_totali_sempre, 0) as click_totali_sempre,
@@ -110,16 +94,22 @@ export async function GET(
         };
       }
     }
-    const stats = statsResult.rows[0] as any;
+    const stats = statsResult.rows[0] as Record<string, string | number>;
+    
+    // Helper function per convertire in numero
+    const toNumber = (value: string | number): number => {
+      if (typeof value === 'number') return value;
+      return parseInt(String(value)) || 0;
+    };
     
     // Determina i valori in base al tipo di filtro
     let clickTotali, clickUnici, referrerCount;
     
     if (filter === 'custom') {
       // Per date personalizzate, usa i campi calcolati
-      clickTotali = parseInt(stats.click_totali) || 0;
-      clickUnici = parseInt(stats.click_unici) || 0;
-      referrerCount = parseInt(stats.referrer_count) || 0;
+      clickTotali = toNumber(stats.click_totali);
+      clickUnici = toNumber(stats.click_unici);
+      referrerCount = toNumber(stats.referrer_count);
     } else {
       // Per filtri predefiniti, usa i campi della tabella statistiche_link
       const suffixMap: { [key: string]: string } = {
@@ -133,9 +123,9 @@ export async function GET(
       
       const suffix = suffixMap[filter] || '_sempre';
       
-      clickTotali = parseInt(stats[`click_totali${suffix}`]) || 0;
-      clickUnici = parseInt(stats[`click_unici${suffix}`]) || 0;
-      referrerCount = parseInt(stats[`referrer${suffix}`]) || 0;
+      clickTotali = toNumber(stats[`click_totali${suffix}`]);
+      clickUnici = toNumber(stats[`click_unici${suffix}`]);
+      referrerCount = toNumber(stats[`referrer${suffix}`]);
     }
 
     return NextResponse.json({

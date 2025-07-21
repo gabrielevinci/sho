@@ -1,15 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   BarChart3, 
   Copy, 
-  Edit, 
-  QrCode, 
-  FolderOpen, 
-  RotateCcw, 
-  Trash2,
   ArrowLeft,
   Calendar,
   Check
@@ -57,7 +52,7 @@ export default function LinkStatsPage() {
     { value: 'custom', label: 'Date personalizzate' }
   ];
 
-  const fetchStats = async (filter: FilterType = activeFilter) => {
+  const fetchStats = useCallback(async (filter: FilterType = activeFilter) => {
     try {
       setLoading(true);
       let url = `/api/stats/${shortCode}?filter=${filter}`;
@@ -74,17 +69,16 @@ export default function LinkStatsPage() {
       
       const data = await response.json();
       setLinkStats(data);
-    } catch (error) {
-      console.error('Errore:', error);
+    } catch {
       showToast('Errore durante il caricamento delle statistiche', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [shortCode, activeFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     fetchStats();
-  }, [shortCode]);
+  }, [shortCode, fetchStats]);
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
@@ -115,7 +109,7 @@ export default function LinkStatsPage() {
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
       showToast('Link copiato negli appunti!', 'success');
-    } catch (error) {
+    } catch {
       showToast('Errore durante la copia del link', 'error');
     }
   };
