@@ -69,7 +69,7 @@ export async function resetLinkClicks(shortCode: string, userId: string, workspa
     console.log(`✅ Eliminati ${clicksDeleteResult.rowCount || 0} click dal database`);
 
     // Aggiorna i contatori nella tabella links
-    const updateResult = await sql`
+    await sql`
       UPDATE links 
       SET click_count = 0, unique_click_count = 0
       WHERE id = ${linkId}
