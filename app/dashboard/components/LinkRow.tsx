@@ -82,7 +82,7 @@ export default function LinkRow({
         onClearSelection();
       }
       
-      onToast?.('Link eliminato con successo', 'success');
+      // Non mostriamo il toast qui perché viene già mostrato dal componente padre
     } catch (error) {
       console.error('Errore durante l\'eliminazione:', error);
       onToast?.('Errore durante l\'eliminazione del link', 'error');

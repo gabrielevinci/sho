@@ -554,7 +554,7 @@ export async function moveLinkToFolder(formData: FormData) {
 // --- AZIONI LINK ---
 export async function deleteLink(shortCode: string) {
   const session = await getSession();
-  if (!session?.userId) {
+  if (!session?.userId || !session?.workspaceId) {
     throw new Error('Non autorizzato');
   }
 
@@ -562,7 +562,9 @@ export async function deleteLink(shortCode: string) {
     // Prima eliminiamo tutti i click associati al link
     const { rows: linkRows } = await sql`
       SELECT id FROM links 
-      WHERE short_code = ${shortCode} AND user_id = ${session.userId}
+      WHERE short_code = ${shortCode} 
+      AND user_id = ${session.userId}
+      AND workspace_id = ${session.workspaceId}
     `;
 
     if (linkRows.length === 0) {
@@ -571,14 +573,29 @@ export async function deleteLink(shortCode: string) {
 
     const linkId = linkRows[0].id;
 
-    // Elimina i click associati
-    await sql`DELETE FROM clicks WHERE link_id = ${linkId}`;
+    // Elimina in transazione per garantire l'atomicità
+    await sql.query('BEGIN');
+    
+    try {
+      // Elimina i click associati
+      await sql`DELETE FROM clicks WHERE link_id = ${linkId}`;
 
-    // Elimina il link
-    await sql`
-      DELETE FROM links 
-      WHERE short_code = ${shortCode} AND user_id = ${session.userId}
-    `;
+      // Elimina dalle associazioni cartelle
+      await sql`DELETE FROM link_folder_associations WHERE link_id = ${linkId}`;
+
+      // Elimina il link
+      await sql`
+        DELETE FROM links 
+        WHERE short_code = ${shortCode} 
+        AND user_id = ${session.userId}
+        AND workspace_id = ${session.workspaceId}
+      `;
+
+      await sql.query('COMMIT');
+    } catch (error) {
+      await sql.query('ROLLBACK');
+      throw error;
+    }
 
     revalidatePath('/dashboard');
     return { success: true };

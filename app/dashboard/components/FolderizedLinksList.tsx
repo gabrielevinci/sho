@@ -7,6 +7,7 @@ import { Folder } from './FolderSidebar';
 import AdvancedFilters, { FilterOptions } from './AdvancedFilters';
 import { FolderIcon, ChevronDownIcon, TrashIcon, ArrowPathIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import MultiFolderSelector from './MultiFolderSelector';
+import ConfirmationModal from './ConfirmationModal';
 
 interface FolderCardProps {
   folder: Folder;
@@ -117,6 +118,7 @@ export default function FolderizedLinksList({
   // Stati per batch operations integrate
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
 
   // Stato per la visibilità delle sottocartelle
   const [showSubfolders, setShowSubfolders] = useState(true);
@@ -419,6 +421,41 @@ export default function FolderizedLinksList({
       setSelectedLinks(new Set());
     } else {
       setSelectedLinks(new Set(filteredLinks.map(link => link.id)));
+    }
+  };
+
+  // Funzione per gestire l'eliminazione batch
+  const handleBatchDelete = async () => {
+    try {
+      const linksToDelete = links.filter(l => selectedLinks.has(l.id))
+        .map(l => l.short_code);
+      
+      if (linksToDelete.length === 0) {
+        onToast?.('Nessun link selezionato da eliminare', 'error');
+        return;
+      }
+      
+      // Chiamata API batch per eliminazione
+      const response = await fetch('/api/links/batch-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shortCodes: linksToDelete })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Errore API: ${response.status}`);
+      }
+      
+      handleClearSelection();
+      onToast?.(`${linksToDelete.length} link eliminati`, 'success');
+      
+      // Rimuovi i link eliminati dalla lista locale
+      onUpdateLinks();
+    } catch (error) {
+      console.error('Errore durante l\'eliminazione batch:', error);
+      onToast?.('Errore durante l\'eliminazione dei link', 'error');
+    } finally {
+      setShowBatchDeleteModal(false);
     }
   };
 
@@ -907,37 +944,7 @@ export default function FolderizedLinksList({
                   
                   {/* Elimina */}
                   <button
-                    onClick={async () => {
-                      try {
-                        const linksToDelete = links.filter(l => selectedLinks.has(l.id))
-                          .map(l => l.short_code);
-                        
-                        if (linksToDelete.length === 0) {
-                          onToast?.('Nessun link selezionato da eliminare', 'error');
-                          return;
-                        }
-                        
-                        // Chiamata API batch per eliminazione
-                        const response = await fetch('/api/links/batch-delete', {
-                          method: 'DELETE',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ shortCodes: linksToDelete })
-                        });
-                        
-                        if (!response.ok) {
-                          throw new Error(`Errore API: ${response.status}`);
-                        }
-                        
-                        handleClearSelection();
-                        onToast?.(`${linksToDelete.length} link eliminati`, 'success');
-                        
-                        // Rimuovi i link eliminati dalla lista locale
-                        onUpdateLinks();
-                      } catch (error) {
-                        console.error('Errore durante l\'eliminazione batch:', error);
-                        onToast?.('Errore durante l\'eliminazione dei link', 'error');
-                      }
-                    }}
+                    onClick={() => setShowBatchDeleteModal(true)}
                     className="flex items-center space-x-1 px-3 py-1 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
                   >
                     <TrashIcon className="h-4 w-4" />
@@ -1182,6 +1189,18 @@ export default function FolderizedLinksList({
           onToast={onToast}
         />
       )}
+
+      {/* Modal di conferma per l'eliminazione batch */}
+      <ConfirmationModal
+        isOpen={showBatchDeleteModal}
+        onClose={() => setShowBatchDeleteModal(false)}
+        onConfirm={handleBatchDelete}
+        title="Elimina Link Selezionati"
+        message={`Sei sicuro di voler eliminare ${selectedLinks.size} link? Questa azione non può essere annullata.`}
+        confirmText="Elimina"
+        type="delete"
+        isLoading={false}
+      />
     </div>
   );
 }

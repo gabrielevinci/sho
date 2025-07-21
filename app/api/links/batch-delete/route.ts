@@ -37,21 +37,6 @@ export async function DELETE(request: NextRequest) {
     const linkIds = linkRows.map(row => row.id);
     const foundShortCodes = linkRows.map(row => row.short_code);
     
-    // Otteniamo gli hash dei fingerprint per pulire le correlazioni
-    let fingerprintHashes = [];
-    try {
-      const linkIdPlaceholders = linkIds.map((_, index) => `$${index + 1}`).join(', ');
-      const fingerprintHashQuery = `
-        SELECT DISTINCT browser_fingerprint as hash 
-        FROM enhanced_fingerprints 
-        WHERE link_id IN (${linkIdPlaceholders})
-      `;
-      const { rows: hashRows } = await sql.query(fingerprintHashQuery, linkIds);
-      fingerprintHashes = hashRows.map(row => row.hash).filter(Boolean);
-    } catch (error) {
-      console.log('Impossibile ottenere hash fingerprint per correlazioni:', error);
-    }
-    
     // Elimina in transazione per garantire l'atomicità
     await sql.query('BEGIN');
     
@@ -63,21 +48,11 @@ export async function DELETE(request: NextRequest) {
         // Elimina dalla tabella clicks
         await sql.query(`DELETE FROM clicks WHERE link_id IN (${linkIdPlaceholders})`, linkIds);
         
-        // Elimina dalla tabella enhanced_fingerprints
-        await sql.query(`DELETE FROM enhanced_fingerprints WHERE link_id IN (${linkIdPlaceholders})`, linkIds);
+        // Elimina dalle associazioni cartelle
+        await sql.query(`DELETE FROM link_folder_associations WHERE link_id IN (${linkIdPlaceholders})`, linkIds);
       }
       
-      // 2. Elimina le correlazioni dei fingerprint
-      if (fingerprintHashes.length > 0) {
-        try {
-          const hashPlaceholders = fingerprintHashes.map((_, index) => `$${index + 1}`).join(', ');
-          await sql.query(`DELETE FROM fingerprint_correlations WHERE fingerprint_hash IN (${hashPlaceholders})`, fingerprintHashes);
-        } catch (error) {
-          console.log('Tabella fingerprint_correlations non trovata o errore nella pulizia, continuando...', error);
-        }
-      }
-      
-      // 3. Elimina i link stessi
+      // 2. Elimina i link stessi
       const deleteLinksQuery = `
         DELETE FROM links 
         WHERE short_code IN (${linkPlaceholders}) 

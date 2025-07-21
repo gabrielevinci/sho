@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { Copy, Edit, Trash2, QrCode } from 'lucide-react';
 import { deleteLink } from '../actions';
 import { useRouter } from 'next/navigation';
-import Portal from './Portal';
 import QRCodeModal from './QRCodeModal';
-import { useClickOutside } from '../hooks/useClickOutside';
+import ConfirmationModal from './ConfirmationModal';
 
 interface LinkActionsProps {
   shortCode: string;
@@ -29,11 +28,6 @@ export default function LinkActions({
   const [showQrModal, setShowQrModal] = useState(false);
 
   const router = useRouter();
-
-  // Hook per click-outside dei modali
-  const deleteModalRef = useClickOutside<HTMLDivElement>(() => {
-    setShowConfirmDelete(false);
-  }, showConfirmDelete);
 
   // Funzione per copiare il link
   const handleCopyLink = async () => {
@@ -65,6 +59,8 @@ export default function LinkActions({
         onClearSelection();
       }
       
+      // Non mostriamo il toast qui perché viene già mostrato dal dashboard
+      
       if (onUpdate) {
         onUpdate();
       } else {
@@ -72,9 +68,10 @@ export default function LinkActions({
       }
     } catch (error) {
       console.error('Errore durante l\'eliminazione:', error);
-      alert('Errore durante l\'eliminazione del link');
+      onToast?.('Errore durante l\'eliminazione del link', 'error');
     } finally {
       setLoading(false);
+      setShowConfirmDelete(false);
     }
   };
 
@@ -131,38 +128,18 @@ export default function LinkActions({
       </div>
 
       {/* Modal di conferma eliminazione */}
-      {showConfirmDelete && (
-        <Portal>
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-[9999]">
-            <div ref={deleteModalRef} className="bg-white rounded-3xl p-6 max-w-md w-full mx-4 relative backdrop-blur-sm border border-white/20">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Conferma eliminazione
-              </h3>
-            <p className="text-gray-600 mb-6">
-              Sei sicuro di voler eliminare questo link? Questa azione non può essere annullata.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowConfirmDelete(false)}
-                disabled={loading}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
-              >
-                {loading ? 'Eliminazione...' : 'Elimina'}
-              </button>
-            </div>
-          </div>
-          </div>
-        </Portal>
-      )}
+      <ConfirmationModal
+        isOpen={showConfirmDelete}
+        onClose={() => setShowConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Elimina Link"
+        message="Sei sicuro di voler eliminare questo link? Questa azione non può essere annullata."
+        confirmText="Elimina"
+        type="delete"
+        isLoading={loading}
+      />
 
-      {      /* Modal QR Code */}
+      {/* Modal QR Code */}
       {showQrModal && (
         <QRCodeModal
           isOpen={showQrModal}

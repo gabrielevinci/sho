@@ -16,9 +16,10 @@ export type LinkFromDB = {
 interface LinksListProps {
   links: LinkFromDB[];
   onUpdateLinks: () => void;
+  onToast?: (message: string, type: 'success' | 'error') => void;
 }
 
-export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
+export default function LinksList({ links, onUpdateLinks, onToast }: LinksListProps) {
   if (links.length === 0) {
     return (
       <div className="mt-4 p-6 bg-white rounded-3xl shadow-md text-center text-gray-500">
@@ -92,6 +93,7 @@ export default function LinksList({ links, onUpdateLinks }: LinksListProps) {
                         shortCode={link.short_code}
                         showInline={true}
                         onUpdate={onUpdateLinks}
+                        onToast={onToast}
                       />
                     </div>
                   </td>
