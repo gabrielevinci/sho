@@ -7,7 +7,6 @@ export async function GET(request: NextRequest) {
     const referrerInfo = analyzeReferrerSource(request);
     
     // Ottieni informazioni sulla richiesta per debug
-    const url = new URL(request.url);
     const headers = {
       'referer': request.headers.get('referer'),
       'user-agent': request.headers.get('user-agent'),

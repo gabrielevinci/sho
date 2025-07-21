@@ -649,7 +649,7 @@ export function analyzeReferrerSource(request: NextRequest): {
         source_detail: `External Website: ${domain}`
       };
       
-    } catch (error) {
+    } catch {
       // Se non riusciamo a parsare l'URL, usa il referrer raw
       return {
         referrer: rawReferrer,
