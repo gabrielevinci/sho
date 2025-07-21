@@ -26,10 +26,14 @@ interface EditLinkPageProps {
   params: Promise<{
     shortCode: string;
   }>;
+  searchParams: Promise<{
+    from?: string;
+  }>;
 }
 
-export default async function EditLinkPage({ params }: EditLinkPageProps) {
+export default async function EditLinkPage({ params, searchParams }: EditLinkPageProps) {
   const { shortCode } = await params;
+  const { from } = await searchParams;
   
   try {
     const [linkData, linkFolders] = await Promise.all([
@@ -44,14 +48,18 @@ export default async function EditLinkPage({ params }: EditLinkPageProps) {
     // Cast del tipo per garantire compatibilità
     const typedLinkData = linkData as LinkData;
     const typedLinkFolders = linkFolders as LinkFolder[];
+    
+    // Determina il link di ritorno basato sul parametro 'from'
+    const backUrl = from === 'stats' ? `/dashboard/stats/${shortCode}` : '/dashboard';
+    const backText = from === 'stats' ? '← Torna alle Statistiche' : '← Torna alla Dashboard';
 
     return (
       <div className="flex flex-col items-center min-h-screen bg-gray-50 py-12">
         <div className="w-full max-w-4xl p-4 md:p-8 space-y-8">
           
           <header>
-            <Link href="/dashboard" className="text-blue-600 hover:underline">
-              ← Torna alla Dashboard
+            <Link href={backUrl} className="text-blue-600 hover:underline">
+              {backText}
             </Link>
             <h1 className="text-3xl font-bold text-gray-900 mt-2">
               Modifica Link
@@ -62,7 +70,7 @@ export default async function EditLinkPage({ params }: EditLinkPageProps) {
           </header>
 
           <main className="p-8 bg-white rounded-3xl shadow-md">
-            <EditLinkForm linkData={typedLinkData} linkFolders={typedLinkFolders} />
+            <EditLinkForm linkData={typedLinkData} linkFolders={typedLinkFolders} returnTo={from} />
           </main>
           
         </div>

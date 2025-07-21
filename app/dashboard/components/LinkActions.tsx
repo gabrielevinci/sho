@@ -139,7 +139,12 @@ export default function LinkActions({
 
         {/* 3. Pulsante Modifica */}
         <button
-          onClick={() => router.push(`/dashboard/edit/${shortCode}`)}
+          onClick={() => {
+            const currentPath = window.location.pathname;
+            const isFromStats = currentPath.includes('/stats/');
+            const editUrl = `/dashboard/edit/${shortCode}${isFromStats ? '?from=stats' : ''}`;
+            router.push(editUrl);
+          }}
           disabled={loading}
           className={`${buttonBaseClass} border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50`}
           title="Modifica link"

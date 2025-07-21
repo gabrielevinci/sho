@@ -31,6 +31,7 @@ interface LinkFolder {
 interface EditLinkFormProps {
   linkData: LinkData;
   linkFolders: LinkFolder[];
+  returnTo?: string;
 }
 
 // Componente per la selezione delle cartelle
@@ -519,7 +520,7 @@ function UtmFields({ linkData }: { linkData: LinkData }) {
 }
 
 // Form principale per la modifica
-export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProps) {
+export default function EditLinkForm({ linkData, linkFolders, returnTo }: EditLinkFormProps) {
   const router = useRouter();
   const initialState: UpdateLinkState = { message: '', errors: {}, success: false };
   const [state, formAction] = useActionState(
@@ -557,14 +558,21 @@ export default function EditLinkForm({ linkData, linkFolders }: EditLinkFormProp
 
   useEffect(() => {
     if (state.success) {
-      // Se il short code è cambiato, reindirizza al nuovo URL
-      if (state.finalShortCode && state.finalShortCode !== linkData.short_code) {
-        router.push(`/dashboard`);
-      } else {
-        router.push('/dashboard');
+      // Determina dove reindirizzare basandosi sul parametro returnTo
+      let redirectUrl = '/dashboard';
+      
+      if (returnTo === 'stats') {
+        // Se il short code è cambiato, usa quello nuovo per le statistiche
+        const finalCode = state.finalShortCode || linkData.short_code;
+        redirectUrl = `/dashboard/stats/${finalCode}`;
+      } else if (state.finalShortCode && state.finalShortCode !== linkData.short_code) {
+        // Se il short code è cambiato e non veniamo dalle stats, vai alla dashboard
+        redirectUrl = '/dashboard';
       }
+      
+      router.push(redirectUrl);
     }
-  }, [state, router, linkData.short_code]);
+  }, [state, router, linkData.short_code, returnTo]);
 
   return (
     <div className="space-y-6">
