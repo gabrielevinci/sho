@@ -1,0 +1,224 @@
+import { Suspense } from 'react';
+import StatsPageClient from './stats-client';
+
+// Funzione per recuperare i dati lato server
+async function getInitialStats(shortCode: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/stats/${shortCode}?filter=sempre`, {
+      cache: 'no-store' // Sempre dati freschi
+    });
+    
+    if (!response.ok) {
+      throw new Error('Errore durante il caricamento delle statistiche');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Errore caricamento stats lato server:', error);
+    return null;
+  }
+}
+
+export default async function LinkStatsPage({ params }: { params: { shortCode: string } }) {
+  const shortCode = params.shortCode as string;
+  
+  // Pre-carica i dati lato server
+  const initialStats = await getInitialStats(shortCode);
+
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-6 bg-white rounded-lg shadow-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-sm">Caricamento statistiche...</p>
+        </div>
+      </div>
+    }>
+      <StatsPageClient 
+        shortCode={shortCode} 
+        initialStats={initialStats}
+      />
+    </Suspense>
+  );
+}
+import StatsPageClient from './stats-client';
+
+// Funzione per recuperare i dati lato server
+async function getInitialStats(shortCode: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/stats/${shortCode}?filter=sempre`, {
+      cache: 'no-store' // Sempre dati freschi
+    });
+    
+    if (!response.ok) {
+      throw new Error('Errore durante il caricamento delle statistiche');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Errore caricamento stats lato server:', error);
+    return null;
+  }
+}
+
+export default async function LinkStatsPage({ params }: { params: { shortCode: string } }) {
+  const shortCode = params.shortCode as string;
+  
+  // Pre-carica i dati lato server
+  const initialStats = await getInitialStats(shortCode);
+
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center p-6 bg-white rounded-lg shadow-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-sm">Caricamento statistiche...</p>
+        </div>
+      </div>
+    }>
+      <StatsPageClient 
+        shortCode={shortCode} 
+        initialStats={initialStats}
+      />
+    </Suspense>
+  );
+}
+
+                {link.description && (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Descrizione</span>
+                    <p className="text-gray-700 text-sm">{link.description}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Data di Creazione</span>
+                  <p className="text-gray-700 text-sm">
+                    {new Date(link.createdAt).toLocaleDateString('it-IT', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 lg:mt-0 lg:ml-6 lg:w-auto lg:flex-shrink-0 lg:self-start">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Azioni</h3>
+                <LinkActions
+                  shortCode={shortCode}
+                  linkId={linkStats?.link.id} // Passiamo l'ID numerico del link
+                  showInline={false}
+                  onUpdate={handleUpdateFromActions}
+                  onToast={showToast}
+                  hideStatsButton={true}
+                  hideFolderButton={true} // Nascondi il pulsante gestione cartelle nelle statistiche
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Blocco 2: Filtri Temporali */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Periodo di Analisi</h2>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 mb-4">
+            {filters.map((filter) => (
+              <button
+                key={filter.value}
+                onClick={() => handleFilterChange(filter.value)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  activeFilter === filter.value
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {activeFilter === 'custom' && (
+            <div className="flex flex-wrap items-end gap-4 p-4 bg-gray-50 rounded-lg mt-4">
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Data Inizio</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Data Fine</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <button
+                onClick={handleCustomDateFilter}
+                disabled={!customStartDate || !customEndDate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm shadow-sm transition-all"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Applica
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Blocco 3: Card Statistiche */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card Click Totali */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Click Totali</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.clickTotali.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-full">
+                <BarChart3 className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card Click Unici */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Click Unici</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.clickUnici.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-full">
+                <BarChart3 className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card Referrer */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Referrer Unici</p>
+                <p className="text-2xl font-bold text-gray-800">{stats.referrerCount.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-full">
+                <BarChart3 className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
