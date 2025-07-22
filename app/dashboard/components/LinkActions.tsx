@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Copy, Edit, Trash2, QrCode, BarChart3, FolderOpen, RotateCcw } from 'lucide-react';
 import { deleteLink } from '../actions';
 import { useRouter } from 'next/navigation';
 import QRCodeModal from './QRCodeModal';
 import ConfirmationModal from './ConfirmationModal';
 import MultiFolderSelector from './MultiFolderSelector';
+import { Folder } from './FolderSidebar';
 
 interface LinkActionsProps {
   shortCode: string;
@@ -36,7 +37,7 @@ export default function LinkActions({
   const [showQrModal, setShowQrModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [linkFolders, setLinkFolders] = useState<Array<{id: string; name: string; parent_folder_id: string | null}>>([]);
-  const [availableFolders, setAvailableFolders] = useState<Array<any>>([]);
+  const [availableFolders, setAvailableFolders] = useState<Folder[]>([]);
   const [linkId, setLinkId] = useState<string>(propLinkId || "");  // Inizializza con propLinkId se disponibile
 
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function LinkActions({
           if (!numericLinkId) {
             throw new Error('ID link non trovato nel DOM');
           }
-        } catch (domError) {
+        } catch (_) {
           // Se fallisce il recupero dal DOM, ricorriamo al vecchio metodo
           // Questo blocco potrebbe fallire se l'API non supporta la ricerca per shortCode
           const linkResponse = await fetch(`/api/links?shortCode=${shortCode}`);
@@ -95,7 +96,7 @@ export default function LinkActions({
       const linkFoldersResponse = await fetch(`/api/link-folder-associations?linkId=${numericLinkId}`);
       if (linkFoldersResponse.ok) {
         const data = await linkFoldersResponse.json();
-        setLinkFolders(data.associations?.map((assoc: any) => ({
+        setLinkFolders(data.associations?.map((assoc: {folder_id: string; folder_name: string; parent_folder_id: string | null}) => ({
           id: assoc.folder_id,
           name: assoc.folder_name,
           parent_folder_id: assoc.parent_folder_id
