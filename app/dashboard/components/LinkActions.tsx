@@ -67,7 +67,7 @@ export default function LinkActions({
           if (!numericLinkId) {
             throw new Error('ID link non trovato nel DOM');
           }
-        } catch (_) {
+        } catch {
           // Se fallisce il recupero dal DOM, ricorriamo al vecchio metodo
           // Questo blocco potrebbe fallire se l'API non supporta la ricerca per shortCode
           const linkResponse = await fetch(`/api/links?shortCode=${shortCode}`);
