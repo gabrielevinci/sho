@@ -12,6 +12,7 @@ import LinkActions from '@/app/dashboard/components/LinkActions';
 
 type LinkStats = {
   link: {
+    id: string; // Aggiungiamo l'ID numerico
     shortCode: string;
     originalUrl: string;
     title: string | null;
@@ -157,7 +158,7 @@ export default function LinkStatsPage() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8" data-link-id={linkStats?.link.id}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
@@ -243,10 +244,12 @@ export default function LinkStatsPage() {
                 <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Azioni</h3>
                 <LinkActions
                   shortCode={shortCode}
+                  linkId={linkStats?.link.id} // Passiamo l'ID numerico del link
                   showInline={false}
                   onUpdate={handleUpdateFromActions}
                   onToast={showToast}
                   hideStatsButton={true}
+                  hideFolderButton={true} // Nascondi il pulsante gestione cartelle nelle statistiche
                 />
               </div>
             </div>

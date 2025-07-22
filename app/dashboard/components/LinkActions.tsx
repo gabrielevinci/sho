@@ -1,36 +1,174 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Copy, Edit, Trash2, QrCode, BarChart3, FolderOpen, RotateCcw } from 'lucide-react';
 import { deleteLink } from '../actions';
 import { useRouter } from 'next/navigation';
 import QRCodeModal from './QRCodeModal';
 import ConfirmationModal from './ConfirmationModal';
+import MultiFolderSelector from './MultiFolderSelector';
 
 interface LinkActionsProps {
   shortCode: string;
+  linkId?: string;  // Aggiungiamo il linkId come prop opzionale
   showInline?: boolean; // Per mostrare i pulsanti in linea nella dashboard
   onUpdate?: () => void; // Callback per aggiornare i dati dopo le modifiche
   onToast?: (message: string, type: 'success' | 'error') => void; // Callback per toast messages
   onClearSelection?: () => void; // Callback per cancellare la selezione
   hideStatsButton?: boolean; // Per nascondere il pulsante delle statistiche
+  hideFolderButton?: boolean; // Per nascondere il pulsante gestione cartelle
 }
 
 export default function LinkActions({ 
   shortCode, 
+  linkId: propLinkId,  // Rinominiamo in propLinkId per evitare conflitti con lo stato
   showInline = false,
   onUpdate,
   onToast,
   onClearSelection,
-  hideStatsButton = false
+  hideStatsButton = false,
+  hideFolderButton = false
 }: LinkActionsProps) {
   const [loading, setLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showConfirmResetClicks, setShowConfirmResetClicks] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [linkFolders, setLinkFolders] = useState<Array<{id: string; name: string; parent_folder_id: string | null}>>([]);
+  const [availableFolders, setAvailableFolders] = useState<Array<any>>([]);
+  const [linkId, setLinkId] = useState<string>(propLinkId || "");  // Inizializza con propLinkId se disponibile
 
   const router = useRouter();
+
+  // Funzione per caricare i dati delle cartelle
+  const loadFolderData = async () => {
+    try {
+      let numericLinkId = linkId;
+      
+      // Se non abbiamo già l'ID del link (passato come prop), lo cerchiamo
+      if (!numericLinkId) {
+        try {
+          // Tenta di ottenere l'ID del link dalla URL delle statistiche
+          const currentPath = window.location.pathname;
+          const isInStats = currentPath.includes('/stats/');
+          
+          if (isInStats) {
+            // Nella pagina delle statistiche, dovremmo avere l'ID nella pagina
+            // Cerca l'elemento che contiene l'ID del link usando un data attribute o ID elemento
+            const linkIdElement = document.querySelector('[data-link-id]');
+            if (linkIdElement) {
+              numericLinkId = linkIdElement.getAttribute('data-link-id') || "";
+            }
+          }
+          
+          // Se ancora non abbiamo l'ID, possiamo gestire diversamente - per ora continuiamo con l'API
+          if (!numericLinkId) {
+            throw new Error('ID link non trovato nel DOM');
+          }
+        } catch (domError) {
+          // Se fallisce il recupero dal DOM, ricorriamo al vecchio metodo
+          // Questo blocco potrebbe fallire se l'API non supporta la ricerca per shortCode
+          const linkResponse = await fetch(`/api/links?shortCode=${shortCode}`);
+          if (!linkResponse.ok) {
+            // Se l'API fallisce, usiamo un metodo alternativo
+            onToast?.('Impossibile recuperare l\'ID del link', 'error');
+            setShowFolderModal(false);
+            return;
+          }
+          
+          const linkData = await linkResponse.json();
+          if (!linkData.links || linkData.links.length === 0) {
+            onToast?.('Link non trovato', 'error');
+            setShowFolderModal(false);
+            return;
+          }
+          
+          numericLinkId = linkData.links[0].id;
+        }
+      }
+      
+      // Salva l'ID per i riferimenti futuri
+      setLinkId(numericLinkId);
+      
+      // Carica le cartelle associate al link usando l'ID numerico
+      const linkFoldersResponse = await fetch(`/api/link-folder-associations?linkId=${numericLinkId}`);
+      if (linkFoldersResponse.ok) {
+        const data = await linkFoldersResponse.json();
+        setLinkFolders(data.associations?.map((assoc: any) => ({
+          id: assoc.folder_id,
+          name: assoc.folder_name,
+          parent_folder_id: assoc.parent_folder_id
+        })) || []);
+      }
+
+      // Carica tutte le cartelle disponibili
+      const foldersResponse = await fetch('/api/folders');
+      if (foldersResponse.ok) {
+        const data = await foldersResponse.json();
+        setAvailableFolders(data.folders || []);
+      }
+    } catch (error) {
+      console.error('Errore durante il caricamento delle cartelle:', error);
+      onToast?.('Errore durante il caricamento delle cartelle', 'error');
+      setShowFolderModal(false);
+    }
+  };
+
+  // Funzione per gestire l'assegnazione delle cartelle
+  const handleSaveFolderAssociations = async (linkId: string, selectedFolderIds: string[]) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/link-folder-associations?linkId=${linkId}`);
+      const data = await response.json();
+      const currentFolderIds: string[] = data.associations?.map((assoc: { folder_id: string }) => assoc.folder_id) || [];
+
+      const foldersToAdd = selectedFolderIds.filter(id => !currentFolderIds.includes(id));
+      const foldersToRemove = currentFolderIds.filter(id => !selectedFolderIds.includes(id));
+
+      // Rimuovi associazioni esistenti
+      if (foldersToRemove.length > 0) {
+        await Promise.all(
+          foldersToRemove.map((folderId: string) =>
+            fetch(`/api/link-folder-associations?linkId=${linkId}&folderId=${folderId}`, {
+              method: 'DELETE',
+            })
+          )
+        );
+      }
+
+      // Aggiungi nuove associazioni
+      if (foldersToAdd.length > 0) {
+        await Promise.all(
+          foldersToAdd.map(folderId =>
+            fetch('/api/link-folder-associations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                linkId,
+                folderId,
+              }),
+            })
+          )
+        );
+      }
+
+      onToast?.('Cartelle aggiornate con successo', 'success');
+      
+      // Aggiorna i dati
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Errore durante l\'aggiornamento delle cartelle:', error);
+      onToast?.('Errore durante l\'aggiornamento delle cartelle', 'error');
+    } finally {
+      setLoading(false);
+      setShowFolderModal(false);
+    }
+  };
 
   // Funzione per copiare il link
   const handleCopyLink = async () => {
@@ -170,20 +308,20 @@ export default function LinkActions({
           <QrCode className={showInline ? "h-3 w-3" : "h-4 w-4"} />
         </button>
 
-        {/* 5. Pulsante Gestione Cartelle */}
-        <button
-          onClick={() => {
-            const currentPath = window.location.pathname;
-            const isFromStats = currentPath.includes('/stats/');
-            const editUrl = `/dashboard/edit/${shortCode}${isFromStats ? '?from=stats' : ''}`;
-            router.push(editUrl);
-          }}
-          disabled={loading}
-          className={`${buttonBaseClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-50`}
-          title="Gestione cartelle"
-        >
-          <FolderOpen className={showInline ? "h-3 w-3" : "h-4 w-4"} />
-        </button>
+        {/* 5. Pulsante Gestione Cartelle - solo se non nascosto */}
+        {!hideFolderButton && (
+          <button
+            onClick={() => {
+              setShowFolderModal(true);
+              loadFolderData();
+            }}
+            disabled={loading}
+            className={`${buttonBaseClass} border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-50`}
+            title="Gestione cartelle"
+          >
+            <FolderOpen className={showInline ? "h-3 w-3" : "h-4 w-4"} />
+          </button>
+        )}
 
         {/* 6. Pulsante Azzera Click */}
         <button
@@ -239,6 +377,36 @@ export default function LinkActions({
           title={`QR Code per ${shortCode}`}
           onToast={onToast}
         />
+      )}
+
+      {/* Modal Gestione Cartelle */}
+      {showFolderModal && linkId && (
+        <MultiFolderSelector
+          isOpen={showFolderModal}
+          onClose={() => setShowFolderModal(false)}
+          linkId={linkId}  // Usa l'ID numerico invece dello shortCode
+          linkTitle={shortCode}
+          currentFolders={linkFolders}
+          availableFolders={availableFolders}
+          onSave={handleSaveFolderAssociations}
+          onToast={onToast}
+        />
+      )}
+      {showFolderModal && !linkId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-4">Errore</h3>
+            <p className="mb-4">Impossibile caricare i dati delle cartelle. ID del link non disponibile.</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowFolderModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

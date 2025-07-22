@@ -686,7 +686,10 @@ export default function EditLinkForm({ linkData, linkFolders, returnTo }: EditLi
         <div className="flex justify-between items-center pt-4">
           <button
             type="button"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => {
+              const backUrl = returnTo === 'stats' ? `/dashboard/stats/${linkData.short_code}` : '/dashboard';
+              router.push(backUrl);
+            }}
             className="px-6 py-2.5 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-75"
           >
             Annulla
