@@ -1,0 +1,13 @@
+      {/* Modal QR Code */}
+      {showQrModal && (
+        <QRCodeModal
+          isOpen={showQrModal}
+          onClose={() => setShowQrModal(false)}
+          url={`${typeof window !== 'undefined' ? window.location.origin : ''}/${shortCode}`}
+          title={`QR Code per ${shortCode}`}
+          onToast={showToast}
+        />
+      )}
+    </div>
+  );
+}
