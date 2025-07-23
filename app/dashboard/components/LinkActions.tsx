@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Copy, Edit, Trash2, QrCode, BarChart3, FolderOpen, RotateCcw } from 'lucide-react';
 import { deleteLink } from '../actions';
 import { useRouter } from 'next/navigation';
@@ -38,12 +38,14 @@ export default function LinkActions({
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [linkFolders, setLinkFolders] = useState<Array<{id: string; name: string; parent_folder_id: string | null}>>([]);
   const [availableFolders, setAvailableFolders] = useState<Folder[]>([]);
-  const [linkId, setLinkId] = useState<string>(propLinkId || "");  // Inizializza con propLinkId se disponibile
+  const [linkId, setLinkId] = useState<string>(propLinkId || '');
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
 
   const router = useRouter();
 
   // Funzione per caricare i dati delle cartelle
   const loadFolderData = async () => {
+    setIsLoadingFolders(true);
     try {
       let numericLinkId = linkId;
       
@@ -108,11 +110,15 @@ export default function LinkActions({
       if (foldersResponse.ok) {
         const data = await foldersResponse.json();
         setAvailableFolders(data.folders || []);
+      } else {
+        throw new Error('Impossibile caricare le cartelle disponibili');
       }
     } catch (error) {
       console.error('Errore durante il caricamento delle cartelle:', error);
       onToast?.('Errore durante il caricamento delle cartelle', 'error');
       setShowFolderModal(false);
+    } finally {
+      setIsLoadingFolders(false);
     }
   };
 
@@ -312,7 +318,9 @@ export default function LinkActions({
         {/* 5. Pulsante Gestione Cartelle - solo se non nascosto */}
         {!hideFolderButton && (
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               setShowFolderModal(true);
               loadFolderData();
             }}
@@ -381,7 +389,18 @@ export default function LinkActions({
       )}
 
       {/* Modal Gestione Cartelle */}
-      {showFolderModal && linkId && (
+      {showFolderModal && isLoadingFolders && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Caricamento...</h3>
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="ml-3 text-gray-600">Caricamento dati delle cartelle...</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {showFolderModal && !isLoadingFolders && linkId && (
         <MultiFolderSelector
           isOpen={showFolderModal}
           onClose={() => setShowFolderModal(false)}
@@ -393,17 +412,23 @@ export default function LinkActions({
           onToast={onToast}
         />
       )}
-      {showFolderModal && !linkId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold mb-4">Errore</h3>
+      {showFolderModal && !isLoadingFolders && !linkId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Errore Caricamento Cartelle</h3>
             <p className="mb-4">Impossibile caricare i dati delle cartelle. ID del link non disponibile.</p>
-            <div className="flex justify-end">
+            <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowFolderModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
               >
                 Chiudi
+              </button>
+              <button
+                onClick={() => loadFolderData()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Riprova
               </button>
             </div>
           </div>

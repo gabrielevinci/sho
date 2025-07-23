@@ -315,6 +315,11 @@ div[class*="fixed inset-0"] {
   z-index: 9999 !important;
 }
 
+/* Specific fix for MultiFolderSelector modal */
+div[data-prevent-outside-click="true"] {
+  z-index: 10000 !important;
+}
+
 /* Prevent body scroll when modal is open */
 body.modal-open {
   overflow: hidden;
@@ -324,6 +329,11 @@ body.modal-open {
 .modal-content {
   position: relative;
   z-index: 10000;
+}
+
+/* Fix per evitare che altri elementi interferiscano con il modal */
+.modal-content * {
+  pointer-events: auto;
 }
 
 /* Stili per le statistiche */

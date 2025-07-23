@@ -41,6 +41,19 @@ export default function MultiFolderSelector({
     }
   }, isOpen);
 
+  // Previeni la propagazione del click all'interno del modal
+  const handleModalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  // Gestisci il click sull'overlay per chiudere il modal
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    // Chiudi il modal solo se si clicca direttamente sull'overlay
+    if (e.target === e.currentTarget && !isLoading) {
+      onClose();
+    }
+  };
+
   // Inizializza le cartelle selezionate quando il modal si apre
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +61,25 @@ export default function MultiFolderSelector({
       setSearchTerm('');
     }
   }, [isOpen, currentFolders]);
+
+  // Gestisci il tasto ESC per chiudere il modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen && !isLoading) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      // Impedisci lo scroll del body quando il modal è aperto
+      document.body.classList.add('modal-open');
+      return () => {
+        document.removeEventListener('keydown', handleEscKey);
+        document.body.classList.remove('modal-open');
+      };
+    }
+  }, [isOpen, isLoading, onClose]);
 
   // Filtra le cartelle disponibili in base al termine di ricerca
   const filteredFolders = availableFolders.filter(folder =>
@@ -154,8 +186,16 @@ export default function MultiFolderSelector({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div ref={modalRef} className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col">
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4"
+      onClick={handleOverlayClick}
+      data-prevent-outside-click="true"
+    >
+      <div 
+        ref={modalRef} 
+        className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col"
+        onClick={handleModalClick}
+      >
         {/* Header migliorato */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
           <div>
@@ -172,9 +212,14 @@ export default function MultiFolderSelector({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
             className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
             disabled={isLoading}
+            title="Chiudi modal"
           >
             <XMarkIcon className="h-5 w-5 text-gray-400" />
           </button>
@@ -315,7 +360,11 @@ export default function MultiFolderSelector({
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={onClose}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
               disabled={isLoading}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-2xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
