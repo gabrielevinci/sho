@@ -130,6 +130,7 @@ export async function GET(
 
     return NextResponse.json({
       link: {
+        id: link.id,
         shortCode,
         originalUrl: link.original_url,
         title: link.title,
@@ -145,6 +146,16 @@ export async function GET(
 
   } catch (error) {
     console.error('Errore durante il recupero delle statistiche:', error);
-    return NextResponse.json({ error: 'Errore interno del server' }, { status: 500 });
+    
+    // Restituisci un messaggio di errore più specifico se possibile
+    let errorMessage = 'Errore interno del server';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    return NextResponse.json({ 
+      error: errorMessage,
+      details: error instanceof Error ? error.message : 'Errore sconosciuto'
+    }, { status: 500 });
   }
 }

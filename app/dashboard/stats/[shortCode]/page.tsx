@@ -35,6 +35,7 @@ export default function LinkStatsPage() {
   
   const [linkStats, setLinkStats] = useState<LinkStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -53,6 +54,7 @@ export default function LinkStatsPage() {
   const fetchStats = useCallback(async (filter: FilterType = activeFilter) => {
     try {
       setLoading(true);
+      setError(null);
       let url = `/api/stats/${shortCode}?filter=${filter}`;
       
       if (filter === 'custom' && customStartDate && customEndDate) {
@@ -62,13 +64,16 @@ export default function LinkStatsPage() {
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error('Errore durante il caricamento delle statistiche');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Errore HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
       setLinkStats(data);
-    } catch {
-      showToast('Errore durante il caricamento delle statistiche', 'error');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Errore durante il caricamento delle statistiche';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -112,18 +117,67 @@ export default function LinkStatsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-6 bg-white rounded-lg shadow-sm">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-sm">Caricamento statistiche...</p>
+  // Componente Skeleton per il loading
+  const SkeletonLoader = () => (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="p-2 bg-gray-200 rounded-full w-10 h-10 animate-pulse"></div>
+            <div>
+              <div className="h-8 bg-gray-200 rounded w-48 animate-pulse mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Card Skeleton */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="space-y-5">
+            <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Skeleton */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="h-4 bg-gray-200 rounded w-32 animate-pulse mb-4"></div>
+          <div className="flex flex-wrap gap-2">
+            {[1,2,3,4,5,6,7].map((i) => (
+              <div key={i} className="h-8 bg-gray-200 rounded-full w-20 animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1,2,3].map((i) => (
+            <div key={i} className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
+                  <div className="h-8 bg-gray-200 rounded w-16 animate-pulse"></div>
+                </div>
+                <div className="p-3 bg-gray-100 rounded-full w-11 h-11 animate-pulse"></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-    );
+    </div>
+  );
+
+  if (loading) {
+    return <SkeletonLoader />;
   }
 
-  if (!linkStats) {
+  if (error || !linkStats) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center p-6 bg-white rounded-lg shadow-sm max-w-md">
@@ -132,13 +186,26 @@ export default function LinkStatsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <p className="text-gray-700 mb-4">Impossibile caricare le statistiche per questo link.</p>
-          <button 
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm transition-all"
-          >
-            Torna alla Dashboard
-          </button>
+          <p className="text-gray-800 font-medium mb-2">Impossibile caricare le statistiche</p>
+          {error && (
+            <p className="text-gray-600 text-sm mb-4 bg-red-50 p-3 rounded border border-red-200">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-2 justify-center">
+            <button 
+              onClick={() => fetchStats()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm transition-all text-sm"
+            >
+              Riprova
+            </button>
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 shadow-sm transition-all text-sm"
+            >
+              Torna alla Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -170,11 +237,11 @@ export default function LinkStatsPage() {
               <ArrowLeft className="h-5 w-5 text-gray-600" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                 <BarChart3 className="h-6 w-6 mr-2 text-blue-600" />
                 Statistiche Link
               </h1>
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-600 text-sm">
                 Analisi dettagliata delle performance
               </p>
             </div>
@@ -188,14 +255,14 @@ export default function LinkStatsPage() {
               {/* Titolo del link se presente */}
               {link.title && (
                 <div className="mb-2">
-                  <h2 className="text-xl font-bold text-gray-800">{link.title}</h2>
+                  <h2 className="text-xl font-bold text-gray-900">{link.title}</h2>
                   <div className="h-1 w-20 bg-blue-500 mt-2"></div>
                 </div>
               )}
               
               <div className="space-y-5">
                 <div className="flex flex-col">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">URL Shortato</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">URL Shortato</span>
                   <div className="flex items-center">
                     <a 
                       href={shortUrl} 
@@ -209,10 +276,10 @@ export default function LinkStatsPage() {
                 </div>
 
                 <div className="flex flex-col">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Link Originale</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Link Originale</span>
                   <button
                     onClick={handleCopyOriginalLink}
-                    className="text-gray-700 hover:text-gray-900 break-all text-left w-full cursor-pointer text-sm hover:underline"
+                    className="text-gray-800 hover:text-gray-900 break-all text-left w-full cursor-pointer text-sm hover:underline"
                     title="Clicca per copiare il link originale"
                   >
                     {link.originalUrl}
@@ -221,14 +288,14 @@ export default function LinkStatsPage() {
 
                 {link.description && (
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Descrizione</span>
-                    <p className="text-gray-700 text-sm">{link.description}</p>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Descrizione</span>
+                    <p className="text-gray-800 text-sm">{link.description}</p>
                   </div>
                 )}
 
                 <div className="flex flex-col">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Data di Creazione</span>
-                  <p className="text-gray-700 text-sm">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Data di Creazione</span>
+                  <p className="text-gray-800 text-sm">
                     {new Date(link.createdAt).toLocaleDateString('it-IT', {
                       year: 'numeric',
                       month: 'long',
@@ -259,7 +326,7 @@ export default function LinkStatsPage() {
         {/* Blocco 2: Filtri Temporali */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Periodo di Analisi</h2>
+            <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">Periodo di Analisi</h2>
           </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
@@ -270,7 +337,7 @@ export default function LinkStatsPage() {
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                   activeFilter === filter.value
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 {filter.label}
@@ -281,21 +348,21 @@ export default function LinkStatsPage() {
           {activeFilter === 'custom' && (
             <div className="flex flex-wrap items-end gap-4 p-4 bg-gray-50 rounded-lg mt-4">
               <div className="flex-1 min-w-[180px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Data Inizio</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Data Inizio</label>
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-900"
                 />
               </div>
               <div className="flex-1 min-w-[180px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Data Fine</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Data Fine</label>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-900"
                 />
               </div>
               <button
@@ -316,8 +383,8 @@ export default function LinkStatsPage() {
           <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Click Totali</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.clickTotali.toLocaleString()}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Click Totali</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.clickTotali.toLocaleString()}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-blue-600" />
@@ -329,8 +396,8 @@ export default function LinkStatsPage() {
           <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Click Unici</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.clickUnici.toLocaleString()}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Click Unici</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.clickUnici.toLocaleString()}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-green-600" />
@@ -342,8 +409,8 @@ export default function LinkStatsPage() {
           <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Referrer Unici</p>
-                <p className="text-2xl font-bold text-gray-800">{stats.referrerCount.toLocaleString()}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Referrer Unici</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.referrerCount.toLocaleString()}</p>
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-purple-600" />
