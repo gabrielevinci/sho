@@ -9,30 +9,7 @@ import {
 } from 'lucide-react';
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
-
-type LinkStats = {
-  link: {
-    id: string; // Aggiungiamo l'ID numerico
-    shortCode: string;
-    originalUrl: string;
-    title: string | null;
-    description: string | null;
-    createdAt: string;
-  };
-  stats: {
-    clickTotali: number;
-    clickUnici: number;
-    referrerCount: number;
-    countryCount: number;
-    cityCount: number;
-    browserCount: number;
-    linguaCount: number;
-    dispositivoCount: number;
-    sistemaOperativoCount: number;
-  };
-};
-
-type FilterType = 'sempre' | '24h' | '7d' | '30d' | '90d' | '365d' | 'custom';
+import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 
 export default function LinkStatsPage() {
   const params = useParams();
@@ -40,12 +17,22 @@ export default function LinkStatsPage() {
   const shortCode = params.shortCode as string;
   
   const [linkStats, setLinkStats] = useState<LinkStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isApplyingFilter, setIsApplyingFilter] = useState(false);
+
+  // Utilizziamo il nuovo hook per la cache delle statistiche
+  const {
+    isLoading,
+    error,
+    isCustomDateLoading,
+    getStatsForFilter,
+    getImmediateStats,
+    invalidateCache,
+    debugCache
+  } = useStatsCache(shortCode);
 
   const filters: { value: FilterType; label: string }[] = [
     { value: 'sempre', label: 'Sempre' },
@@ -57,49 +44,56 @@ export default function LinkStatsPage() {
     { value: 'custom', label: 'Date personalizzate' }
   ];
 
-  const fetchStats = useCallback(async (filter: FilterType = activeFilter) => {
+  // Applica il filtro usando la cache
+  const applyFilter = useCallback(async (filter: FilterType, startDate?: string, endDate?: string) => {
     try {
-      setLoading(true);
-      setError(null);
-      let url = `/api/stats/${shortCode}?filter=${filter}`;
+      setIsApplyingFilter(true);
       
-      if (filter === 'custom' && customStartDate && customEndDate) {
-        url += `&startDate=${customStartDate}&endDate=${customEndDate}`;
+      if (filter === 'custom' && startDate && endDate) {
+        // Per date personalizzate, potrebbe essere necessaria una richiesta al server
+        const stats = await getStatsForFilter(filter, startDate, endDate);
+        if (stats) {
+          setLinkStats(stats);
+        }
+      } else {
+        // Per filtri predefiniti, usa i dati dalla cache (immediato)
+        const stats = getImmediateStats(filter);
+        if (stats) {
+          setLinkStats(stats);
+        } else {
+          // Fallback se i dati non sono ancora caricati
+          const statsAsync = await getStatsForFilter(filter);
+          if (statsAsync) {
+            setLinkStats(statsAsync);
+          }
+        }
       }
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Errore HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setLinkStats(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Errore durante il caricamento delle statistiche';
-      setError(errorMessage);
       showToast(errorMessage, 'error');
     } finally {
-      setLoading(false);
+      setIsApplyingFilter(false);
     }
-  }, [shortCode, activeFilter, customStartDate, customEndDate]);
+  }, [getStatsForFilter, getImmediateStats]);
 
+  // Carica le statistiche iniziali
   useEffect(() => {
-    // Carica le statistiche iniziali solo una volta
-    fetchStats();
-  }, [shortCode, fetchStats]);
+    if (!isLoading && !error) {
+      // Applica il filtro predefinito quando i dati sono pronti
+      applyFilter(activeFilter);
+    }
+  }, [isLoading, error, applyFilter, activeFilter]);
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
     if (filter !== 'custom') {
-      fetchStats(filter);
+      applyFilter(filter);
     }
   };
 
   const handleCustomDateFilter = () => {
     if (customStartDate && customEndDate) {
-      fetchStats('custom');
+      applyFilter('custom', customStartDate, customEndDate);
     }
   };
 
@@ -109,7 +103,10 @@ export default function LinkStatsPage() {
   };
 
   const handleUpdateFromActions = () => {
-    fetchStats(); // Ricarica le statistiche dopo un'azione
+    invalidateCache(); // Ricarica le statistiche dopo un'azione e applica il filtro corrente
+    setTimeout(() => {
+      applyFilter(activeFilter, customStartDate, customEndDate);
+    }, 100);
   };
 
   const handleCopyOriginalLink = async () => {
@@ -179,7 +176,7 @@ export default function LinkStatsPage() {
     </div>
   );
 
-  if (loading) {
+  if (isLoading || isApplyingFilter) {
     return <SkeletonLoader />;
   }
 
@@ -195,12 +192,15 @@ export default function LinkStatsPage() {
           <p className="text-gray-800 font-medium mb-2">Impossibile caricare le statistiche</p>
           {error && (
             <p className="text-gray-600 text-sm mb-4 bg-red-50 p-3 rounded border border-red-200">
-              {error}
+              {typeof error === 'string' ? error : 'Errore sconosciuto'}
             </p>
           )}
           <div className="flex gap-2 justify-center">
             <button 
-              onClick={() => fetchStats()}
+              onClick={() => {
+                invalidateCache();
+                applyFilter(activeFilter, customStartDate, customEndDate);
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm transition-all text-sm"
             >
               Riprova
@@ -324,6 +324,15 @@ export default function LinkStatsPage() {
                   hideStatsButton={true}
                   hideFolderButton={true} // Nascondi il pulsante gestione cartelle nelle statistiche
                 />
+                {process.env.NODE_ENV === 'development' && (
+                  <button
+                    onClick={debugCache}
+                    className="mt-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded border border-yellow-300 hover:bg-yellow-200 transition-colors"
+                    title="Debug Cache (solo in development)"
+                  >
+                    🔍 Debug Cache
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -333,6 +342,12 @@ export default function LinkStatsPage() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
             <h2 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">Periodo di Analisi</h2>
+            {(isCustomDateLoading || isApplyingFilter) && (
+              <div className="flex items-center text-sm text-gray-500 mt-2 sm:mt-0">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent mr-2"></div>
+                Caricamento statistiche...
+              </div>
+            )}
           </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
@@ -340,7 +355,8 @@ export default function LinkStatsPage() {
               <button
                 key={filter.value}
                 onClick={() => handleFilterChange(filter.value)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                disabled={isApplyingFilter || isCustomDateLoading}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   activeFilter === filter.value
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -373,11 +389,20 @@ export default function LinkStatsPage() {
               </div>
               <button
                 onClick={handleCustomDateFilter}
-                disabled={!customStartDate || !customEndDate}
+                disabled={!customStartDate || !customEndDate || isCustomDateLoading || isApplyingFilter}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm shadow-sm transition-all"
               >
-                <Calendar className="h-4 w-4 mr-2" />
-                Applica
+                {isCustomDateLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Caricamento...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Applica
+                  </>
+                )}
               </button>
             </div>
           )}
