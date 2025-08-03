@@ -53,7 +53,8 @@ export async function GET(
           COUNT(DISTINCT CASE WHEN city IS NOT NULL THEN city END) as city_count,
           COUNT(DISTINCT CASE WHEN browser_name IS NOT NULL THEN browser_name END) as browser_count,
           COUNT(DISTINCT CASE WHEN language IS NOT NULL THEN language END) as lingua_count,
-          COUNT(DISTINCT CASE WHEN device_type IS NOT NULL THEN device_type END) as dispositivo_count
+          COUNT(DISTINCT CASE WHEN device_type IS NOT NULL THEN device_type END) as dispositivo_count,
+          COUNT(DISTINCT CASE WHEN os_name IS NOT NULL THEN os_name END) as sistema_operativo_count
         FROM clicks 
         WHERE link_id = ${link.id}
           AND clicked_at >= ${startDate}
@@ -110,7 +111,13 @@ export async function GET(
           COALESCE(dispositivo_7d, 0) as dispositivo_7d,
           COALESCE(dispositivo_30d, 0) as dispositivo_30d,
           COALESCE(dispositivo_90d, 0) as dispositivo_90d,
-          COALESCE(dispositivo_365d, 0) as dispositivo_365d
+          COALESCE(dispositivo_365d, 0) as dispositivo_365d,
+          COALESCE(sistema_operativo_sempre, 0) as sistema_operativo_sempre,
+          COALESCE(sistema_operativo_24h, 0) as sistema_operativo_24h,
+          COALESCE(sistema_operativo_7d, 0) as sistema_operativo_7d,
+          COALESCE(sistema_operativo_30d, 0) as sistema_operativo_30d,
+          COALESCE(sistema_operativo_90d, 0) as sistema_operativo_90d,
+          COALESCE(sistema_operativo_365d, 0) as sistema_operativo_365d
         FROM statistiche_link 
         WHERE link_id = ${link.id}
       `;
@@ -134,7 +141,9 @@ export async function GET(
             lingua_sempre: 0, lingua_24h: 0, lingua_7d: 0,
             lingua_30d: 0, lingua_90d: 0, lingua_365d: 0,
             dispositivo_sempre: 0, dispositivo_24h: 0, dispositivo_7d: 0,
-            dispositivo_30d: 0, dispositivo_90d: 0, dispositivo_365d: 0
+            dispositivo_30d: 0, dispositivo_90d: 0, dispositivo_365d: 0,
+            sistema_operativo_sempre: 0, sistema_operativo_24h: 0, sistema_operativo_7d: 0,
+            sistema_operativo_30d: 0, sistema_operativo_90d: 0, sistema_operativo_365d: 0
           }]
         };
       }
@@ -148,7 +157,7 @@ export async function GET(
     };
     
     // Determina i valori in base al tipo di filtro
-    let clickTotali, clickUnici, referrerCount, countryCount, cityCount, browserCount, linguaCount, dispositivoCount;
+    let clickTotali, clickUnici, referrerCount, countryCount, cityCount, browserCount, linguaCount, dispositivoCount, sistemaOperativoCount;
     
     if (filter === 'custom') {
       // Per date personalizzate, usa i campi calcolati
@@ -160,6 +169,7 @@ export async function GET(
       browserCount = toNumber(stats.browser_count);
       linguaCount = toNumber(stats.lingua_count);
       dispositivoCount = toNumber(stats.dispositivo_count);
+      sistemaOperativoCount = toNumber(stats.sistema_operativo_count);
     } else {
       // Per filtri predefiniti, usa i campi della tabella statistiche_link
       const suffixMap: { [key: string]: string } = {
@@ -181,6 +191,7 @@ export async function GET(
       browserCount = toNumber(stats[`browser${suffix}`]);
       linguaCount = toNumber(stats[`lingua${suffix}`]);
       dispositivoCount = toNumber(stats[`dispositivo${suffix}`]);
+      sistemaOperativoCount = toNumber(stats[`sistema_operativo${suffix}`]);
     }
 
     return NextResponse.json({
@@ -200,7 +211,8 @@ export async function GET(
         cityCount,
         browserCount,
         linguaCount,
-        dispositivoCount
+        dispositivoCount,
+        sistemaOperativoCount
       }
     });
 
