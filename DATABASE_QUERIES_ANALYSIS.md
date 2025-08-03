@@ -260,34 +260,52 @@ ORDER BY
 
 ---
 
-### 6. Filtro "365d" - Ultimi 365 giorni
+### 6. Filtro "365d" - Ultimi 365 giorni (AGGIORNATO - VERSIONE AVANZATA)
 ```sql
-WITH series AS (
-  SELECT generate_series(
-    (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '364 days')::date,
-    (NOW() AT TIME ZONE 'Europe/Rome')::date,
-    '1 day'
-  ) AS data
+WITH clicks_ranked AS (
+  SELECT
+    id,
+    clicked_at_rome,
+    click_fingerprint_hash,
+    ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+  FROM
+    clicks
+  WHERE
+    link_id = $1 AND
+    clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '364 days')::date
 )
 SELECT
-  s.data AS data_italiana,
-  COALESCE(COUNT(c.id), 0) AS click_totali,
-  COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
+  serie_giornaliera.giorno AS data_italiana,
+  COALESCE(COUNT(cr.id), 0) AS click_totali,
+  COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
 FROM
-  series s
+  generate_series(
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '364 days'),
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome'),
+    '1 day'
+  ) AS serie_giornaliera(giorno)
 LEFT JOIN
-  clicks c ON DATE(c.clicked_at_rome) = s.data
-           AND c.link_id = $1
+  clicks_ranked cr ON DATE_TRUNC('day', cr.clicked_at_rome) = serie_giornaliera.giorno
 GROUP BY
-  s.data
+  serie_giornaliera.giorno
 ORDER BY
-  s.data ASC;
+  serie_giornaliera.giorno ASC;
 ```
 
 **Parametri**: 
 - `$1` = `linkId` (numero)
 
-**Logica**: Identica ma con intervallo di 364 giorni + oggi = 365 giorni
+**Logica AVANZATA**:
+- **CTE `clicks_ranked`**: Pre-filtra i click degli ultimi 364 giorni + oggi e assegna un rank per fingerprint
+- **`ROW_NUMBER() OVER(PARTITION BY...)`**: Numera i click per ogni fingerprint unico in ordine cronologico
+- **Filtro temporale**: Limita già nella CTE ai click degli ultimi 365 giorni per performance
+- **Click unici accurati**: `SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END)` conta solo il primo click di ogni fingerprint
+- **Vantaggi**: 
+  - Più efficiente (pre-filtro temporale nella CTE)
+  - Click unici precisi (prima occorrenza per fingerprint nel periodo di 365 giorni)
+  - Migliore performance su dataset grandi
+  - Coerente con la logica dei filtri "24h", "7d", "30d" e "90d"
+- **Differenza dalla versione precedente**: I click unici ora rappresentano veramente nuovi utenti unici nel periodo, non fingerprint distinti per giorno
 
 ---
 
@@ -466,6 +484,48 @@ FROM clicks
 WHERE link_id = [TUO_LINK_ID]
 ORDER BY clicked_at_rome DESC
 LIMIT 5;
+```
+
+---
+
+## 🚀 Riepilogo Ottimizzazioni Query
+
+### Filtri con Logica Avanzata (Window Functions)
+I seguenti filtri utilizzano la **versione avanzata** con `ROW_NUMBER() OVER()`:
+
+✅ **24h** - Click unici accurati per utente nel periodo di 24 ore  
+✅ **7d** - Click unici accurati per utente nel periodo di 7 giorni  
+✅ **30d** - Click unici accurati per utente nel periodo di 30 giorni  
+✅ **90d** - Click unici accurati per utente nel periodo di 90 giorni  
+✅ **365d** - Click unici accurati per utente nel periodo di 365 giorni  
+
+### Vantaggi delle Window Functions
+1. **Precisione**: I click unici rappresentano veramente nuovi utenti nel periodo, non fingerprint distinti per giorno/ora
+2. **Performance**: Pre-filtro temporale nella CTE riduce il dataset da processare
+3. **Coerenza**: Tutti i filtri temporali usano la stessa logica avanzata
+4. **Scalabilità**: Migliori performance su dataset grandi con molti click
+
+### Filtri con Logica Standard
+- **all** - Utilizza logica speciale per timeline completa dalla creazione del link
+- **custom** - Utilizza logica standard per range di date personalizzate
+
+### Pattern Query Avanzata
+```sql
+WITH clicks_ranked AS (
+  SELECT
+    id, clicked_at_rome, click_fingerprint_hash,
+    ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+  FROM clicks
+  WHERE link_id = $1 AND clicked_at_rome >= [PERIODO_FILTRO]
+)
+SELECT
+  serie.periodo AS data_italiana,
+  COALESCE(COUNT(cr.id), 0) AS click_totali,
+  COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
+FROM generate_series([RANGE_TEMPORALE]) AS serie(periodo)
+LEFT JOIN clicks_ranked cr ON [JOIN_CONDITION]
+GROUP BY serie.periodo
+ORDER BY serie.periodo ASC;
 ```
 
 ---
