@@ -48,7 +48,11 @@ export async function GET(
         SELECT 
           COUNT(*) as click_totali,
           COUNT(DISTINCT click_fingerprint_hash) as click_unici,
-          COUNT(DISTINCT CASE WHEN referrer != 'Direct' THEN referrer END) as referrer_count
+          COUNT(DISTINCT CASE WHEN referrer != 'Direct' THEN referrer END) as referrer_count,
+          COUNT(DISTINCT CASE WHEN country IS NOT NULL THEN country END) as country_count,
+          COUNT(DISTINCT CASE WHEN city IS NOT NULL THEN city END) as city_count,
+          COUNT(DISTINCT CASE WHEN browser_name IS NOT NULL THEN browser_name END) as browser_count,
+          COUNT(DISTINCT CASE WHEN language IS NOT NULL THEN language END) as lingua_count
         FROM clicks 
         WHERE link_id = ${link.id}
           AND clicked_at >= ${startDate}
@@ -75,7 +79,31 @@ export async function GET(
           COALESCE(referrer_7d, 0) as referrer_7d,
           COALESCE(referrer_30d, 0) as referrer_30d,
           COALESCE(referrer_90d, 0) as referrer_90d,
-          COALESCE(referrer_365d, 0) as referrer_365d
+          COALESCE(referrer_365d, 0) as referrer_365d,
+          COALESCE(country_sempre, 0) as country_sempre,
+          COALESCE(country_24h, 0) as country_24h,
+          COALESCE(country_7d, 0) as country_7d,
+          COALESCE(country_30d, 0) as country_30d,
+          COALESCE(country_90d, 0) as country_90d,
+          COALESCE(country_365d, 0) as country_365d,
+          COALESCE(city_sempre, 0) as city_sempre,
+          COALESCE(city_24h, 0) as city_24h,
+          COALESCE(city_7d, 0) as city_7d,
+          COALESCE(city_30d, 0) as city_30d,
+          COALESCE(city_90d, 0) as city_90d,
+          COALESCE(city_365d, 0) as city_365d,
+          COALESCE(browser_sempre, 0) as browser_sempre,
+          COALESCE(browser_24h, 0) as browser_24h,
+          COALESCE(browser_7d, 0) as browser_7d,
+          COALESCE(browser_30d, 0) as browser_30d,
+          COALESCE(browser_90d, 0) as browser_90d,
+          COALESCE(browser_365d, 0) as browser_365d,
+          COALESCE(lingua_sempre, 0) as lingua_sempre,
+          COALESCE(lingua_24h, 0) as lingua_24h,
+          COALESCE(lingua_7d, 0) as lingua_7d,
+          COALESCE(lingua_30d, 0) as lingua_30d,
+          COALESCE(lingua_90d, 0) as lingua_90d,
+          COALESCE(lingua_365d, 0) as lingua_365d
         FROM statistiche_link 
         WHERE link_id = ${link.id}
       `;
@@ -89,7 +117,15 @@ export async function GET(
             click_unici_sempre: 0, click_unici_24h: 0, click_unici_7d: 0,
             click_unici_30d: 0, click_unici_90d: 0, click_unici_365d: 0,
             referrer_sempre: 0, referrer_24h: 0, referrer_7d: 0,
-            referrer_30d: 0, referrer_90d: 0, referrer_365d: 0
+            referrer_30d: 0, referrer_90d: 0, referrer_365d: 0,
+            country_sempre: 0, country_24h: 0, country_7d: 0,
+            country_30d: 0, country_90d: 0, country_365d: 0,
+            city_sempre: 0, city_24h: 0, city_7d: 0,
+            city_30d: 0, city_90d: 0, city_365d: 0,
+            browser_sempre: 0, browser_24h: 0, browser_7d: 0,
+            browser_30d: 0, browser_90d: 0, browser_365d: 0,
+            lingua_sempre: 0, lingua_24h: 0, lingua_7d: 0,
+            lingua_30d: 0, lingua_90d: 0, lingua_365d: 0
           }]
         };
       }
@@ -103,13 +139,17 @@ export async function GET(
     };
     
     // Determina i valori in base al tipo di filtro
-    let clickTotali, clickUnici, referrerCount;
+    let clickTotali, clickUnici, referrerCount, countryCount, cityCount, browserCount, linguaCount;
     
     if (filter === 'custom') {
       // Per date personalizzate, usa i campi calcolati
       clickTotali = toNumber(stats.click_totali);
       clickUnici = toNumber(stats.click_unici);
       referrerCount = toNumber(stats.referrer_count);
+      countryCount = toNumber(stats.country_count);
+      cityCount = toNumber(stats.city_count);
+      browserCount = toNumber(stats.browser_count);
+      linguaCount = toNumber(stats.lingua_count);
     } else {
       // Per filtri predefiniti, usa i campi della tabella statistiche_link
       const suffixMap: { [key: string]: string } = {
@@ -126,6 +166,10 @@ export async function GET(
       clickTotali = toNumber(stats[`click_totali${suffix}`]);
       clickUnici = toNumber(stats[`click_unici${suffix}`]);
       referrerCount = toNumber(stats[`referrer${suffix}`]);
+      countryCount = toNumber(stats[`country${suffix}`]);
+      cityCount = toNumber(stats[`city${suffix}`]);
+      browserCount = toNumber(stats[`browser${suffix}`]);
+      linguaCount = toNumber(stats[`lingua${suffix}`]);
     }
 
     return NextResponse.json({
@@ -140,7 +184,11 @@ export async function GET(
       stats: {
         clickTotali,
         clickUnici,
-        referrerCount
+        referrerCount,
+        countryCount,
+        cityCount,
+        browserCount,
+        linguaCount
       }
     });
 

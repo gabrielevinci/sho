@@ -23,6 +23,10 @@ type LinkStats = {
     clickTotali: number;
     clickUnici: number;
     referrerCount: number;
+    countryCount: number;
+    cityCount: number;
+    browserCount: number;
+    linguaCount: number;
   };
 };
 
@@ -156,8 +160,8 @@ export default function LinkStatsPage() {
         </div>
 
         {/* Stats Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1,2,3].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1,2,3,4,5,6,7].map((i) => (
             <div key={i} className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
@@ -378,7 +382,7 @@ export default function LinkStatsPage() {
         </div>
 
         {/* Blocco 3: Card Statistiche */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Card Click Totali */}
           <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
@@ -414,6 +418,66 @@ export default function LinkStatsPage() {
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Card Paesi */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-amber-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Paesi</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.countryCount.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-amber-100 rounded-full">
+                <svg className="h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Città */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-indigo-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Città</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.cityCount.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-indigo-100 rounded-full">
+                <svg className="h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Browser */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Browser</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.browserCount.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-teal-100 rounded-full">
+                <svg className="h-5 w-5 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M7.5 3h9m-9 3h9m-9 3h9m3-9v18m-3-3h.01M6 3v18m3-3h.01M6 6h.01M6 9h.01M6 12h.01M6 15h.01M6 18h.01M21 3v18m-3-3H21m-5.25-3H21M21 9h-5.25M21 6H21m-5.25 15H21" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Lingua */}
+          <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-pink-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Lingua</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.linguaCount.toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-pink-100 rounded-full">
+                <svg className="h-5 w-5 text-pink-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
+                </svg>
               </div>
             </div>
           </div>
