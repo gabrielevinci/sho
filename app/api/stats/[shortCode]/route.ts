@@ -181,7 +181,7 @@ export async function GET(
         SELECT 
           COUNT(*) as click_totali,
           COUNT(DISTINCT click_fingerprint_hash) as click_unici,
-          COUNT(DISTINCT CASE WHEN referrer != 'Direct' AND referrer IS NOT NULL THEN referrer END) as referrer_count,
+          COUNT(DISTINCT CASE WHEN referrer IS NOT NULL THEN referrer END) as referrer_count,
           COUNT(DISTINCT CASE WHEN country IS NOT NULL THEN country END) as country_count,
           COUNT(DISTINCT CASE WHEN city IS NOT NULL THEN city END) as city_count,
           COUNT(DISTINCT CASE WHEN browser_name IS NOT NULL THEN browser_name END) as browser_count,
