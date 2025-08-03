@@ -11,7 +11,55 @@
 SELECT id FROM links 
 WHERE short_code = ${shortCode} AND user_id = ${session.userId}
 ```
-**Scopo**: Ottiene l'ID del link dal codice breve e verifica che appartenga all'utente
+**Scopo**: Ottiene l'ID## 🔧 Risoluzione Problemi Comuni
+
+### Errore 500 "Failed to load resource"
+**Sintomo**: Console del browser mostra errore 500 per chiamate API
+**Causa**: Mismatch delle porte tra client e server
+**Soluzione**: 
+1. Verifica su quale porta sta girando il server Next.js
+2. Aggiorna `.env.local` con le variabili:
+   ```
+   NEXT_PUBLIC_APP_URL="http://localhost:[PORTA_CORRETTA]"
+   NEXT_PUBLIC_SITE_URL="http://localhost:[PORTA_CORRETTA]"
+   ```
+3. Riavvia il server
+
+### Errore 401 "Non autorizzato"
+**Sintomo**: API restituisce errore di autenticazione
+**Causa**: Sessione mancante o scaduta
+**Soluzione**: Verifica che l'utente sia autenticato e che i cookie di sessione siano presenti
+
+### Errori Webpack / Compilazione
+**Sintomo**: `__webpack_modules__[moduleId] is not a function` o errori di compilazione
+**Causa**: Cache corrotta o dipendenze inconsistenti
+**Soluzione**:
+1. **Pulizia completa**:
+   ```bash
+   # PowerShell
+   Remove-Item -Recurse -Force .next
+   Remove-Item -Recurse -Force node_modules
+   npm cache clean --force
+   
+   # Bash/Linux
+   rm -rf .next node_modules
+   npm cache clean --force
+   ```
+2. **Reinstallazione**:
+   ```bash
+   npm install
+   npm run dev
+   ```
+3. **Se persiste**, verifica la versione di Node.js (consigliata: 18+)
+
+### Problemi di Porte Multiple
+**Sintomo**: Server che cambia porta automaticamente (3000 → 3001 → 3003...)
+**Causa**: Processi multipli di Next.js in esecuzione
+**Soluzione**:
+1. Chiudi tutti i terminali/processi Next.js attivi
+2. Verifica con: `netstat -ano | findstr :3000` (Windows) o `lsof -i :3000` (Linux/Mac)
+3. Termina i processi se necessario
+4. Riavvia con `npm run dev`ce breve e verifica che appartenga all'utente
 
 ---
 
@@ -65,38 +113,52 @@ ORDER BY
 
 ---
 
-### 3. Filtro "7d" - Ultimi 7 giorni
+### 3. Filtro "7d" - Ultimi 7 giorni (AGGIORNATO - VERSIONE AVANZATA)
 ```sql
-WITH series AS (
-  SELECT generate_series(
-    (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '6 days')::date,
-    (NOW() AT TIME ZONE 'Europe/Rome')::date,
-    '1 day'
-  ) AS data
+WITH clicks_ranked AS (
+  SELECT
+    id,
+    clicked_at_rome,
+    click_fingerprint_hash,
+    ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+  FROM
+    clicks
+  WHERE
+    link_id = $1 AND
+    clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '6 days')::date
 )
 SELECT
-  s.data AS data_italiana,
-  COALESCE(COUNT(c.id), 0) AS click_totali,
-  COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
+  serie_giornaliera.giorno AS data_italiana,
+  COALESCE(COUNT(cr.id), 0) AS click_totali,
+  COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
 FROM
-  series s
+  generate_series(
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '6 days'),
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome'),
+    '1 day'
+  ) AS serie_giornaliera(giorno)
 LEFT JOIN
-  clicks c ON DATE(c.clicked_at_rome) = s.data
-           AND c.link_id = $1
+  clicks_ranked cr ON DATE_TRUNC('day', cr.clicked_at_rome) = serie_giornaliera.giorno
 GROUP BY
-  s.data
+  serie_giornaliera.giorno
 ORDER BY
-  s.data ASC;
+  serie_giornaliera.giorno ASC;
 ```
 
 **Parametri**: 
 - `$1` = `linkId` (numero)
 
-**Logica**:
-- Genera serie giornaliera degli ultimi 6 giorni + oggi = 7 giorni
-- Conta click totali: `COUNT(c.id)`
-- Conta click unici: `COUNT(DISTINCT c.click_fingerprint_hash)`
-- Join su DATE(clicked_at_rome)
+**Logica AVANZATA**:
+- **CTE `clicks_ranked`**: Pre-filtra i click degli ultimi 6 giorni + oggi e assegna un rank per fingerprint
+- **`ROW_NUMBER() OVER(PARTITION BY...)`**: Numera i click per ogni fingerprint unico in ordine cronologico
+- **Filtro temporale**: Limita già nella CTE ai click degli ultimi 7 giorni per performance
+- **Click unici accurati**: `SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END)` conta solo il primo click di ogni fingerprint
+- **Vantaggi**: 
+  - Più efficiente (pre-filtro temporale nella CTE)
+  - Click unici precisi (prima occorrenza per fingerprint nel periodo di 7 giorni)
+  - Migliore performance su dataset grandi
+  - Coerente con la logica del filtro "24h"
+- **Differenza dalla versione precedente**: I click unici ora rappresentano veramente nuovi utenti unici nel periodo, non fingerprint distinti per giorno
 
 ---
 
