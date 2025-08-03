@@ -10,6 +10,7 @@ import {
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
 import NumberFormat from '@/app/components/NumberFormat';
+import DateFormat from '@/app/components/DateFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, FilterType, LinkStats, FilteredStats } from '@/app/hooks/use-stats-cache';
 
@@ -253,13 +254,20 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
 
                 <div className="flex flex-col">
                   <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Data di Creazione</span>
-                  <p className="text-gray-700 text-sm">{new Date(link.createdAt).toLocaleDateString('it-IT', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</p>
+                  <p className="text-gray-700 text-sm">
+                    <NoSSR fallback="---">
+                      <DateFormat 
+                        date={link.createdAt}
+                        options={{
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }}
+                      />
+                    </NoSSR>
+                  </p>
                 </div>
               </div>
             </div>
