@@ -153,7 +153,8 @@ export function useStatsCache(shortCode: string) {
       cacheType: 'analytics',
       ttl: 5 * 60 * 1000, // 5 minuti di cache
       revalidateOnFocus: false,
-      dedupingInterval: 60 * 1000 // 1 minuto per dedupe
+      dedupingInterval: 60 * 1000, // 1 minuto per dedupe
+      suspense: false // Disabilitiamo suspense per evitare problemi di hydration
     }
   );
 

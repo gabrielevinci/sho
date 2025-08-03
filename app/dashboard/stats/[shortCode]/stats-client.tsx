@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
+import NumberFormat from '@/app/components/NumberFormat';
+import NoSSR from '@/app/components/NoSSR';
 
 type LinkStats = {
   link: {
@@ -342,7 +344,11 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Click Totali</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.clickTotali.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.clickTotali} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-blue-100 rounded-full">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -356,7 +362,11 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Click Unici</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.clickUnici.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.clickUnici} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-green-100 rounded-full">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

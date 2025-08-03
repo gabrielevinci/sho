@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
+import NumberFormat from '@/app/components/NumberFormat';
+import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 
 export default function LinkStatsPage() {
@@ -415,7 +417,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Click Totali</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.clickTotali.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.clickTotali} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-blue-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-blue-600" />
@@ -428,7 +434,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Click Unici</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.clickUnici.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.clickUnici} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-green-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-green-600" />
@@ -441,7 +451,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Referrer Unici</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.referrerCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.referrerCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <BarChart3 className="h-5 w-5 text-purple-600" />
@@ -454,7 +468,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Paesi</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.countryCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.countryCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-amber-100 rounded-full">
                 <svg className="h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -469,7 +487,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Città</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.cityCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.cityCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-indigo-100 rounded-full">
                 <svg className="h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -484,7 +506,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Browser</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.browserCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.browserCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-teal-100 rounded-full">
                 <svg className="h-5 w-5 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -499,7 +525,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Lingua</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.linguaCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.linguaCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-pink-100 rounded-full">
                 <svg className="h-5 w-5 text-pink-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -514,7 +544,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Dispositivi</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.dispositivoCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.dispositivoCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-teal-100 rounded-full">
                 <svg className="h-5 w-5 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -529,7 +563,11 @@ export default function LinkStatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Sistemi Operativi</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.sistemaOperativoCount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  <NoSSR fallback="---">
+                    <NumberFormat value={stats.sistemaOperativoCount} />
+                  </NoSSR>
+                </p>
               </div>
               <div className="p-3 bg-orange-100 rounded-full">
                 <svg className="h-5 w-5 text-orange-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

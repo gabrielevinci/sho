@@ -42,7 +42,7 @@ export default function SWRProvider({ children }: SWRProviderProps) {
     <SWRConfig
       value={{
         fetcher,
-        // Configurazione cache ottimizzata per il nuovo sistema
+        // Configurazione per migliorare le performance
         dedupingInterval: 2000, // 2 secondi di deduplicazione (ridotto per maggiore reattività)
         refreshInterval: 0, // Disabilitato, gestito dal sistema di cache personalizzato
         revalidateOnFocus: false, // Gestito dal sistema di cache personalizzato
@@ -54,7 +54,7 @@ export default function SWRProvider({ children }: SWRProviderProps) {
         // Configurazione cache
         provider: () => new Map(),
         // Configurazioni per migliorare le performance
-        suspense: false,
+        suspense: false, // Disabilitiamo suspense per evitare problemi di hydration
         fallbackData: undefined,
         // Configurazione per il background update
         revalidateOnMount: true,
