@@ -52,7 +52,8 @@ export async function GET(
           COUNT(DISTINCT CASE WHEN country IS NOT NULL THEN country END) as country_count,
           COUNT(DISTINCT CASE WHEN city IS NOT NULL THEN city END) as city_count,
           COUNT(DISTINCT CASE WHEN browser_name IS NOT NULL THEN browser_name END) as browser_count,
-          COUNT(DISTINCT CASE WHEN language IS NOT NULL THEN language END) as lingua_count
+          COUNT(DISTINCT CASE WHEN language IS NOT NULL THEN language END) as lingua_count,
+          COUNT(DISTINCT CASE WHEN device_type IS NOT NULL THEN device_type END) as dispositivo_count
         FROM clicks 
         WHERE link_id = ${link.id}
           AND clicked_at >= ${startDate}
@@ -103,7 +104,13 @@ export async function GET(
           COALESCE(lingua_7d, 0) as lingua_7d,
           COALESCE(lingua_30d, 0) as lingua_30d,
           COALESCE(lingua_90d, 0) as lingua_90d,
-          COALESCE(lingua_365d, 0) as lingua_365d
+          COALESCE(lingua_365d, 0) as lingua_365d,
+          COALESCE(dispositivo_sempre, 0) as dispositivo_sempre,
+          COALESCE(dispositivo_24h, 0) as dispositivo_24h,
+          COALESCE(dispositivo_7d, 0) as dispositivo_7d,
+          COALESCE(dispositivo_30d, 0) as dispositivo_30d,
+          COALESCE(dispositivo_90d, 0) as dispositivo_90d,
+          COALESCE(dispositivo_365d, 0) as dispositivo_365d
         FROM statistiche_link 
         WHERE link_id = ${link.id}
       `;
@@ -125,7 +132,9 @@ export async function GET(
             browser_sempre: 0, browser_24h: 0, browser_7d: 0,
             browser_30d: 0, browser_90d: 0, browser_365d: 0,
             lingua_sempre: 0, lingua_24h: 0, lingua_7d: 0,
-            lingua_30d: 0, lingua_90d: 0, lingua_365d: 0
+            lingua_30d: 0, lingua_90d: 0, lingua_365d: 0,
+            dispositivo_sempre: 0, dispositivo_24h: 0, dispositivo_7d: 0,
+            dispositivo_30d: 0, dispositivo_90d: 0, dispositivo_365d: 0
           }]
         };
       }
@@ -139,7 +148,7 @@ export async function GET(
     };
     
     // Determina i valori in base al tipo di filtro
-    let clickTotali, clickUnici, referrerCount, countryCount, cityCount, browserCount, linguaCount;
+    let clickTotali, clickUnici, referrerCount, countryCount, cityCount, browserCount, linguaCount, dispositivoCount;
     
     if (filter === 'custom') {
       // Per date personalizzate, usa i campi calcolati
@@ -150,6 +159,7 @@ export async function GET(
       cityCount = toNumber(stats.city_count);
       browserCount = toNumber(stats.browser_count);
       linguaCount = toNumber(stats.lingua_count);
+      dispositivoCount = toNumber(stats.dispositivo_count);
     } else {
       // Per filtri predefiniti, usa i campi della tabella statistiche_link
       const suffixMap: { [key: string]: string } = {
@@ -170,6 +180,7 @@ export async function GET(
       cityCount = toNumber(stats[`city${suffix}`]);
       browserCount = toNumber(stats[`browser${suffix}`]);
       linguaCount = toNumber(stats[`lingua${suffix}`]);
+      dispositivoCount = toNumber(stats[`dispositivo${suffix}`]);
     }
 
     return NextResponse.json({
@@ -188,7 +199,8 @@ export async function GET(
         countryCount,
         cityCount,
         browserCount,
-        linguaCount
+        linguaCount,
+        dispositivoCount
       }
     });
 
