@@ -11,30 +11,7 @@ import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
 import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
-
-type LinkStats = {
-  link: {
-    id: string; // Aggiungiamo l'ID numerico
-    shortCode: string;
-    originalUrl: string;
-    title: string | null;
-    description: string | null;
-    createdAt: string;
-  };
-  stats: {
-    clickTotali: number;
-    clickUnici: number;
-    referrerCount: number;
-    countryCount: number;
-    cityCount: number;
-    browserCount: number;
-    linguaCount: number;
-    dispositivoCount: number;
-    sistemaOperativoCount: number;
-  };
-};
-
-type FilterType = 'sempre' | '24h' | '7d' | '30d' | '90d' | '365d' | 'custom';
+import { useStatsCache, FilterType, LinkStats, FilteredStats } from '@/app/hooks/use-stats-cache';
 
 interface StatsPageClientProps {
   shortCode: string;
@@ -44,8 +21,17 @@ interface StatsPageClientProps {
 export default function StatsPageClient({ shortCode, initialStats }: StatsPageClientProps) {
   const router = useRouter();
   
+  // Usiamo l'hook useStatsCache invece della gestione manuale dello stato
+  const {
+    isLoading,
+    error: cacheError,
+    getImmediateStats,
+    getStatsForFilter,
+    invalidateCache
+  } = useStatsCache(shortCode);
+  
   const [linkStats, setLinkStats] = useState<LinkStats | null>(initialStats);
-  const [loading, setLoading] = useState(initialStats === null); // Loading solo se non abbiamo dati iniziali
+  const [loading, setLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -61,51 +47,55 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
     { value: 'custom', label: 'Date personalizzate' }
   ];
 
-  const fetchStats = useCallback(async (filter: FilterType = activeFilter) => {
+  const fetchStatsWithCache = useCallback(async (filter: FilterType = activeFilter) => {
     try {
       setLoading(true);
-      let url = `/api/stats/${shortCode}?filter=${filter}`;
-      
+
       if (filter === 'custom' && customStartDate && customEndDate) {
-        url += `&startDate=${customStartDate}&endDate=${customEndDate}`;
+        const linkStatsResult = await getStatsForFilter(filter, customStartDate, customEndDate);
+        if (linkStatsResult) {
+          setLinkStats(linkStatsResult);
+        }
+      } else if (filter !== 'custom') {
+        let filteredStats = getImmediateStats(filter);
+        if (!filteredStats) {
+          const linkStatsResult = await getStatsForFilter(filter);
+          if (linkStatsResult) {
+            setLinkStats(linkStatsResult);
+          }
+        } else if (linkStats?.link) {
+          // Aggiorna solo le statistiche mantenendo i dati del link
+          setLinkStats({
+            link: linkStats.link,
+            stats: filteredStats
+          });
+        }
       }
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Errore durante il caricamento delle statistiche');
-      }
-      
-      const data = await response.json();
-      setLinkStats(data);
-    } catch {
+    } catch (error) {
+      console.error('Error fetching stats:', error);
       showToast('Errore durante il caricamento delle statistiche', 'error');
     } finally {
       setLoading(false);
     }
-  }, [shortCode, activeFilter, customStartDate, customEndDate]);
+  }, [shortCode, activeFilter, customStartDate, customEndDate, getImmediateStats, getStatsForFilter, linkStats]);
 
-  // Carica i dati iniziali se non forniti, altrimenti solo quando cambiano i filtri
+  // Effetto per caricare i dati quando cambiano i filtri
   useEffect(() => {
-    if (initialStats === null) {
-      // Carica i dati iniziali
-      fetchStats();
-    } else if (activeFilter !== 'sempre') {
-      // Ricarica solo se cambiano i filtri
-      fetchStats();
+    if (activeFilter !== 'sempre' && linkStats?.link) {
+      fetchStatsWithCache();
     }
-  }, [activeFilter]); // Rimuoviamo fetchStats dalle dipendenze per evitare loop
+  }, [activeFilter, fetchStatsWithCache]);
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
     if (filter !== 'custom') {
-      fetchStats(filter);
+      fetchStatsWithCache(filter);
     }
   };
 
   const handleCustomDateFilter = () => {
     if (customStartDate && customEndDate) {
-      fetchStats('custom');
+      fetchStatsWithCache('custom');
     }
   };
 
@@ -115,7 +105,8 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
   };
 
   const handleUpdateFromActions = () => {
-    fetchStats(); // Ricarica le statistiche dopo un'azione
+    invalidateCache();
+    fetchStatsWithCache(); // Ricarica le statistiche dopo un'azione
   };
 
   const handleCopyOriginalLink = async () => {
@@ -130,7 +121,7 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
   };
 
   // Solo mostra loading se stiamo facendo fetch e non abbiamo dati iniziali
-  if (loading && !linkStats) {
+  if ((loading || isLoading) && !linkStats) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center p-6 bg-white rounded-lg shadow-sm">
@@ -160,6 +151,10 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
         </div>
       </div>
     );
+  }
+
+  if (cacheError) {
+    showToast(`Errore: ${cacheError}`, 'error');
   }
 
   const { link, stats } = linkStats;
