@@ -67,7 +67,7 @@ export default function StatsPageClient({ shortCode, initialStats }: StatsPageCl
           // Aggiorna solo le statistiche mantenendo i dati del link
           setLinkStats({
             link: linkStats.link,
-            stats: filteredStats
+            stats: filteredStats.stats
           });
         }
       }
