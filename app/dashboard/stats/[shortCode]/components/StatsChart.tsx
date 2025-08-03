@@ -46,7 +46,11 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
       if (filter === 'all') {
         const totalClicks = data.reduce((sum: number, item: any) => sum + (item.click_totali || 0), 0);
         const maxUniqueClicks = Math.max(...data.map((item: any) => item.click_unici || 0));
-        console.log(`📊 CHART - Filtro '${filter}': ${totalClicks} click totali, ${maxUniqueClicks} click unici massimi (ora allineato con statistiche_link)`);
+        const firstDate = data.length > 0 ? data[0].data_italiana : 'N/A';
+        const lastDate = data.length > 0 ? data[data.length - 1].data_italiana : 'N/A';
+        const daysWithClicks = data.filter((item: any) => (item.click_totali || 0) > 0).length;
+        console.log(`📊 CHART - Filtro '${filter}': ${totalClicks} click totali, ${maxUniqueClicks} click unici massimi`);
+        console.log(`📊 CHART - Periodo completo: dal ${firstDate} al ${lastDate} (${data.length} giorni totali, ${daysWithClicks} giorni con click)`);
       }
 
       // Trasforma i dati per il grafico
@@ -65,10 +69,21 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
           });
         } else {
           // Per i giorni, mostra la data
-          displayDate = new Date(dateValue).toLocaleDateString('it-IT', {
-            day: '2-digit',
-            month: '2-digit'
-          });
+          const date = new Date(dateValue);
+          if (filter === 'all') {
+            // Per il filtro "all", usa formato più compatto per gestire periodi lunghi
+            displayDate = date.toLocaleDateString('it-IT', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit'
+            });
+          } else {
+            // Per altri filtri, formato senza anno
+            displayDate = date.toLocaleDateString('it-IT', {
+              day: '2-digit',
+              month: '2-digit'
+            });
+          }
         }
 
         return {
@@ -227,7 +242,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
               top: 5,
               right: 30,
               left: 20,
-              bottom: 5,
+              bottom: filter === 'all' && chartData.length > 30 ? 60 : 5,
             }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -237,6 +252,10 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
               fontSize={12}
               tickLine={false}
               axisLine={false}
+              interval={filter === 'all' && chartData.length > 30 ? Math.ceil(chartData.length / 10) : 'preserveStartEnd'}
+              angle={filter === 'all' && chartData.length > 30 ? -45 : 0}
+              textAnchor={filter === 'all' && chartData.length > 30 ? 'end' : 'middle'}
+              height={filter === 'all' && chartData.length > 30 ? 60 : 30}
             />
             <YAxis 
               stroke="#6b7280"

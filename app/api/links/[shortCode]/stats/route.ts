@@ -232,29 +232,46 @@ export async function GET(
             
             // Se abbiamo dati da statistiche_link, generiamo una distribuzione temporale
             // basata sui dati reali ma normalizzata per corrispondere al totale
-            const clicksDistribution = await sql`
+            // IMPORTANTE: Generiamo una serie completa dalla creazione ad oggi
+            const fullTimelineQuery = await sql`
+              WITH date_series AS (
+                SELECT generate_series(
+                  (SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') FROM links WHERE id = ${linkId}),
+                  (NOW() AT TIME ZONE 'Europe/Rome')::date,
+                  '1 day'
+                ) AS data_italiana
+              ),
+              clicks_by_date AS (
+                SELECT
+                  DATE(clicked_at_rome) AS data_italiana,
+                  COUNT(*) AS click_totali_raw,
+                  COUNT(DISTINCT click_fingerprint_hash) AS click_unici_raw
+                FROM clicks
+                WHERE link_id = ${linkId}
+                GROUP BY DATE(clicked_at_rome)
+              )
               SELECT
-                DATE(clicked_at_rome) AS data_italiana,
-                COUNT(*) AS click_totali_raw,
-                COUNT(DISTINCT click_fingerprint_hash) AS click_unici_raw
-              FROM clicks
-              WHERE link_id = ${linkId}
-              GROUP BY DATE(clicked_at_rome)
-              ORDER BY data_italiana ASC
+                ds.data_italiana,
+                COALESCE(cbd.click_totali_raw, 0) AS click_totali_raw,
+                COALESCE(cbd.click_unici_raw, 0) AS click_unici_raw
+              FROM date_series ds
+              LEFT JOIN clicks_by_date cbd ON ds.data_italiana = cbd.data_italiana
+              ORDER BY ds.data_italiana ASC
             `;
             
-            if (clicksDistribution.rowCount && clicksDistribution.rowCount > 0) {
+            if (fullTimelineQuery.rowCount && fullTimelineQuery.rowCount > 0) {
               // Calcola il fattore di correzione per normalizzare ai dati di statistiche_link
-              const rawTotal = clicksDistribution.rows.reduce((sum: number, row: any) => sum + parseInt(row.click_totali_raw), 0);
+              const rawTotal = fullTimelineQuery.rows.reduce((sum: number, row: any) => sum + parseInt(row.click_totali_raw || 0), 0);
               const correctionFactor = rawTotal > 0 ? statsData.total_from_stats / rawTotal : 1;
               
+              console.log(`📊 Serie temporale completa generata: ${fullTimelineQuery.rows.length} giorni dalla creazione`);
               console.log(`📊 Fattore di correzione applicato: ${correctionFactor} (da ${rawTotal} a ${statsData.total_from_stats})`);
               
               // Applica il fattore di correzione ai dati giornalieri
-              const correctedData = clicksDistribution.rows.map((row: any) => ({
+              const correctedData = fullTimelineQuery.rows.map((row: any) => ({
                 data_italiana: row.data_italiana,
-                click_totali: Math.round(parseInt(row.click_totali_raw) * correctionFactor),
-                click_unici: parseInt(row.click_unici_raw) // Click unici non vengono corretti
+                click_totali: Math.round(parseInt(row.click_totali_raw || 0) * correctionFactor),
+                click_unici: parseInt(row.click_unici_raw || 0) // Click unici non vengono corretti
               }));
               
               return NextResponse.json(correctedData);
@@ -264,11 +281,11 @@ export async function GET(
           console.log('⚠️ Fallback su calcolo diretto da clicks:', error);
         }
 
-        // Fallback: calcolo diretto dalla tabella clicks
+        // Fallback: calcolo diretto dalla tabella clicks con serie temporale completa
         query = `
           WITH series AS (
             SELECT generate_series(
-              (SELECT DATE(created_at) FROM links WHERE id = $1),
+              (SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') FROM links WHERE id = $1),
               (NOW() AT TIME ZONE 'Europe/Rome')::date,
               '1 day'
             ) AS data
