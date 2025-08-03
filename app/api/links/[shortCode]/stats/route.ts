@@ -86,26 +86,34 @@ export async function GET(
     switch (filter) {
       case '24h':
         query = `
-          WITH series AS (
-            SELECT generate_series(
-              DATE_TRUNC('hour', NOW() - INTERVAL '23 hours'),
-              DATE_TRUNC('hour', NOW()),
-              '1 hour'
-            ) AS ora
+          WITH clicks_ranked AS (
+            SELECT
+              id,
+              clicked_at_rome,
+              click_fingerprint_hash,
+              ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+            FROM
+              clicks
+            WHERE
+              link_id = $1 AND
+              clicked_at_rome >= NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '23 hours'
           )
           SELECT
-            s.ora AT TIME ZONE 'Europe/Rome' AS ora_italiana,
-            COALESCE(COUNT(c.id), 0) AS click_totali,
-            COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
+            serie_oraria.ora AS ora_italiana,
+            COALESCE(COUNT(cr.id), 0) AS click_totali,
+            COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
           FROM
-            series s
+            generate_series(
+              DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '23 hours'),
+              DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome'),
+              '1 hour'
+            ) AS serie_oraria(ora)
           LEFT JOIN
-            clicks c ON DATE_TRUNC('hour', c.clicked_at_rome AT TIME ZONE 'Europe/Rome') = s.ora
-                     AND c.link_id = $1
+            clicks_ranked cr ON DATE_TRUNC('hour', cr.clicked_at_rome) = serie_oraria.ora
           GROUP BY
-            s.ora
+            serie_oraria.ora
           ORDER BY
-            s.ora ASC;
+            serie_oraria.ora ASC;
         `;
         queryParams = [linkId];
         break;
@@ -215,97 +223,116 @@ export async function GET(
         break;
 
       case 'all':
-        // Per il filtro "all", utilizziamo i dati dalla tabella statistiche_link quando disponibile
-        // per essere coerenti con l'API esistente e le card delle statistiche
+        // Per il filtro "all", utilizziamo ESATTAMENTE la stessa logica delle card
+        // che utilizzano click_totali_sempre dalla tabella statistiche_link
+        console.log(`📊 Filtro 'all': utilizzo logica identica alle card (count di tutti i click)`);
+        
+        // Query IDENTICA a quella che popola click_totali_sempre in statistiche_link
+        const allClicksQuery = await sql`
+          SELECT
+            DATE(clicked_at_rome) AS data_italiana,
+            COUNT(c.id) AS click_totali,
+            COUNT(DISTINCT c.click_fingerprint_hash) AS click_unici
+          FROM clicks c
+          WHERE c.link_id = ${linkId}
+          GROUP BY DATE(clicked_at_rome)
+          ORDER BY data_italiana ASC
+        `;
+        
+        // Verifica la coerenza con statistiche_link
         try {
           const statsCheck = await sql`
-            SELECT 
-              COALESCE(click_totali_sempre, 0) as total_from_stats,
-              COALESCE(click_unici_sempre, 0) as unique_from_stats
+            SELECT COALESCE(click_totali_sempre, 0) as total_from_stats
             FROM statistiche_link 
             WHERE link_id = ${linkId}
           `;
           
           if (statsCheck.rowCount && statsCheck.rowCount > 0) {
-            const statsData = statsCheck.rows[0];
-            console.log(`📊 Utilizzo dati da statistiche_link: ${statsData.total_from_stats} click totali, ${statsData.unique_from_stats} click unici`);
+            const expectedTotal = statsCheck.rows[0].total_from_stats;
+            const actualTotal = allClicksQuery.rows.reduce((sum: number, row: any) => sum + parseInt(row.click_totali), 0);
+            console.log(`📊 Verifica coerenza: card=${expectedTotal}, grafico=${actualTotal}`);
             
-            // Se abbiamo dati da statistiche_link, generiamo una distribuzione temporale
-            // basata sui dati reali ma normalizzata per corrispondere al totale
-            // IMPORTANTE: Generiamo una serie completa dalla creazione ad oggi
-            const fullTimelineQuery = await sql`
-              WITH date_series AS (
-                SELECT generate_series(
-                  (SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') FROM links WHERE id = ${linkId}),
-                  (NOW() AT TIME ZONE 'Europe/Rome')::date,
-                  '1 day'
-                ) AS data_italiana
-              ),
-              clicks_by_date AS (
-                SELECT
-                  DATE(clicked_at_rome) AS data_italiana,
-                  COUNT(*) AS click_totali_raw,
-                  COUNT(DISTINCT click_fingerprint_hash) AS click_unici_raw
-                FROM clicks
-                WHERE link_id = ${linkId}
-                GROUP BY DATE(clicked_at_rome)
-              )
-              SELECT
-                ds.data_italiana,
-                COALESCE(cbd.click_totali_raw, 0) AS click_totali_raw,
-                COALESCE(cbd.click_unici_raw, 0) AS click_unici_raw
-              FROM date_series ds
-              LEFT JOIN clicks_by_date cbd ON ds.data_italiana = cbd.data_italiana
-              ORDER BY ds.data_italiana ASC
-            `;
-            
-            if (fullTimelineQuery.rowCount && fullTimelineQuery.rowCount > 0) {
-              // Calcola il fattore di correzione per normalizzare ai dati di statistiche_link
-              const rawTotal = fullTimelineQuery.rows.reduce((sum: number, row: any) => sum + parseInt(row.click_totali_raw || 0), 0);
-              const correctionFactor = rawTotal > 0 ? statsData.total_from_stats / rawTotal : 1;
-              
-              console.log(`📊 Serie temporale completa generata: ${fullTimelineQuery.rows.length} giorni dalla creazione`);
-              console.log(`📊 Fattore di correzione applicato: ${correctionFactor} (da ${rawTotal} a ${statsData.total_from_stats})`);
-              
-              // Applica il fattore di correzione ai dati giornalieri
-              const correctedData = fullTimelineQuery.rows.map((row: any) => ({
-                data_italiana: row.data_italiana,
-                click_totali: Math.round(parseInt(row.click_totali_raw || 0) * correctionFactor),
-                click_unici: parseInt(row.click_unici_raw || 0) // Click unici non vengono corretti
-              }));
-              
-              return NextResponse.json(correctedData);
+            if (expectedTotal !== actualTotal) {
+              console.warn(`⚠️ DISCREPANZA: Differenza di ${Math.abs(expectedTotal - actualTotal)} click tra card e grafico`);
             }
           }
         } catch (error) {
-          console.log('⚠️ Fallback su calcolo diretto da clicks:', error);
+          console.log('⚠️ Impossibile verificare coerenza con statistiche_link:', error);
         }
-
-        // Fallback: calcolo diretto dalla tabella clicks con serie temporale completa
-        query = `
-          WITH series AS (
-            SELECT generate_series(
-              (SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') FROM links WHERE id = $1),
-              (NOW() AT TIME ZONE 'Europe/Rome')::date,
-              '1 day'
-            ) AS data
-          )
-          SELECT
-            s.data AS data_italiana,
-            COALESCE(COUNT(c.id), 0) AS click_totali,
-            COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
-          FROM
-            series s
-          LEFT JOIN
-            clicks c ON DATE(c.clicked_at_rome) = s.data
-                     AND c.link_id = $1
-          GROUP BY
-            s.data
-          ORDER BY
-            s.data ASC;
-        `;
-        queryParams = [linkId];
-        break;
+        
+        // Se ci sono dati dai click, genera la serie temporale completa
+        if (allClicksQuery.rowCount && allClicksQuery.rowCount > 0) {
+          // Ottieni la data di creazione del link
+          const linkCreationQuery = await sql`
+            SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') as creation_date
+            FROM links
+            WHERE id = ${linkId}
+          `;
+          
+          const creationDate = linkCreationQuery.rows[0]?.creation_date;
+          if (!creationDate) {
+            console.error('❌ Impossibile ottenere data di creazione del link');
+            return NextResponse.json({ error: 'Errore nel recupero dei dati del link' }, { status: 500 });
+          }
+          
+          // Genera serie temporale completa dalla creazione ad oggi
+          const fullTimelineQuery = await sql`
+            WITH date_series AS (
+              SELECT generate_series(
+                ${creationDate}::date,
+                (NOW() AT TIME ZONE 'Europe/Rome')::date,
+                '1 day'
+              ) AS data_italiana
+            ),
+            clicks_by_date AS (
+              SELECT
+                DATE(clicked_at_rome) AS data_italiana,
+                COUNT(c.id) AS click_totali,
+                COUNT(DISTINCT c.click_fingerprint_hash) AS click_unici
+              FROM clicks c
+              WHERE c.link_id = ${linkId}
+              GROUP BY DATE(clicked_at_rome)
+            )
+            SELECT
+              ds.data_italiana,
+              COALESCE(cbd.click_totali, 0) AS click_totali,
+              COALESCE(cbd.click_unici, 0) AS click_unici
+            FROM date_series ds
+            LEFT JOIN clicks_by_date cbd ON ds.data_italiana = cbd.data_italiana
+            ORDER BY ds.data_italiana ASC
+          `;
+          
+          console.log(`📊 Serie temporale completa: ${fullTimelineQuery.rows.length} giorni dalla creazione`);
+          return NextResponse.json(fullTimelineQuery.rows);
+        } else {
+          // Nessun click: genera serie temporale vuota dalla creazione ad oggi
+          const linkCreationQuery = await sql`
+            SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') as creation_date
+            FROM links
+            WHERE id = ${linkId}
+          `;
+          
+          const creationDate = linkCreationQuery.rows[0]?.creation_date;
+          if (!creationDate) {
+            console.error('❌ Impossibile ottenere data di creazione del link');
+            return NextResponse.json({ error: 'Errore nel recupero dei dati del link' }, { status: 500 });
+          }
+          
+          const emptyTimelineQuery = await sql`
+            SELECT 
+              generate_series(
+                ${creationDate}::date,
+                (NOW() AT TIME ZONE 'Europe/Rome')::date,
+                '1 day'
+              ) AS data_italiana,
+              0 AS click_totali,
+              0 AS click_unici
+            ORDER BY data_italiana ASC
+          `;
+          
+          console.log(`📊 Serie temporale vuota: ${emptyTimelineQuery.rows.length} giorni dalla creazione (nessun click)`);
+          return NextResponse.json(emptyTimelineQuery.rows);
+        }
 
       case 'custom':
         query = `
