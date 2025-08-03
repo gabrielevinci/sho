@@ -162,34 +162,52 @@ ORDER BY
 
 ---
 
-### 4. Filtro "30d" - Ultimi 30 giorni
+### 4. Filtro "30d" - Ultimi 30 giorni (AGGIORNATO - VERSIONE AVANZATA)
 ```sql
-WITH series AS (
-  SELECT generate_series(
-    (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '29 days')::date,
-    (NOW() AT TIME ZONE 'Europe/Rome')::date,
-    '1 day'
-  ) AS data
+WITH clicks_ranked AS (
+  SELECT
+    id,
+    clicked_at_rome,
+    click_fingerprint_hash,
+    ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+  FROM
+    clicks
+  WHERE
+    link_id = $1 AND
+    clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '29 days')::date
 )
 SELECT
-  s.data AS data_italiana,
-  COALESCE(COUNT(c.id), 0) AS click_totali,
-  COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
+  serie_giornaliera.giorno AS data_italiana,
+  COALESCE(COUNT(cr.id), 0) AS click_totali,
+  COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
 FROM
-  series s
+  generate_series(
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '29 days'),
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome'),
+    '1 day'
+  ) AS serie_giornaliera(giorno)
 LEFT JOIN
-  clicks c ON DATE(c.clicked_at_rome) = s.data
-           AND c.link_id = $1
+  clicks_ranked cr ON DATE_TRUNC('day', cr.clicked_at_rome) = serie_giornaliera.giorno
 GROUP BY
-  s.data
+  serie_giornaliera.giorno
 ORDER BY
-  s.data ASC;
+  serie_giornaliera.giorno ASC;
 ```
 
 **Parametri**: 
 - `$1` = `linkId` (numero)
 
-**Logica**: Identica al 7d ma con intervallo di 29 giorni + oggi = 30 giorni
+**Logica AVANZATA**:
+- **CTE `clicks_ranked`**: Pre-filtra i click degli ultimi 29 giorni + oggi e assegna un rank per fingerprint
+- **`ROW_NUMBER() OVER(PARTITION BY...)`**: Numera i click per ogni fingerprint unico in ordine cronologico
+- **Filtro temporale**: Limita già nella CTE ai click degli ultimi 30 giorni per performance
+- **Click unici accurati**: `SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END)` conta solo il primo click di ogni fingerprint
+- **Vantaggi**: 
+  - Più efficiente (pre-filtro temporale nella CTE)
+  - Click unici precisi (prima occorrenza per fingerprint nel periodo di 30 giorni)
+  - Migliore performance su dataset grandi
+  - Coerente con la logica dei filtri "24h" e "7d"
+- **Differenza dalla versione precedente**: I click unici ora rappresentano veramente nuovi utenti unici nel periodo, non fingerprint distinti per giorno
 
 ---
 
