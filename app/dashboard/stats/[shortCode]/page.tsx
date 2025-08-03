@@ -12,6 +12,7 @@ import LinkActions from '@/app/dashboard/components/LinkActions';
 import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
+import StatsChart from './components/StatsChart';
 
 export default function LinkStatsPage() {
   const params = useParams();
@@ -577,6 +578,14 @@ export default function LinkStatsPage() {
             </div>
           </div>
         </div>
+
+        {/* Blocco 4: Grafico delle Statistiche */}
+        <StatsChart
+          shortCode={shortCode}
+          filter={activeFilter === 'sempre' ? 'all' : activeFilter}
+          startDate={activeFilter === 'custom' ? customStartDate : undefined}
+          endDate={activeFilter === 'custom' ? customEndDate : undefined}
+        />
       </div>
     </div>
   );
