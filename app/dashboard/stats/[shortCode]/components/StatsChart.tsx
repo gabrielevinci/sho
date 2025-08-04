@@ -218,16 +218,18 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-gray-900 mb-1">{label}</p>
-          <div className="space-y-1">
-            <p className="flex items-center text-sm">
+        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
+          <p className="font-semibold text-gray-900 mb-2 text-sm">{label}</p>
+          <div className="space-y-2">
+            <p className="flex items-center text-sm text-gray-800">
               <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-              Click Totali: <span className="font-medium ml-1">{payload[0].value}</span>
+              <span className="text-gray-700">Click Totali:</span>
+              <span className="font-bold text-gray-900 ml-1">{payload[0].value}</span>
             </p>
-            <p className="flex items-center text-sm">
+            <p className="flex items-center text-sm text-gray-800">
               <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-              Click Unici: <span className="font-medium ml-1">{payload[1].value}</span>
+              <span className="text-gray-700">Click Unici:</span>
+              <span className="font-bold text-gray-900 ml-1">{payload[1].value}</span>
             </p>
           </div>
         </div>
