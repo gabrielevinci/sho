@@ -5,6 +5,7 @@ import { Calendar, BarChart3 } from 'lucide-react';
 interface MonthlyDataPoint {
   mese: string;
   mese_nome: string;
+  mese_completo: string; // Nome completo per il tooltip
   numero_di_click: number;
   numero_di_click_unici: number;
 }
@@ -13,9 +14,10 @@ interface MonthlyChartProps {
   shortCode: string;
   year: number;
   triggerRefresh?: number;
+  onYearChange: (year: number) => void; // Nuova prop per gestire il cambio anno
 }
 
-const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRefresh }) => {
+const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRefresh, onYearChange }) => {
   const [chartData, setChartData] = useState<MonthlyDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,15 +43,21 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
         const [yearStr, monthStr] = item.mese.split('-');
         const monthNumber = parseInt(monthStr);
         
-        // Nomi dei mesi in italiano
+        // Nomi dei mesi in italiano (migliorati)
         const monthNames = [
+          'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
+          'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'
+        ];
+
+        const fullMonthNames = [
           'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
           'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
         ];
 
         return {
           mese: item.mese,
-          mese_nome: monthNames[monthNumber - 1],
+          mese_nome: monthNames[monthNumber - 1], // Nome breve per l'asse X
+          mese_completo: fullMonthNames[monthNumber - 1], // Nome completo per il tooltip
           numero_di_click: parseInt(item.numero_di_click) || 0,
           numero_di_click_unici: parseInt(item.numero_di_click_unici) || 0
         };
@@ -78,7 +86,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-            Statistiche Mensili {year}
+            Statistiche Mensili
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -98,7 +106,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-            Statistiche Mensili {year}
+            Statistiche Mensili
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -124,7 +132,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-            Statistiche Mensili {year}
+            Statistiche Mensili
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -144,9 +152,14 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      // Trova i dati completi per questo punto
+      const dataPoint = chartData.find(item => item.mese_nome === label);
+      
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
-          <p className="font-semibold text-gray-900 mb-2 text-sm">{label}</p>
+          <p className="font-semibold text-gray-900 mb-2 text-sm">
+            {dataPoint?.mese_completo || label} {year}
+          </p>
           <div className="space-y-2">
             <p className="flex items-center text-sm text-gray-800">
               <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
@@ -169,11 +182,23 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
     <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
       {/* Header del grafico */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
-        <div>
+        <div className="flex items-center space-x-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-            Statistiche Mensili {year}
+            Statistiche Mensili
           </h3>
+          <div className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-gray-500" />
+            <select
+              value={year}
+              onChange={(e) => onYearChange(parseInt(e.target.value))}
+              className="px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm bg-white"
+            >
+              {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(yearOption => (
+                <option key={yearOption} value={yearOption}>{yearOption}</option>
+              ))}
+            </select>
+          </div>
         </div>
         
         {/* Statistiche di riepilogo */}

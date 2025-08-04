@@ -597,32 +597,12 @@ export default function LinkStatsPage() {
           triggerRefresh={chartRefreshTrigger}
         />
 
-        {/* Blocco 5: Selettore Anno e Grafico Mensile */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Calendar className="h-5 w-5 mr-2 text-blue-600" />
-              Anno di Analisi
-            </h3>
-            <div className="mt-3 sm:mt-0">
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-              >
-                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Blocco 6: Grafico Mensile a Colonne */}
+        {/* Blocco 5: Grafico Mensile a Colonne */}
         <MonthlyChart
           shortCode={shortCode}
           year={selectedYear}
           triggerRefresh={chartRefreshTrigger}
+          onYearChange={setSelectedYear}
         />
       </div>
     </div>
