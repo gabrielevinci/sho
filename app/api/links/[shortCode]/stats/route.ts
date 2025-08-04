@@ -96,7 +96,7 @@ export async function GET(
               clicks
             WHERE
               link_id = $1 AND
-              clicked_at_rome >= NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '23 hours'
+              clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '24 hours')
           )
           SELECT
             serie_oraria.ora AS ora_italiana,
@@ -104,7 +104,7 @@ export async function GET(
             COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
           FROM
             generate_series(
-              DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '23 hours'),
+              DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '24 hours'),
               DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome'),
               '1 hour'
             ) AS serie_oraria(ora)
