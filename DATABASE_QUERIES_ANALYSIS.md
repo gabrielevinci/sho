@@ -370,15 +370,24 @@ ORDER BY
 
 ### 8. Filtro "custom" - Date personalizzate (AGGIORNATO - VERSIONE AVANZATA)
 ```sql
-WITH ranked_clicks AS (
+WITH clicks_in_range AS (
+  SELECT
+    clicked_at_rome,
+    click_fingerprint_hash
+  FROM
+    clicks
+  WHERE
+    link_id = $1
+    AND clicked_at_rome >= $2::date 
+    AND clicked_at_rome < ($3::date + INTERVAL '1 day')
+),
+ranked_clicks AS (
   SELECT
     clicked_at_rome,
     click_fingerprint_hash,
     ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
   FROM
-    clicks
-  WHERE
-    link_id = $1
+    clicks_in_range
 ),
 daily_stats AS (
   SELECT
@@ -387,9 +396,6 @@ daily_stats AS (
     COUNT(*) FILTER (WHERE rn = 1) AS unique_clicks
   FROM
     ranked_clicks
-  WHERE
-    clicked_at_rome >= $2::date 
-    AND clicked_at_rome < ($3::date + INTERVAL '1 day')
   GROUP BY
     click_day
 )
@@ -414,17 +420,17 @@ ORDER BY
 - `$2` = `startDate` (string YYYY-MM-DD)
 - `$3` = `endDate` (string YYYY-MM-DD)
 
-**Logica AVANZATA**:
-- **CTE `ranked_clicks`**: Assegna un rank a tutti i click per ogni fingerprint unico in ordine cronologico (senza pre-filtro temporale)
-- **CTE `daily_stats`**: Filtra per range di date personalizzato e aggrega usando `COUNT(*) FILTER (WHERE rn = 1)` per click unici accurati
-- **Filtro temporale inclusivo**: `clicked_at_rome >= startDate AND clicked_at_rome < (endDate + 1 day)` include tutti i click del giorno finale
-- **Click unici precisi**: `COUNT(*) FILTER (WHERE rn = 1)` conta solo il primo click di ogni fingerprint nella storia del link
+**Logica AVANZATA CORRETTA**:
+- **CTE `clicks_in_range`**: Pre-filtra i click solo nel range di date specificato
+- **CTE `ranked_clicks`**: Assegna rank ai click **solo nel periodo selezionato** (prima occorrenza nel range)
+- **CTE `daily_stats`**: Aggrega per giorno usando `COUNT(*) FILTER (WHERE rn = 1)` per click unici nel periodo
+- **Click unici specifici del periodo**: `COUNT(*) FILTER (WHERE rn = 1)` conta solo il primo click di ogni fingerprint **nel range selezionato**
 - **Vantaggi**: 
-  - Click unici accurati anche per range personalizzati
-  - Coerente con tutti gli altri filtri ottimizzati
-  - Gestione corretta dei click al confine delle date
-  - Performance ottimizzata per range di date specifici
-- **Differenza dalla versione precedente**: I click unici ora rappresentano veramente nuovi utenti unici nella storia del link, non solo fingerprint distinti nel range selezionato
+  - Click unici accurati per il periodo specifico selezionato
+  - Coerente con le aspettative dell'utente per date personalizzate
+  - Un utente che ha cliccato prima del periodo ma clicca di nuovo nel periodo viene contato come "unico" nel periodo
+  - Performance ottimizzata con pre-filtro temporale
+- **Differenza dalla versione precedente**: I click unici ora rappresentano utenti unici **nel periodo selezionato**, non nella storia completa del link (che era fuorviante per date personalizzate)
 
 ---
 

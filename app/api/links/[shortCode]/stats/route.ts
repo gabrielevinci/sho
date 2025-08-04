@@ -297,15 +297,24 @@ export async function GET(
 
       case 'custom':
         query = `
-          WITH ranked_clicks AS (
+          WITH clicks_in_range AS (
+            SELECT
+              clicked_at_rome,
+              click_fingerprint_hash
+            FROM
+              clicks
+            WHERE
+              link_id = $1
+              AND clicked_at_rome >= $2::date 
+              AND clicked_at_rome < ($3::date + INTERVAL '1 day')
+          ),
+          ranked_clicks AS (
             SELECT
               clicked_at_rome,
               click_fingerprint_hash,
               ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
             FROM
-              clicks
-            WHERE
-              link_id = $1
+              clicks_in_range
           ),
           daily_stats AS (
             SELECT
@@ -314,9 +323,6 @@ export async function GET(
               COUNT(*) FILTER (WHERE rn = 1) AS unique_clicks
             FROM
               ranked_clicks
-            WHERE
-              clicked_at_rome >= $2::date 
-              AND clicked_at_rome < ($3::date + INTERVAL '1 day')
             GROUP BY
               click_day
           )
