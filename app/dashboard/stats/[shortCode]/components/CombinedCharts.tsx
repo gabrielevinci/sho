@@ -268,20 +268,6 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
         </div>
       </div>
 
-      {/* Leggenda personalizzata */}
-      <div className="flex justify-center mb-6">
-        <div className="flex items-center space-x-6 bg-gray-50 px-4 py-2 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <span className="text-sm font-medium text-gray-700">Click Totali</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
-            <span className="text-sm font-medium text-gray-700">Click Unici</span>
-          </div>
-        </div>
-      </div>
-
       {/* Grafico Mensile */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -468,6 +454,20 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
             </div>
           </div>
         )}
+      </div>
+
+      {/* Leggenda minimale */}
+      <div className="flex justify-center mt-4">
+        <div className="flex items-center space-x-4 text-xs text-gray-600">
+          <div className="flex items-center space-x-1">
+            <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
+            <span>Click Totali</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <div className="w-3 h-3 bg-green-500 rounded-sm"></div>
+            <span>Click Unici</span>
+          </div>
+        </div>
       </div>
     </div>
   );

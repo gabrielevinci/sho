@@ -154,7 +154,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-            Grafico delle Statistiche
+            Andamento click
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -174,7 +174,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-            Grafico delle Statistiche
+            Andamento click
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -194,7 +194,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-            Grafico delle Statistiche
+            Andamento click
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -220,7 +220,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-            Grafico delle Statistiche
+            Andamento click
           </h3>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -280,7 +280,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         <div>
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
-            Grafico delle Statistiche
+            Andamento click
           </h3>
         </div>
         
