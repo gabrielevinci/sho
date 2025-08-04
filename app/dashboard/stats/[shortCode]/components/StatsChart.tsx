@@ -13,9 +13,10 @@ interface ChartProps {
   filter: string;
   startDate?: string;
   endDate?: string;
+  triggerRefresh?: number; // Nuovo prop per controllare quando aggiornare
 }
 
-const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDate }) => {
+const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDate, triggerRefresh }) => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,12 +109,19 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
     }
   };
 
-  // Effetto per caricare i dati quando cambiano i parametri
+  // Effetto per caricare i dati solo quando triggerRefresh cambia
   useEffect(() => {
-    if (shortCode && filter) {
+    if (shortCode && filter && triggerRefresh !== undefined) {
       fetchChartData();
     }
-  }, [shortCode, filter, startDate, endDate]);
+  }, [shortCode, filter, triggerRefresh]);
+
+  // Effetto per caricare i dati iniziali solo per filtri non-custom
+  useEffect(() => {
+    if (shortCode && filter && filter !== 'custom' && triggerRefresh === undefined) {
+      fetchChartData();
+    }
+  }, [shortCode, filter]);
 
   // Caso speciale: filtro custom senza date
   if (filter === 'custom' && (!startDate || !endDate)) {

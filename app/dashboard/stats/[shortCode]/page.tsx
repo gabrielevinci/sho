@@ -25,6 +25,7 @@ export default function LinkStatsPage() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
+  const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0); // Nuovo stato per controllare il refresh del grafico
 
   // Utilizziamo il nuovo hook per la cache delle statistiche
   const {
@@ -84,6 +85,8 @@ export default function LinkStatsPage() {
     if (!isLoading && !error) {
       // Applica il filtro predefinito quando i dati sono pronti
       applyFilter(activeFilter);
+      // Triggera il caricamento iniziale del grafico
+      setChartRefreshTrigger(prev => prev + 1);
     }
   }, [isLoading, error, applyFilter, activeFilter]);
 
@@ -91,12 +94,16 @@ export default function LinkStatsPage() {
     setActiveFilter(filter);
     if (filter !== 'custom') {
       applyFilter(filter);
+      // Triggera il refresh del grafico per filtri non personalizzati
+      setChartRefreshTrigger(prev => prev + 1);
     }
   };
 
   const handleCustomDateFilter = () => {
     if (customStartDate && customEndDate) {
       applyFilter('custom', customStartDate, customEndDate);
+      // Triggera il refresh del grafico quando viene cliccato "Applica"
+      setChartRefreshTrigger(prev => prev + 1);
     }
   };
 
@@ -585,6 +592,7 @@ export default function LinkStatsPage() {
           filter={activeFilter === 'sempre' ? 'all' : activeFilter}
           startDate={activeFilter === 'custom' ? customStartDate : undefined}
           endDate={activeFilter === 'custom' ? customEndDate : undefined}
+          triggerRefresh={chartRefreshTrigger}
         />
       </div>
     </div>
