@@ -255,116 +255,45 @@ export async function GET(
         break;
 
       case 'all':
-        // Per il filtro "all", utilizziamo ESATTAMENTE la stessa logica delle card
-        // che utilizzano click_totali_sempre dalla tabella statistiche_link
-        console.log(`📊 Filtro 'all': utilizzo logica identica alle card (count di tutti i click)`);
-        
-        // Query IDENTICA a quella che popola click_totali_sempre in statistiche_link
-        const allClicksQuery = await sql`
-          SELECT
-            DATE(clicked_at_rome) AS data_italiana,
-            COUNT(c.id) AS click_totali,
-            COUNT(DISTINCT c.click_fingerprint_hash) AS click_unici
-          FROM clicks c
-          WHERE c.link_id = ${linkId}
-          GROUP BY DATE(clicked_at_rome)
-          ORDER BY data_italiana ASC
-        `;
-        
-        // Verifica la coerenza con statistiche_link
-        try {
-          const statsCheck = await sql`
-            SELECT COALESCE(click_totali_sempre, 0) as total_from_stats
-            FROM statistiche_link 
-            WHERE link_id = ${linkId}
-          `;
-          
-          if (statsCheck.rowCount && statsCheck.rowCount > 0) {
-            const expectedTotal = statsCheck.rows[0].total_from_stats;
-            const actualTotal = allClicksQuery.rows.reduce((sum: number, row: any) => sum + parseInt(row.click_totali), 0);
-            console.log(`📊 Verifica coerenza: card=${expectedTotal}, grafico=${actualTotal}`);
-            
-            if (expectedTotal !== actualTotal) {
-              console.warn(`⚠️ DISCREPANZA: Differenza di ${Math.abs(expectedTotal - actualTotal)} click tra card e grafico`);
-            }
-          }
-        } catch (error) {
-          console.log('⚠️ Impossibile verificare coerenza con statistiche_link:', error);
-        }
-        
-        // Se ci sono dati dai click, genera la serie temporale completa
-        if (allClicksQuery.rowCount && allClicksQuery.rowCount > 0) {
-          // Ottieni la data di creazione del link
-          const linkCreationQuery = await sql`
-            SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') as creation_date
-            FROM links
-            WHERE id = ${linkId}
-          `;
-          
-          const creationDate = linkCreationQuery.rows[0]?.creation_date;
-          if (!creationDate) {
-            console.error('❌ Impossibile ottenere data di creazione del link');
-            return NextResponse.json({ error: 'Errore nel recupero dei dati del link' }, { status: 500 });
-          }
-          
-          // Genera serie temporale completa dalla creazione ad oggi
-          const fullTimelineQuery = await sql`
-            WITH date_series AS (
-              SELECT generate_series(
-                ${creationDate}::date,
-                (NOW() AT TIME ZONE 'Europe/Rome')::date,
-                '1 day'
-              ) AS data_italiana
-            ),
-            clicks_by_date AS (
-              SELECT
-                DATE(clicked_at_rome) AS data_italiana,
-                COUNT(c.id) AS click_totali,
-                COUNT(DISTINCT c.click_fingerprint_hash) AS click_unici
-              FROM clicks c
-              WHERE c.link_id = ${linkId}
-              GROUP BY DATE(clicked_at_rome)
-            )
+        // Filtro "sempre" con logica avanzata per click unici accurati
+        query = `
+          WITH ranked_clicks AS (
             SELECT
-              ds.data_italiana,
-              COALESCE(cbd.click_totali, 0) AS click_totali,
-              COALESCE(cbd.click_unici, 0) AS click_unici
-            FROM date_series ds
-            LEFT JOIN clicks_by_date cbd ON ds.data_italiana = cbd.data_italiana
-            ORDER BY ds.data_italiana ASC
-          `;
-          
-          console.log(`📊 Serie temporale completa: ${fullTimelineQuery.rows.length} giorni dalla creazione`);
-          return NextResponse.json(fullTimelineQuery.rows);
-        } else {
-          // Nessun click: genera serie temporale vuota dalla creazione ad oggi
-          const linkCreationQuery = await sql`
-            SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') as creation_date
-            FROM links
-            WHERE id = ${linkId}
-          `;
-          
-          const creationDate = linkCreationQuery.rows[0]?.creation_date;
-          if (!creationDate) {
-            console.error('❌ Impossibile ottenere data di creazione del link');
-            return NextResponse.json({ error: 'Errore nel recupero dei dati del link' }, { status: 500 });
-          }
-          
-          const emptyTimelineQuery = await sql`
-            SELECT 
-              generate_series(
-                ${creationDate}::date,
-                (NOW() AT TIME ZONE 'Europe/Rome')::date,
-                '1 day'
-              ) AS data_italiana,
-              0 AS click_totali,
-              0 AS click_unici
-            ORDER BY data_italiana ASC
-          `;
-          
-          console.log(`📊 Serie temporale vuota: ${emptyTimelineQuery.rows.length} giorni dalla creazione (nessun click)`);
-          return NextResponse.json(emptyTimelineQuery.rows);
-        }
+              clicked_at_rome,
+              click_fingerprint_hash,
+              ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+            FROM
+              clicks
+            WHERE
+              link_id = $1
+          ),
+          daily_stats AS (
+            SELECT
+              DATE_TRUNC('day', clicked_at_rome) AS click_day,
+              COUNT(*) AS total_clicks,
+              COUNT(*) FILTER (WHERE rn = 1) AS unique_clicks
+            FROM
+              ranked_clicks
+            GROUP BY
+              click_day
+          )
+          SELECT
+            serie.giorno AS data_italiana,
+            COALESCE(ds.total_clicks, 0) AS click_totali,
+            COALESCE(ds.unique_clicks, 0) AS click_unici
+          FROM
+            generate_series(
+              (SELECT COALESCE(DATE_TRUNC('day', MIN(clicked_at_rome)), (SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') FROM links WHERE id = $1)) FROM clicks WHERE link_id = $1),
+              DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome'),
+              '1 day'
+            ) AS serie(giorno)
+          LEFT JOIN
+            daily_stats ds ON serie.giorno = ds.click_day
+          ORDER BY
+            serie.giorno ASC;
+        `;
+        queryParams = [linkId];
+        break;
 
       case 'custom':
         query = `

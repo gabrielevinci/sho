@@ -309,64 +309,62 @@ ORDER BY
 
 ---
 
-### 7. Filtro "all" - Sempre (COMPLESSO)
+### 7. Filtro "all" - Sempre (AGGIORNATO - VERSIONE AVANZATA)
 
-**Passo 1**: Query base per ottenere tutti i click raggruppati per data
 ```sql
-SELECT
-  DATE(clicked_at_rome) AS data_italiana,
-  COUNT(c.id) AS click_totali,
-  COUNT(DISTINCT c.click_fingerprint_hash) AS click_unici
-FROM clicks c
-WHERE c.link_id = ${linkId}
-GROUP BY DATE(clicked_at_rome)
-ORDER BY data_italiana ASC
-```
-
-**Passo 2**: Verifica coerenza con tabella statistiche_link
-```sql
-SELECT COALESCE(click_totali_sempre, 0) as total_from_stats
-FROM statistiche_link 
-WHERE link_id = ${linkId}
-```
-
-**Passo 3**: Query per data di creazione del link
-```sql
-SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') as creation_date
-FROM links
-WHERE id = ${linkId}
-```
-
-**Passo 4**: Query finale per serie temporale completa
-```sql
-WITH date_series AS (
-  SELECT generate_series(
-    ${creationDate}::date,
-    (NOW() AT TIME ZONE 'Europe/Rome')::date,
-    '1 day'
-  ) AS data_italiana
-),
-clicks_by_date AS (
+WITH ranked_clicks AS (
   SELECT
-    DATE(clicked_at_rome) AS data_italiana,
-    COUNT(c.id) AS click_totali,
-    COUNT(DISTINCT c.click_fingerprint_hash) AS click_unici
-  FROM clicks c
-  WHERE c.link_id = ${linkId}
-  GROUP BY DATE(clicked_at_rome)
+    clicked_at_rome,
+    click_fingerprint_hash,
+    ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+  FROM
+    clicks
+  WHERE
+    link_id = $1
+),
+daily_stats AS (
+  SELECT
+    DATE_TRUNC('day', clicked_at_rome) AS click_day,
+    COUNT(*) AS total_clicks,
+    COUNT(*) FILTER (WHERE rn = 1) AS unique_clicks
+  FROM
+    ranked_clicks
+  GROUP BY
+    click_day
 )
 SELECT
-  ds.data_italiana,
-  COALESCE(cbd.click_totali, 0) AS click_totali,
-  COALESCE(cbd.click_unici, 0) AS click_unici
-FROM date_series ds
-LEFT JOIN clicks_by_date cbd ON ds.data_italiana = cbd.data_italiana
-ORDER BY ds.data_italiana ASC
+  serie.giorno AS data_italiana,
+  COALESCE(ds.total_clicks, 0) AS click_totali,
+  COALESCE(ds.unique_clicks, 0) AS click_unici
+FROM
+  generate_series(
+    (SELECT COALESCE(DATE_TRUNC('day', MIN(clicked_at_rome)), (SELECT DATE(created_at AT TIME ZONE 'Europe/Rome') FROM links WHERE id = $1)) FROM clicks WHERE link_id = $1),
+    DATE_TRUNC('day', NOW() AT TIME ZONE 'Europe/Rome'),
+    '1 day'
+  ) AS serie(giorno)
+LEFT JOIN
+  daily_stats ds ON serie.giorno = ds.click_day
+ORDER BY
+  serie.giorno ASC;
 ```
 
 **Parametri**:
-- `${linkId}` = ID del link (numero)
-- `${creationDate}` = Data di creazione del link (string)
+- `$1` = `linkId` (numero)
+
+**Logica AVANZATA**:
+- **CTE `ranked_clicks`**: Assegna un rank a tutti i click per ogni fingerprint unico in ordine cronologico
+- **CTE `daily_stats`**: Aggrega i click per giorno usando `COUNT(*) FILTER (WHERE rn = 1)` per click unici accurati
+- **Serie temporale dinamica**: Inizia dal primo click o dalla data di creazione del link se non ci sono click
+- **Click unici precisi**: `COUNT(*) FILTER (WHERE rn = 1)` conta solo il primo click di ogni fingerprint nella storia del link
+- **Vantaggi**: 
+  - Timeline completa dalla creazione o primo click
+  - Click unici accurati su tutto l'arco di vita del link
+  - Ottima performance anche con dataset molto grandi
+  - Coerente con la logica avanzata degli altri filtri
+- **Differenza dalla versione precedente**: 
+  - Una singola query invece di query multiple e logica complessa
+  - Click unici rappresentano veramente nuovi utenti nella storia del link
+  - Gestione automatica di link senza click
 
 ---
 
@@ -498,6 +496,7 @@ I seguenti filtri utilizzano la **versione avanzata** con `ROW_NUMBER() OVER()`:
 ✅ **30d** - Click unici accurati per utente nel periodo di 30 giorni  
 ✅ **90d** - Click unici accurati per utente nel periodo di 90 giorni  
 ✅ **365d** - Click unici accurati per utente nel periodo di 365 giorni  
+✅ **all** - Click unici accurati per utente nella storia completa del link
 
 ### Vantaggi delle Window Functions
 1. **Precisione**: I click unici rappresentano veramente nuovi utenti nel periodo, non fingerprint distinti per giorno/ora
@@ -506,7 +505,6 @@ I seguenti filtri utilizzano la **versione avanzata** con `ROW_NUMBER() OVER()`:
 4. **Scalabilità**: Migliori performance su dataset grandi con molti click
 
 ### Filtri con Logica Standard
-- **all** - Utilizza logica speciale per timeline completa dalla creazione del link
 - **custom** - Utilizza logica standard per range di date personalizzate
 
 ### Pattern Query Avanzata
