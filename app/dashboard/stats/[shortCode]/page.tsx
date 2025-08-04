@@ -13,8 +13,7 @@ import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 import StatsChart from './components/StatsChart';
-import MonthlyChart from './components/MonthlyChart';
-import WeeklyChart from './components/WeeklyChart';
+import CombinedCharts from './components/CombinedCharts';
 
 export default function LinkStatsPage() {
   const params = useParams();
@@ -28,7 +27,6 @@ export default function LinkStatsPage() {
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0); // Nuovo stato per controllare il refresh del grafico
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Anno per il grafico mensile
 
   // Utilizziamo il nuovo hook per la cache delle statistiche
   const {
@@ -598,20 +596,10 @@ export default function LinkStatsPage() {
           triggerRefresh={chartRefreshTrigger}
         />
 
-        {/* Blocco 5: Grafico Mensile a Colonne */}
-        <MonthlyChart
+        {/* Blocco 5: Grafici Combinati (Mensili e Settimanali) */}
+        <CombinedCharts
           shortCode={shortCode}
-          year={selectedYear}
           triggerRefresh={chartRefreshTrigger}
-          onYearChange={setSelectedYear}
-        />
-
-        {/* Blocco 6: Grafico Settimanale a Colonne */}
-        <WeeklyChart
-          shortCode={shortCode}
-          year={selectedYear}
-          triggerRefresh={chartRefreshTrigger}
-          onYearChange={setSelectedYear}
         />
       </div>
     </div>
