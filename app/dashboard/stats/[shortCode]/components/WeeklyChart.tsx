@@ -4,6 +4,8 @@ import { Calendar, BarChart3 } from 'lucide-react';
 
 interface WeeklyDataPoint {
   settimana: string;
+  inizio_settimana: string;
+  fine_settimana: string;
   settimana_display: string; // Formato per visualizzazione
   numero_di_click: number;
   numero_di_click_unici: number;
@@ -43,20 +45,17 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({ shortCode, year, triggerRefre
         const [yearStr, weekStr] = item.settimana.split('-');
         const weekNumber = parseInt(weekStr);
         
-        // Determina se è la settimana corrente
+        // Determina se è la settimana corrente usando le date di inizio/fine
         const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
+        const startDate = new Date(item.inizio_settimana + 'T00:00:00');
+        const endDate = new Date(item.fine_settimana + 'T23:59:59');
         
-        // Calcola la settimana corrente (ISO week)
-        const startOfYear = new Date(currentYear, 0, 4); // 4 gennaio per seguire ISO 8601
-        const startOfWeek = new Date(startOfYear.getTime() - (startOfYear.getDay() - 1) * 24 * 60 * 60 * 1000);
-        const daysSinceStart = Math.floor((currentDate.getTime() - startOfWeek.getTime()) / (24 * 60 * 60 * 1000));
-        const currentWeek = Math.floor(daysSinceStart / 7) + 1;
-        
-        const isCurrentWeek = year === currentYear && weekNumber === currentWeek;
+        const isCurrentWeek = currentDate >= startDate && currentDate <= endDate;
 
         return {
           settimana: item.settimana,
+          inizio_settimana: item.inizio_settimana,
+          fine_settimana: item.fine_settimana,
           settimana_display: `S${weekNumber}`, // Formato breve per l'asse X
           numero_di_click: parseInt(item.numero_di_click) || 0,
           numero_di_click_unici: parseInt(item.numero_di_click_unici) || 0,
@@ -166,6 +165,15 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({ shortCode, year, triggerRefre
       const dataPoint = chartData.find(item => item.settimana_display === label);
       const isCurrent = dataPoint ? isCurrentWeek(dataPoint) : false;
       
+      // Formatta le date per il display
+      const formatDate = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('it-IT', {
+          day: '2-digit',
+          month: 'short'
+        });
+      };
+      
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
           <p className="font-semibold text-gray-900 mb-2 text-sm flex items-center">
@@ -176,6 +184,11 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({ shortCode, year, triggerRefre
               </span>
             )}
           </p>
+          {dataPoint && (
+            <p className="text-xs text-gray-600 mb-3">
+              {formatDate(dataPoint.inizio_settimana)} - {formatDate(dataPoint.fine_settimana)}
+            </p>
+          )}
           <div className="space-y-2">
             <p className="flex items-center text-sm text-gray-800">
               <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-purple-900' : 'bg-purple-500'}`}></span>
@@ -183,7 +196,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({ shortCode, year, triggerRefre
               <span className="font-bold text-gray-900 ml-1">{payload[0].value}</span>
             </p>
             <p className="flex items-center text-sm text-gray-800">
-              <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-orange-900' : 'bg-orange-500'}`}></span>
+              <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-pink-900' : 'bg-pink-500'}`}></span>
               <span className="text-gray-700">Click Unici:</span>
               <span className="font-bold text-gray-900 ml-1">{payload[1].value}</span>
             </p>

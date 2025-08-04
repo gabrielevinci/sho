@@ -78,12 +78,14 @@ export async function GET(
           FROM
               ranked_clicks
           WHERE
-              EXTRACT(YEAR FROM clicked_at_rome) = $2
+              EXTRACT(ISOYEAR FROM clicked_at_rome) = $2
           GROUP BY
               click_week
       )
       SELECT
-          TO_CHAR(serie.settimana, 'YYYY-WW') AS settimana,
+          TO_CHAR(serie.settimana, 'IYYY-IW') AS settimana,
+          TO_CHAR(serie.settimana, 'YYYY-MM-DD') AS inizio_settimana,
+          TO_CHAR(serie.settimana + INTERVAL '6 days', 'YYYY-MM-DD') AS fine_settimana,
           COALESCE(ws.total_clicks, 0) AS numero_di_click,
           COALESCE(ws.unique_clicks, 0) AS numero_di_click_unici
       FROM
