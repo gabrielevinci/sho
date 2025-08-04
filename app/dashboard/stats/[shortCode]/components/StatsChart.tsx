@@ -26,6 +26,12 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
     setError(null);
 
     try {
+      // Per il filtro custom, verifica che le date siano fornite
+      if (filter === 'custom' && (!startDate || !endDate)) {
+        setLoading(false);
+        return; // Non fare la chiamata API se mancano le date per il filtro custom
+      }
+
       // Costruisci l'URL della query
       let url = `/api/links/${shortCode}/stats?filter=${filter}`;
       
@@ -108,6 +114,26 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
       fetchChartData();
     }
   }, [shortCode, filter, startDate, endDate]);
+
+  // Caso speciale: filtro custom senza date
+  if (filter === 'custom' && (!startDate || !endDate)) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
+            Grafico delle Statistiche
+          </h3>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <CalendarDays className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">Seleziona le date personalizzate per visualizzare il grafico</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Componente di loading
   if (loading) {
