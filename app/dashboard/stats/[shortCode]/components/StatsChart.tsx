@@ -4,6 +4,8 @@ import { CalendarDays, TrendingUp, Users } from 'lucide-react';
 
 interface ChartDataPoint {
   date: string;
+  fullDate: string; // Data completa per il tooltip
+  dayName?: string; // Nome del giorno per il tooltip (solo per filtri giornalieri)
   clickTotali: number;
   clickUnici: number;
 }
@@ -65,18 +67,31 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         // Per il filtro 24h usa 'ora_italiana', per gli altri 'data_italiana'
         const dateKey = filter === '24h' ? 'ora_italiana' : 'data_italiana';
         let dateValue = item[dateKey];
+        const date = new Date(dateValue);
 
         // Formatta la data per la visualizzazione
         let displayDate: string;
+        let fullDate: string;
+        let dayName: string | undefined;
+
         if (filter === '24h') {
           // Per le ore, mostra solo l'ora
-          displayDate = new Date(dateValue).toLocaleTimeString('it-IT', {
+          displayDate = date.toLocaleTimeString('it-IT', {
             hour: '2-digit',
             minute: '2-digit'
           });
+          fullDate = date.toLocaleString('it-IT', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
         } else {
           // Per i giorni, mostra la data
-          const date = new Date(dateValue);
+          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
+          
           if (filter === 'all') {
             // Per il filtro "all", usa formato più compatto per gestire periodi lunghi
             displayDate = date.toLocaleDateString('it-IT', {
@@ -91,10 +106,19 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
               month: '2-digit'
             });
           }
+          
+          fullDate = date.toLocaleDateString('it-IT', {
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+          });
         }
 
         return {
           date: displayDate,
+          fullDate: fullDate,
+          dayName: dayName,
           clickTotali: parseInt(item.click_totali) || 0,
           clickUnici: parseInt(item.click_unici) || 0
         };
@@ -216,9 +240,21 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      // Trova i dati completi per questo punto
+      const dataPoint = chartData.find(item => item.date === label);
+      
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
-          <p className="font-semibold text-gray-900 mb-2 text-sm">{label}</p>
+          <div className="mb-2">
+            <p className="font-semibold text-gray-900 text-sm">
+              {dataPoint?.fullDate || label}
+            </p>
+            {dataPoint?.dayName && filter !== '24h' && (
+              <p className="text-xs text-gray-600 capitalize">
+                {dataPoint.dayName}
+              </p>
+            )}
+          </div>
           <div className="space-y-2">
             <p className="flex items-center text-sm text-gray-800">
               <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
