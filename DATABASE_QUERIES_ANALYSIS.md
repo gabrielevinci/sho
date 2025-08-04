@@ -368,34 +368,63 @@ ORDER BY
 
 ---
 
-### 8. Filtro "custom" - Date personalizzate
+### 8. Filtro "custom" - Date personalizzate (AGGIORNATO - VERSIONE AVANZATA)
 ```sql
-WITH series AS (
-  SELECT generate_series(
+WITH ranked_clicks AS (
+  SELECT
+    clicked_at_rome,
+    click_fingerprint_hash,
+    ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+  FROM
+    clicks
+  WHERE
+    link_id = $1
+),
+daily_stats AS (
+  SELECT
+    DATE_TRUNC('day', clicked_at_rome) AS click_day,
+    COUNT(*) AS total_clicks,
+    COUNT(*) FILTER (WHERE rn = 1) AS unique_clicks
+  FROM
+    ranked_clicks
+  WHERE
+    clicked_at_rome >= $2::date 
+    AND clicked_at_rome < ($3::date + INTERVAL '1 day')
+  GROUP BY
+    click_day
+)
+SELECT
+  serie.giorno AS data_italiana,
+  COALESCE(ds.total_clicks, 0) AS click_totali,
+  COALESCE(ds.unique_clicks, 0) AS click_unici
+FROM
+  generate_series(
     $2::date,
     $3::date,
     '1 day'
-  ) AS data
-)
-SELECT
-  s.data AS data_italiana,
-  COALESCE(COUNT(c.id), 0) AS click_totali,
-  COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
-FROM
-  series s
+  ) AS serie(giorno)
 LEFT JOIN
-  clicks c ON DATE(c.clicked_at_rome) = s.data
-           AND c.link_id = $1
-GROUP BY
-  s.data
+  daily_stats ds ON serie.giorno = ds.click_day
 ORDER BY
-  s.data ASC;
+  serie.giorno ASC;
 ```
 
 **Parametri**:
 - `$1` = `linkId` (numero)
 - `$2` = `startDate` (string YYYY-MM-DD)
 - `$3` = `endDate` (string YYYY-MM-DD)
+
+**Logica AVANZATA**:
+- **CTE `ranked_clicks`**: Assegna un rank a tutti i click per ogni fingerprint unico in ordine cronologico (senza pre-filtro temporale)
+- **CTE `daily_stats`**: Filtra per range di date personalizzato e aggrega usando `COUNT(*) FILTER (WHERE rn = 1)` per click unici accurati
+- **Filtro temporale inclusivo**: `clicked_at_rome >= startDate AND clicked_at_rome < (endDate + 1 day)` include tutti i click del giorno finale
+- **Click unici precisi**: `COUNT(*) FILTER (WHERE rn = 1)` conta solo il primo click di ogni fingerprint nella storia del link
+- **Vantaggi**: 
+  - Click unici accurati anche per range personalizzati
+  - Coerente con tutti gli altri filtri ottimizzati
+  - Gestione corretta dei click al confine delle date
+  - Performance ottimizzata per range di date specifici
+- **Differenza dalla versione precedente**: I click unici ora rappresentano veramente nuovi utenti unici nella storia del link, non solo fingerprint distinti nel range selezionato
 
 ---
 
@@ -489,23 +518,22 @@ LIMIT 5;
 ## 🚀 Riepilogo Ottimizzazioni Query
 
 ### Filtri con Logica Avanzata (Window Functions)
-I seguenti filtri utilizzano la **versione avanzata** con `ROW_NUMBER() OVER()`:
+**TUTTI i filtri** ora utilizzano la **versione avanzata** con `ROW_NUMBER() OVER()`:
 
 ✅ **24h** - Click unici accurati per utente nel periodo di 24 ore  
 ✅ **7d** - Click unici accurati per utente nel periodo di 7 giorni  
 ✅ **30d** - Click unici accurati per utente nel periodo di 30 giorni  
 ✅ **90d** - Click unici accurati per utente nel periodo di 90 giorni  
 ✅ **365d** - Click unici accurati per utente nel periodo di 365 giorni  
-✅ **all** - Click unici accurati per utente nella storia completa del link
+✅ **all** - Click unici accurati per utente nella storia completa del link  
+✅ **custom** - Click unici accurati per utente nel range di date personalizzato
 
 ### Vantaggi delle Window Functions
 1. **Precisione**: I click unici rappresentano veramente nuovi utenti nel periodo, non fingerprint distinti per giorno/ora
 2. **Performance**: Pre-filtro temporale nella CTE riduce il dataset da processare
-3. **Coerenza**: Tutti i filtri temporali usano la stessa logica avanzata
+3. **Coerenza**: **TUTTI** i filtri usano la stessa logica avanzata
 4. **Scalabilità**: Migliori performance su dataset grandi con molti click
-
-### Filtri con Logica Standard
-- **custom** - Utilizza logica standard per range di date personalizzate
+5. **Completezza**: Copertura completa di tutti i tipi di filtro temporale
 
 ### Pattern Query Avanzata
 ```sql

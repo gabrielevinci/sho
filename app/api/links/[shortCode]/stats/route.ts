@@ -297,26 +297,43 @@ export async function GET(
 
       case 'custom':
         query = `
-          WITH series AS (
-            SELECT generate_series(
+          WITH ranked_clicks AS (
+            SELECT
+              clicked_at_rome,
+              click_fingerprint_hash,
+              ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+            FROM
+              clicks
+            WHERE
+              link_id = $1
+          ),
+          daily_stats AS (
+            SELECT
+              DATE_TRUNC('day', clicked_at_rome) AS click_day,
+              COUNT(*) AS total_clicks,
+              COUNT(*) FILTER (WHERE rn = 1) AS unique_clicks
+            FROM
+              ranked_clicks
+            WHERE
+              clicked_at_rome >= $2::date 
+              AND clicked_at_rome < ($3::date + INTERVAL '1 day')
+            GROUP BY
+              click_day
+          )
+          SELECT
+            serie.giorno AS data_italiana,
+            COALESCE(ds.total_clicks, 0) AS click_totali,
+            COALESCE(ds.unique_clicks, 0) AS click_unici
+          FROM
+            generate_series(
               $2::date,
               $3::date,
               '1 day'
-            ) AS data
-          )
-          SELECT
-            s.data AS data_italiana,
-            COALESCE(COUNT(c.id), 0) AS click_totali,
-            COALESCE(COUNT(DISTINCT c.click_fingerprint_hash), 0) AS click_unici
-          FROM
-            series s
+            ) AS serie(giorno)
           LEFT JOIN
-            clicks c ON DATE(c.clicked_at_rome) = s.data
-                     AND c.link_id = $1
-          GROUP BY
-            s.data
+            daily_stats ds ON serie.giorno = ds.click_day
           ORDER BY
-            s.data ASC;
+            serie.giorno ASC;
         `;
         queryParams = [linkId, startDate!, endDate!];
         break;
