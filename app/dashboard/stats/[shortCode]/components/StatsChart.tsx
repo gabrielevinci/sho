@@ -212,7 +212,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
   // Calcola le statistiche di riepilogo
   const totalClicks = chartData.reduce((sum, item) => sum + item.clickTotali, 0);
   const uniqueClicks = chartData.reduce((sum, item) => sum + item.clickUnici, 0);
-  const avgClicksPerPeriod = Math.round(totalClicks / chartData.length);
 
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -247,9 +246,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
             Grafico delle Statistiche
           </h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Andamento temporale dei click per il periodo selezionato
-          </p>
         </div>
         
         {/* Statistiche di riepilogo */}
@@ -261,10 +257,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
           <div className="text-center">
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">Unici</div>
             <div className="text-lg font-bold text-green-600">{uniqueClicks.toLocaleString()}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">Media</div>
-            <div className="text-lg font-bold text-purple-600">{avgClicksPerPeriod.toLocaleString()}</div>
           </div>
         </div>
       </div>
@@ -321,18 +313,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             />
           </LineChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Legenda aggiuntiva */}
-      <div className="flex items-center justify-center space-x-6 mt-4 pt-4 border-t border-gray-100">
-        <div className="flex items-center">
-          <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-          <span className="text-sm text-gray-600">Click Totali - Tutti i click ricevuti</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-          <span className="text-sm text-gray-600">Click Unici - Visitatori unici (basato su fingerprint)</span>
-        </div>
       </div>
     </div>
   );
