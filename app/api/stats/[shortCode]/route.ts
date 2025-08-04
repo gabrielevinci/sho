@@ -170,17 +170,30 @@ export async function GET(
     
     // Comportamento esistente per filtri specifici
     if (filter === 'custom' && startDate && endDate) {
-      // Per date personalizzate, calcola direttamente dalla tabella clicks
-      // Convertire le date in timestamp per confronto preciso
-      const startTimestamp = `${startDate} 00:00:00`;
-      const endTimestamp = `${endDate} 23:59:59`;
-      
-      console.log(`Filtering clicks for date range: ${startTimestamp} to ${endTimestamp}`);
+      // Per date personalizzate, calcola direttamente dalla tabella clicks usando clicked_at_rome
+      console.log(`Filtering clicks for date range: ${startDate} to ${endDate} (usando clicked_at_rome)`);
       
       statsResult = await sql`
+        WITH ranked_clicks AS (
+          SELECT
+            clicked_at_rome,
+            click_fingerprint_hash,
+            referrer,
+            country,
+            city,
+            browser_name,
+            language_device,
+            device_type,
+            os_name,
+            ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
+          FROM clicks 
+          WHERE link_id = ${link.id}
+            AND clicked_at_rome >= ${startDate}::date
+            AND clicked_at_rome < (${endDate}::date + INTERVAL '1 day')
+        )
         SELECT 
           COUNT(*) as click_totali,
-          COUNT(DISTINCT click_fingerprint_hash) as click_unici,
+          COUNT(*) FILTER (WHERE rn = 1) as click_unici,
           COUNT(DISTINCT CASE WHEN referrer IS NOT NULL THEN referrer END) as referrer_count,
           COUNT(DISTINCT CASE WHEN country IS NOT NULL THEN country END) as country_count,
           COUNT(DISTINCT CASE WHEN city IS NOT NULL THEN city END) as city_count,
@@ -188,10 +201,7 @@ export async function GET(
           COUNT(DISTINCT CASE WHEN language_device IS NOT NULL THEN language_device END) as lingua_count,
           COUNT(DISTINCT CASE WHEN device_type IS NOT NULL THEN device_type END) as dispositivo_count,
           COUNT(DISTINCT CASE WHEN os_name IS NOT NULL THEN os_name END) as sistema_operativo_count
-        FROM clicks 
-        WHERE link_id = ${link.id}
-          AND clicked_at >= ${startTimestamp}::timestamp
-          AND clicked_at <= ${endTimestamp}::timestamp
+        FROM ranked_clicks
       `;
     } else {
       // Per tutti gli altri filtri, usa la tabella statistiche_link
