@@ -290,6 +290,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
               fontSize={12}
               tickLine={false}
               axisLine={false}
+              tickFormatter={(value) => Math.round(value).toString()}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
