@@ -13,6 +13,7 @@ import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 import StatsChart from './components/StatsChart';
+import MonthlyChart from './components/MonthlyChart';
 
 export default function LinkStatsPage() {
   const params = useParams();
@@ -26,6 +27,7 @@ export default function LinkStatsPage() {
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0); // Nuovo stato per controllare il refresh del grafico
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Anno per il grafico mensile
 
   // Utilizziamo il nuovo hook per la cache delle statistiche
   const {
@@ -592,6 +594,34 @@ export default function LinkStatsPage() {
           filter={activeFilter === 'sempre' ? 'all' : activeFilter}
           startDate={activeFilter === 'custom' ? customStartDate : undefined}
           endDate={activeFilter === 'custom' ? customEndDate : undefined}
+          triggerRefresh={chartRefreshTrigger}
+        />
+
+        {/* Blocco 5: Selettore Anno e Grafico Mensile */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+              Anno di Analisi
+            </h3>
+            <div className="mt-3 sm:mt-0">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+              >
+                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Blocco 6: Grafico Mensile a Colonne */}
+        <MonthlyChart
+          shortCode={shortCode}
+          year={selectedYear}
           triggerRefresh={chartRefreshTrigger}
         />
       </div>
