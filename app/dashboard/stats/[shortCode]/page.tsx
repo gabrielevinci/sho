@@ -14,6 +14,7 @@ import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 import StatsChart from './components/StatsChart';
 import MonthlyChart from './components/MonthlyChart';
+import WeeklyChart from './components/WeeklyChart';
 
 export default function LinkStatsPage() {
   const params = useParams();
@@ -599,6 +600,14 @@ export default function LinkStatsPage() {
 
         {/* Blocco 5: Grafico Mensile a Colonne */}
         <MonthlyChart
+          shortCode={shortCode}
+          year={selectedYear}
+          triggerRefresh={chartRefreshTrigger}
+          onYearChange={setSelectedYear}
+        />
+
+        {/* Blocco 6: Grafico Settimanale a Colonne */}
+        <WeeklyChart
           shortCode={shortCode}
           year={selectedYear}
           triggerRefresh={chartRefreshTrigger}
