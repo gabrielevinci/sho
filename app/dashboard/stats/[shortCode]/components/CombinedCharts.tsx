@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Calendar, BarChart3 } from 'lucide-react';
 
 // Importa i tipi dalle interfacce esistenti
@@ -137,11 +137,11 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
 
   // Effetti per caricare i dati
   useEffect(() => {
-    if (shortCode && selectedYear && triggerRefresh !== undefined) {
+    if (shortCode && selectedYear) {
       fetchMonthlyData();
       fetchWeeklyData();
     }
-  }, [shortCode, selectedYear, triggerRefresh]);
+  }, [shortCode, selectedYear]);
 
   // Tooltip personalizzato per il grafico mensile
   const MonthlyTooltip = ({ active, payload, label }: any) => {
@@ -268,6 +268,20 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
         </div>
       </div>
 
+      {/* Leggenda personalizzata */}
+      <div className="flex justify-center mb-6">
+        <div className="flex items-center space-x-6 bg-gray-50 px-4 py-2 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <span className="text-sm font-medium text-gray-700">Click Totali</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <span className="text-sm font-medium text-gray-700">Click Unici</span>
+          </div>
+        </div>
+      </div>
+
       {/* Grafico Mensile */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -335,7 +349,6 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
                   tickFormatter={(value) => Math.round(value).toString()}
                 />
                 <Tooltip content={<MonthlyTooltip />} />
-                <Legend />
                 <Bar dataKey="numero_di_click" name="Click Totali">
                   {monthlyData.map((entry, index) => {
                     const color = entry.isCurrentMonth ? "#1e3a8a" : "#3b82f6";
@@ -430,7 +443,6 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
                   tickFormatter={(value) => Math.round(value).toString()}
                 />
                 <Tooltip content={<WeeklyTooltip />} />
-                <Legend />
                 <Bar dataKey="numero_di_click" name="Click Totali">
                   {weeklyData.map((entry, index) => {
                     const color = entry.isCurrentWeek ? "#1e3a8a" : "#3b82f6";
