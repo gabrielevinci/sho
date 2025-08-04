@@ -196,7 +196,7 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
           <p className="font-semibold text-gray-900 mb-2 text-sm flex items-center">
             Settimana {label?.replace('S', '')} - {selectedYear}
             {isCurrent && (
-              <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full font-medium">
+              <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
                 Corrente
               </span>
             )}
@@ -208,12 +208,12 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
           )}
           <div className="space-y-2">
             <p className="flex items-center text-sm text-gray-800">
-              <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-purple-900' : 'bg-purple-500'}`}></span>
+              <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-orange-900' : 'bg-orange-500'}`}></span>
               <span className="text-gray-700">Click Totali:</span>
               <span className="font-bold text-gray-900 ml-1">{payload[0].value}</span>
             </p>
             <p className="flex items-center text-sm text-gray-800">
-              <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-pink-900' : 'bg-pink-500'}`}></span>
+              <span className={`w-3 h-3 rounded-full mr-2 ${isCurrent ? 'bg-teal-900' : 'bg-teal-500'}`}></span>
               <span className="text-gray-700">Click Unici:</span>
               <span className="font-bold text-gray-900 ml-1">{payload[1].value}</span>
             </p>
@@ -275,14 +275,6 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
             <BarChart3 className="h-4 w-4 mr-2 text-blue-600" />
             Statistiche Mensili
           </h4>
-          <div className="flex space-x-4 text-sm">
-            <span className="text-gray-600">
-              Totale: <span className="font-bold text-blue-600">{monthlyTotalClicks.toLocaleString()}</span>
-            </span>
-            <span className="text-gray-600">
-              Unici: <span className="font-bold text-green-600">{monthlyUniqueClicks.toLocaleString()}</span>
-            </span>
-          </div>
         </div>
 
         {/* Loading mensile */}
@@ -375,24 +367,16 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
       <div>
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-md font-semibold text-gray-800 flex items-center">
-            <BarChart3 className="h-4 w-4 mr-2 text-purple-600" />
+            <BarChart3 className="h-4 w-4 mr-2 text-orange-600" />
             Statistiche Settimanali
           </h4>
-          <div className="flex space-x-4 text-sm">
-            <span className="text-gray-600">
-              Totale: <span className="font-bold text-purple-600">{weeklyTotalClicks.toLocaleString()}</span>
-            </span>
-            <span className="text-gray-600">
-              Unici: <span className="font-bold text-pink-600">{weeklyUniqueClicks.toLocaleString()}</span>
-            </span>
-          </div>
         </div>
 
         {/* Loading settimanale */}
         {weeklyLoading && (
           <div className="flex items-center justify-center h-64">
             <div className="flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-500 border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
               <span className="text-gray-600">Caricamento statistiche settimanali...</span>
             </div>
           </div>
@@ -406,7 +390,7 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
               <p className="text-gray-600">{weeklyError}</p>
               <button
                 onClick={fetchWeeklyData}
-                className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                className="mt-3 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
               >
                 Riprova
               </button>
@@ -449,13 +433,13 @@ const CombinedCharts: React.FC<CombinedChartsProps> = ({ shortCode, triggerRefre
                 <Legend />
                 <Bar dataKey="numero_di_click" name="Click Totali">
                   {weeklyData.map((entry, index) => {
-                    const color = entry.isCurrentWeek ? "#6b21a8" : "#a855f7";
+                    const color = entry.isCurrentWeek ? "#c2410c" : "#f97316";
                     return <Cell key={`weekly-cell-${index}`} fill={color} />;
                   })}
                 </Bar>
                 <Bar dataKey="numero_di_click_unici" name="Click Unici">
                   {weeklyData.map((entry, index) => {
-                    const color = entry.isCurrentWeek ? "#be185d" : "#ec4899";
+                    const color = entry.isCurrentWeek ? "#0f766e" : "#14b8a6";
                     return <Cell key={`weekly-cell-unique-${index}`} fill={color} />;
                   })}
                 </Bar>
