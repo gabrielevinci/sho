@@ -760,32 +760,69 @@ export function analyzeReferrerSource(request: NextRequest): {
 }
 export async function recordClick(request: NextRequest, linkId: number): Promise<Click> {
   try {
-    // Ottieni informazioni geografiche con fallback in caso di errore
+    // Usa il nuovo sistema migliorato per raccolta dati più affidabile
+    const { getReliableGeoInfo, validateAndCleanGeoData } = await import('./improved-click-tracking');
+    
     let geoLocation: GeoLocation;
+    let dataQualityInfo = '';
+    
     try {
-      geoLocation = await getGeoLocation(request);
-    } catch (error) {
-      console.warn('⚠️ Errore nella geolocalizzazione, uso valori di fallback:', error);
+      // Raccogli dati geografici e IP con il sistema migliorato
+      const improvedData = await getReliableGeoInfo(request);
+      const validatedData = validateAndCleanGeoData(improvedData);
+      
+      // Converti al formato esistente
       geoLocation = {
-        country: 'Unknown',
-        region: 'Unknown',
-        city: 'Unknown'
+        country: validatedData.country,
+        region: validatedData.region,
+        city: validatedData.city
       };
+      
+      // Info per logging
+      dataQualityInfo = ` (Confidence: ${validatedData.confidence}%, Sources: ${validatedData.sources.join(', ')}, Warnings: ${validatedData.warnings.join(', ') || 'none'})`;
+      
+      console.log(`🔍 Sistema migliorato attivo - IP: ${validatedData.ip.substring(0, 8)}...${dataQualityInfo}`);
+      
+    } catch (error) {
+      console.warn('⚠️ Errore nel sistema migliorato, fallback al sistema legacy:', error);
+      
+      // Fallback al sistema legacy
+      try {
+        geoLocation = await getGeoLocation(request);
+        dataQualityInfo = ' (Legacy system)';
+      } catch (geoError) {
+        console.warn('⚠️ Errore anche nel sistema legacy, uso valori di fallback:', geoError);
+        geoLocation = {
+          country: 'Unknown',
+          region: 'Unknown',
+          city: 'Unknown'
+        };
+        dataQualityInfo = ' (Emergency fallback)';
+      }
     }
     
-    // Ottieni informazioni del dispositivo
+    // Ottieni informazioni del dispositivo (manteniamo sistema esistente)
     const deviceInfo = getDeviceInfo(request);
     
     // Analizza il referrer con il nuovo sistema avanzato
     const referrerInfo = analyzeReferrerSource(request);
     
-    // Ottieni IP e altri dati
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const realIp = request.headers.get('x-real-ip');
-    const ip_address = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
+    // Ottieni IP con il sistema migliorato se possibile
+    let ip_address = 'unknown';
+    try {
+      const { getReliableIP } = await import('./improved-click-tracking');
+      const ipInfo = getReliableIP(request);
+      ip_address = ipInfo.ip;
+    } catch (error) {
+      // Fallback al sistema legacy per IP
+      const forwardedFor = request.headers.get('x-forwarded-for');
+      const realIp = request.headers.get('x-real-ip');
+      ip_address = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
+    }
+    
     const user_agent = request.headers.get('user-agent') || '';
     
-    // Crea fingerprint
+    // Crea fingerprint per compatibilità con sistema esistente
     const fingerprint: ClickFingerprint = {
       link_id: linkId,
       country: geoLocation.country,
@@ -802,10 +839,15 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
     const normalizedCountry = normalizeCountryName(geoLocation.country || 'Unknown');
     const normalizedRegion = normalizeRegionName(geoLocation.region || 'Unknown', geoLocation.country || 'Unknown');
     
-    // Log delle informazioni rilevate per debug - includi referrer info
-    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${geoLocation.city}, Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})`);
+    // Converti IP localhost in formato valido per PostgreSQL inet
+    const validIP = ip_address === 'localhost' || ip_address === 'unknown' 
+      ? '127.0.0.1' 
+      : ip_address;
     
-    // Inserisci il click nel database con i dati normalizzati
+    // Log delle informazioni rilevate per debug
+    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${geoLocation.city}, IP: ${validIP.substring(0, 8)}..., Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})${dataQualityInfo}`);
+    
+    // Inserisci il click nel database con i dati normalizzati (NESSUNA MODIFICA AL DB)
     const result = await sql`
       INSERT INTO clicks (
         link_id, country, region, city, referrer, browser_name, 
@@ -815,13 +857,15 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
         ${linkId}, ${normalizedCountry}, ${normalizedRegion}, 
         ${geoLocation.city}, ${referrerInfo.referrer}, ${deviceInfo.browser_name},
         ${deviceInfo.language_device}, ${deviceInfo.device_type}, 
-        ${deviceInfo.os_name}, ${ip_address}, ${user_agent},
+        ${deviceInfo.os_name}, ${validIP}, ${user_agent},
         ${deviceInfo.timezone_device}, ${click_fingerprint_hash},
         ${referrerInfo.source_type}, ${referrerInfo.source_detail}
       ) RETURNING *
     `;
     
-    return result.rows[0] as Click;
+    const click = result.rows[0] as Click;
+    
+    return click;
     
   } catch (error) {
     console.error('❌ Errore critico nella registrazione del click:', error);
