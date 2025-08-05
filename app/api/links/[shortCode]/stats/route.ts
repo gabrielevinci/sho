@@ -105,7 +105,7 @@ export async function GET(
           FROM
             generate_series(
               DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '24 hours'),
-              DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome'),
+              DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '1 hour'),
               '1 hour'
             ) AS serie_oraria(ora)
           LEFT JOIN

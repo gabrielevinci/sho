@@ -115,13 +115,15 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
           });
         }
 
-        return {
+        const transformedItem = {
           date: displayDate,
           fullDate: fullDate,
           dayName: dayName,
           clickTotali: parseInt(item.click_totali) || 0,
           clickUnici: parseInt(item.click_unici) || 0
         };
+
+        return transformedItem;
       });
 
       setChartData(transformedData);
@@ -240,18 +242,20 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      // Trova i dati completi per questo punto
-      const dataPoint = chartData.find(item => item.date === label);
+      const clickTotali = payload[0]?.payload?.clickTotali || 0;
+      const clickUnici = payload[0]?.payload?.clickUnici || 0;
+      const fullDate = payload[0]?.payload?.fullDate || label;
+      const dayName = payload[0]?.payload?.dayName;
       
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
           <div className="mb-2">
             <p className="font-semibold text-gray-900 text-sm">
-              {dataPoint?.fullDate || label}
+              {fullDate}
             </p>
-            {dataPoint?.dayName && filter !== '24h' && (
+            {dayName && filter !== '24h' && (
               <p className="text-xs text-gray-600 capitalize">
-                {dataPoint.dayName}
+                {dayName}
               </p>
             )}
           </div>
@@ -259,12 +263,12 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             <p className="flex items-center text-sm text-gray-800">
               <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
               <span className="text-gray-700">Click Totali:</span>
-              <span className="font-bold text-gray-900 ml-1">{payload[0].value}</span>
+              <span className="font-bold text-gray-900 ml-1">{clickTotali}</span>
             </p>
             <p className="flex items-center text-sm text-gray-800">
               <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
               <span className="text-gray-700">Click Unici:</span>
-              <span className="font-bold text-gray-900 ml-1">{payload[1].value}</span>
+              <span className="font-bold text-gray-900 ml-1">{clickUnici}</span>
             </p>
           </div>
         </div>
