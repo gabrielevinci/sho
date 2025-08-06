@@ -32,7 +32,7 @@ interface DetailedStatsCardsProps {
 
 // Funzione per formattare i nomi in modo user-friendly
 const formatDisplayName = (value: string): string => {
-  if (!value) return 'Sconosciuto';
+  if (!value || value.toLowerCase() === 'unknown' || value.toLowerCase() === 'sconosciuto') return 'Sconosciuto';
   
   // Decodifica URL encoding completo (inclusi caratteri speciali)
   let decoded = value;
@@ -46,14 +46,17 @@ const formatDisplayName = (value: string): string => {
     decoded = value;
   }
   
-  // Sostituisci + con spazi
-  decoded = decoded.replace(/\+/g, ' ');
+  // Sostituisci + con spazi e _ con spazi
+  decoded = decoded.replace(/[+_]/g, ' ');
   
   // Trim e normalizza spazi multipli
   decoded = decoded.trim().replace(/\s+/g, ' ');
   
   // Converti in lowercase per il confronto
   const lowerDecoded = decoded.toLowerCase();
+  
+  // Se dopo la decodifica è "unknown", ritorna la versione italiana
+  if (lowerDecoded === 'unknown') return 'Sconosciuto';
   
   // Mappatura per casi speciali (compresi nomi di città)
   const specialCases: { [key: string]: string } = {
@@ -199,7 +202,7 @@ const getCountryFlag = (country: string): React.ReactNode => {
 
 // Funzione per ottenere icone dei browser
 const getBrowserIcon = (browser: string): React.ReactNode => {
-  if (!browser) return <Icon icon="mdi:web" width="1.2em" height="1.2em" />;
+  if (!browser) return <Icon icon="mdi:web" width="1.2em" height="1.2em" color="#6b7280" />;
   
   const browserLower = browser.toLowerCase().trim();
   
@@ -219,17 +222,17 @@ const getBrowserIcon = (browser: string): React.ReactNode => {
     return <Icon icon="logos:vivaldi" width="1.2em" height="1.2em" />;
   }
   
-  return <Icon icon="mdi:web" width="1.2em" height="1.2em" />;
+  return <Icon icon="mdi:web" width="1.2em" height="1.2em" color="#6b7280" />;
 };
 
 // Funzione per ottenere icone dei sistemi operativi
 const getOSIcon = (os: string): React.ReactNode => {
-  if (!os) return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" />;
+  if (!os) return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" color="#6b7280" />;
   
   const osLower = os.toLowerCase().trim();
   
   if (osLower.includes('windows')) {
-    return <Icon icon="logos:microsoft-windows" width="1.2em" height="1.2em" />;
+    return <Icon icon="simple-icons:windows" width="1.2em" height="1.2em" color="#0078d4" />;
   } else if (osLower.includes('macos') || osLower.includes('mac os')) {
     return <Icon icon="logos:apple" width="1.2em" height="1.2em" />;
   } else if (osLower.includes('ios')) {
@@ -242,26 +245,26 @@ const getOSIcon = (os: string): React.ReactNode => {
     return <Icon icon="logos:ubuntu" width="1.2em" height="1.2em" />;
   }
   
-  return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" />;
+  return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" color="#6b7280" />;
 };
 
 // Funzione per ottenere icone dei dispositivi
 const getDeviceIcon = (device: string): React.ReactNode => {
-  if (!device) return <Icon icon="mdi:devices" width="1.2em" height="1.2em" />;
+  if (!device) return <Icon icon="mdi:devices" width="1.2em" height="1.2em" color="#6b7280" />;
   
   const deviceLower = device.toLowerCase().trim();
   
   if (deviceLower.includes('mobile') || deviceLower.includes('phone')) {
-    return <Icon icon="mdi:cellphone" width="1.2em" height="1.2em" />;
+    return <Icon icon="mdi:cellphone" width="1.2em" height="1.2em" color="#10b981" />;
   } else if (deviceLower.includes('tablet') || deviceLower.includes('ipad')) {
-    return <Icon icon="mdi:tablet" width="1.2em" height="1.2em" />;
+    return <Icon icon="mdi:tablet" width="1.2em" height="1.2em" color="#8b5cf6" />;
   } else if (deviceLower.includes('desktop') || deviceLower.includes('computer')) {
-    return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" />;
+    return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" color="#3b82f6" />;
   } else if (deviceLower.includes('laptop')) {
-    return <Icon icon="mdi:laptop" width="1.2em" height="1.2em" />;
+    return <Icon icon="mdi:laptop" width="1.2em" height="1.2em" color="#6366f1" />;
   }
   
-  return <Icon icon="mdi:devices" width="1.2em" height="1.2em" />;
+  return <Icon icon="mdi:devices" width="1.2em" height="1.2em" color="#6b7280" />;
 };
 
 // Funzione per ottenere icone delle lingue
@@ -328,6 +331,79 @@ const getLanguageEmoji = (language: string): string => {
   if (langFlag) return langFlag;
   
   return '🌍';
+};
+
+// Funzione per estrarre il dominio dall'URL del referrer
+const getDomainFromURL = (url: string): string => {
+  if (!url || url.toLowerCase() === 'unknown' || url.toLowerCase() === 'sconosciuto' || url === 'direct') {
+    return 'Accesso diretto';
+  }
+  
+  try {
+    // Prova prima a parsare come URL
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    let domain = urlObj.hostname.replace(/^www\./, '');
+    
+    // Rimuovi eventuali subdomain comuni
+    domain = domain.replace(/^m\./, '').replace(/^mobile\./, '');
+    
+    return formatDisplayName(domain);
+  } catch {
+    // Se non è un URL valido, potrebbe essere un valore già processato
+    // Controlla se contiene caratteri URL-encoded
+    if (url.includes('%') || url.includes('+') || url.includes('_')) {
+      return formatDisplayName(url);
+    }
+    
+    // Se non è URL-encoded, capitalizza semplicemente
+    return formatDisplayName(url);
+  }
+};
+
+// Funzione per ottenere icone dei referrer
+const getReferrerIcon = (referrer: string): React.ReactNode => {
+  if (!referrer || referrer.toLowerCase() === 'unknown' || referrer.toLowerCase() === 'sconosciuto' || referrer === 'direct') {
+    return <Icon icon="mdi:link-variant" width="1.2em" height="1.2em" color="#6b7280" />;
+  }
+  
+  const referrerLower = referrer.toLowerCase();
+  
+  // Social media e siti famosi
+  if (referrerLower.includes('google')) {
+    return <Icon icon="logos:google-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('facebook')) {
+    return <Icon icon="logos:facebook" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('instagram')) {
+    return <Icon icon="skill-icons:instagram" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('twitter') || referrerLower.includes('x.com')) {
+    return <Icon icon="logos:twitter" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('linkedin')) {
+    return <Icon icon="logos:linkedin-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('youtube')) {
+    return <Icon icon="logos:youtube-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('whatsapp')) {
+    return <Icon icon="logos:whatsapp-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('telegram')) {
+    return <Icon icon="logos:telegram" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('tiktok')) {
+    return <Icon icon="logos:tiktok-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('bing')) {
+    return <Icon icon="logos:bing" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('yahoo')) {
+    return <Icon icon="logos:yahoo" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('duckduckgo')) {
+    return <Icon icon="simple-icons:duckduckgo" width="1.2em" height="1.2em" color="#DE5833" />;
+  } else if (referrerLower.includes('reddit')) {
+    return <Icon icon="logos:reddit-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('pinterest')) {
+    return <Icon icon="logos:pinterest" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('github')) {
+    return <Icon icon="logos:github-icon" width="1.2em" height="1.2em" />;
+  } else if (referrerLower.includes('qr')) {
+    return <Icon icon="mdi:qrcode" width="1.2em" height="1.2em" color="#4f46e5" />;
+  }
+  
+  return <Icon icon="mdi:web" width="1.2em" height="1.2em" color="#6b7280" />;
 };
 
 // Componente per card di statistiche dettagliate
@@ -440,12 +516,27 @@ const getOSEmoji = (os: string): React.ReactNode => getOSIcon(os);
 const getDomainFromURL = (url: string): string => {
   if (!url || url === 'Direct' || url === 'Diretto') return 'Diretto';
   
+  // Se l'URL contiene caratteri URL encoded, prova a formattarlo
+  if (url.includes('%') || url.includes('+')) {
+    const formatted = formatDisplayName(url);
+    // Se la formattazione ha prodotto un risultato sensato (no http/www), usa quello
+    if (!formatted.includes('http') && !formatted.includes('www.') && formatted !== url) {
+      return formatted;
+    }
+  }
+  
   try {
     const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
     return urlObj.hostname.replace('www.', '');
   } catch {
     // Se l'URL non è valido, prova a estrarre il dominio manualmente
     const domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    
+    // Se anche questo fallisce, applica la formattazione generale
+    if (!domain || domain === url) {
+      return formatDisplayName(url);
+    }
+    
     return domain || 'Sconosciuto';
   }
 };  useEffect(() => {
@@ -582,7 +673,7 @@ const getDomainFromURL = (url: string): string => {
           renderItem={(referrer, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
-                <span className="text-sm">🔗</span>
+                <span className="text-sm">{getReferrerIcon(referrer.referrer)}</span>
                 <span className="font-medium text-gray-900 truncate" title={referrer.referrer}>
                   {getDomainFromURL(referrer.referrer) || 'Diretto'}
                 </span>
@@ -617,7 +708,7 @@ const getDomainFromURL = (url: string): string => {
           renderItem={(browser, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
-                <span className="text-sm">{getBrowserEmoji(browser.browser)}</span>
+                <span className="text-sm">{getBrowserIcon(browser.browser)}</span>
                 <span className="font-medium text-gray-900 truncate" title={browser.browser}>
                   {formatDisplayName(browser.browser) || 'Sconosciuto'}
                 </span>
@@ -687,7 +778,7 @@ const getDomainFromURL = (url: string): string => {
           renderItem={(device, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
-                <span className="text-sm">{getDeviceEmoji(device.device)}</span>
+                <span className="text-sm">{getDeviceIcon(device.device)}</span>
                 <span className="font-medium text-gray-900 truncate" title={device.device}>
                   {formatDisplayName(device.device) || 'Sconosciuto'}
                 </span>
@@ -722,7 +813,7 @@ const getDomainFromURL = (url: string): string => {
           renderItem={(os, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
-                <span className="text-sm">{getOSEmoji(os.os)}</span>
+                <span className="text-sm">{getOSIcon(os.os)}</span>
                 <span className="font-medium text-gray-900 truncate" title={os.os}>
                   {formatDisplayName(os.os) || 'Sconosciuto'}
                 </span>
