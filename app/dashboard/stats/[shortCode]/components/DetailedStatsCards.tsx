@@ -28,7 +28,7 @@ interface DetailedStatsCardsProps {
   endDate?: string;
 }
 
-type SortField = 'name' | 'count' | 'unique_count';
+type SortField = 'name' | 'count' | 'unique_count' | 'percentage';
 type SortDirection = 'asc' | 'desc';
 
 interface SortState {
@@ -37,13 +37,16 @@ interface SortState {
 }
 
 // Funzione per ordinare i dati
-const sortData = (data: any[], sortState: SortState, nameKey: string): any[] => {
+const sortData = (data: any[], sortState: SortState, nameKey: string, totalClicks: number): any[] => {
   return [...data].sort((a, b) => {
     let aValue: any, bValue: any;
     
     if (sortState.field === 'name') {
       aValue = formatDisplayName(a[nameKey]).toLowerCase();
       bValue = formatDisplayName(b[nameKey]).toLowerCase();
+    } else if (sortState.field === 'percentage') {
+      aValue = totalClicks > 0 ? (a.count / totalClicks) * 100 : 0;
+      bValue = totalClicks > 0 ? (b.count / totalClicks) * 100 : 0;
     } else {
       aValue = a[sortState.field];
       bValue = b[sortState.field];
@@ -88,12 +91,47 @@ const formatDisplayName = (value: string): string => {
   let decoded = value;
   try {
     // Decodifica multipla per gestire encoding annidati
-    while (decoded !== decodeURIComponent(decoded)) {
+    let previousDecoded = '';
+    while (decoded !== previousDecoded) {
+      previousDecoded = decoded;
       decoded = decodeURIComponent(decoded);
     }
   } catch {
-    // Se la decodifica fallisce, usa il valore originale
-    decoded = value;
+    // Se la decodifica fallisce, prova con decodifiche manuali per i casi più comuni
+    decoded = value
+      .replace(/%20/g, ' ')          // Spazi
+      .replace(/%21/g, '!')          // !
+      .replace(/%22/g, '"')          // "
+      .replace(/%23/g, '#')          // #
+      .replace(/%24/g, '$')          // $
+      .replace(/%25/g, '%')          // %
+      .replace(/%26/g, '&')          // &
+      .replace(/%27/g, "'")          // '
+      .replace(/%28/g, '(')          // (
+      .replace(/%29/g, ')')          // )
+      .replace(/%2A/g, '*')          // *
+      .replace(/%2B/g, '+')          // +
+      .replace(/%2C/g, ',')          // ,
+      .replace(/%2D/g, '-')          // -
+      .replace(/%2E/g, '.')          // .
+      .replace(/%2F/g, '/')          // /
+      .replace(/%3A/g, ':')          // :
+      .replace(/%3B/g, ';')          // ;
+      .replace(/%3C/g, '<')          // <
+      .replace(/%3D/g, '=')          // =
+      .replace(/%3E/g, '>')          // >
+      .replace(/%3F/g, '?')          // ?
+      .replace(/%40/g, '@')          // @
+      .replace(/%5B/g, '[')          // [
+      .replace(/%5C/g, '\\')         // \
+      .replace(/%5D/g, ']')          // ]
+      .replace(/%5E/g, '^')          // ^
+      .replace(/%5F/g, '_')          // _
+      .replace(/%60/g, '`')          // `
+      .replace(/%7B/g, '{')          // {
+      .replace(/%7C/g, '|')          // |
+      .replace(/%7D/g, '}')          // }
+      .replace(/%7E/g, '~');         // ~
   }
   
   // Sostituisci + con spazi e _ con spazi
@@ -116,6 +154,8 @@ const formatDisplayName = (value: string): string => {
     'google search': 'Google',
     'duckduckgo': 'DuckDuckGo',
     'yahoo search': 'Yahoo',
+    'internal': 'Accesso interno',
+    'direct': 'Accesso diretto',
     
     // Social media
     'facebook': 'Facebook',
@@ -133,14 +173,21 @@ const formatDisplayName = (value: string): string => {
     'safari': 'Safari',
     'edge': 'Edge',
     'opera': 'Opera',
+    'microsoft edge': 'Microsoft Edge',
+    'samsung internet': 'Samsung Internet',
+    'brave': 'Brave',
+    'vivaldi': 'Vivaldi',
+    'tor browser': 'Tor Browser',
     
     // OS
     'android': 'Android',
     'ios': 'iOS',
     'windows': 'Windows',
     'macos': 'macOS',
+    'mac os': 'macOS',
     'linux': 'Linux',
     'ubuntu': 'Ubuntu',
+    'chrome os': 'Chrome OS',
     
     // Dispositivi
     'iphone': 'iPhone',
@@ -150,6 +197,10 @@ const formatDisplayName = (value: string): string => {
     'xiaomi': 'Xiaomi',
     'huawei': 'Huawei',
     'oneplus': 'OnePlus',
+    'mobile': 'Mobile',
+    'tablet': 'Tablet',
+    'desktop': 'Desktop',
+    'smart tv': 'Smart TV',
     
     // Città famose (casi speciali)
     'new york': 'New York',
@@ -390,8 +441,19 @@ const getDomainFromURL = (url: string): string => {
   }
   
   try {
-    // Prova prima a parsare come URL
-    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    // Prima prova a decodificare l'URL se contiene caratteri encoded
+    let decodedUrl = url;
+    if (url.includes('%')) {
+      try {
+        decodedUrl = decodeURIComponent(url);
+      } catch {
+        // Se la decodifica fallisce, usa l'URL originale
+        decodedUrl = url;
+      }
+    }
+    
+    // Prova a parsare come URL
+    const urlObj = new URL(decodedUrl.startsWith('http') ? decodedUrl : `https://${decodedUrl}`);
     let domain = urlObj.hostname.replace(/^www\./, '');
     
     // Rimuovi eventuali subdomain comuni
@@ -400,7 +462,7 @@ const getDomainFromURL = (url: string): string => {
     return formatDisplayName(domain);
   } catch {
     // Se non è un URL valido, potrebbe essere un valore già processato
-    // Controlla se contiene caratteri URL-encoded
+    // Controlla se contiene caratteri URL-encoded o altri caratteri speciali
     if (url.includes('%') || url.includes('+') || url.includes('_')) {
       return formatDisplayName(url);
     }
@@ -489,7 +551,7 @@ const StatCard = ({
     }));
   };
   
-  const sortedData = sortData(data, sortState, nameKey);
+  const sortedData = sortData(data, sortState, nameKey, totalClicks);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -528,7 +590,11 @@ const StatCard = ({
                   Unici
                 </SortableHeader>
               </span>
-              <span className="col-span-2 text-right">% visite</span>
+              <span className="col-span-2 text-right">
+                <SortableHeader field="percentage" currentSort={sortState} onSort={handleSort}>
+                  % visite
+                </SortableHeader>
+              </span>
             </div>
             
             {/* Contenuto scrollabile compatto */}
