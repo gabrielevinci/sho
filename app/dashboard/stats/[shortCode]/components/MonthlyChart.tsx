@@ -242,6 +242,9 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ shortCode, year, triggerRef
               fontSize={12}
               tickLine={false}
               axisLine={false}
+              domain={[0, (dataMax: number) => Math.max(dataMax, 5)]}
+              tickCount={6}
+              allowDecimals={false}
               tickFormatter={(value) => Math.round(value).toString()}
             />
             <Tooltip content={<CustomTooltip />} />
