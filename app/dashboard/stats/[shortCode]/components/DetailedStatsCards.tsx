@@ -5,6 +5,8 @@ import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { normalizeCountryName } from '@/lib/database-helpers';
 import { Globe, MapPin, Share2, Monitor, Languages, Smartphone, HardDrive } from 'lucide-react';
+import ReactCountryFlag from 'react-country-flag';
+import { Icon } from '@iconify/react';
 
 interface DetailedAnalytics {
   link_id: number;
@@ -26,21 +28,121 @@ interface DetailedStatsCardsProps {
   endDate?: string;
 }
 
-// Funzione per ottenere la bandiera del paese
-const getCountryFlag = (countryCode: string): string => {
-  if (!countryCode) return '🌍';
+// Funzione migliorata per ottenere la bandiera del paese
+
+// Funzione per formattare i nomi in modo user-friendly
+const formatDisplayName = (value: string): string => {
+  if (!value) return 'Sconosciuto';
   
-  // Se è un codice di 2 caratteri, converti in emoji
-  if (countryCode.length === 2 && /^[A-Z]{2}$/i.test(countryCode)) {
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map(char => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
+  // Decodifica URL encoding completo (inclusi caratteri speciali)
+  let decoded = value;
+  try {
+    // Decodifica multipla per gestire encoding annidati
+    while (decoded !== decodeURIComponent(decoded)) {
+      decoded = decodeURIComponent(decoded);
+    }
+  } catch {
+    // Se la decodifica fallisce, usa il valore originale
+    decoded = value;
   }
   
-  // Mapping per nomi di paesi comuni a codici ISO
-  const countryNameToCode: { [key: string]: string } = {
+  // Sostituisci + con spazi
+  decoded = decoded.replace(/\+/g, ' ');
+  
+  // Trim e normalizza spazi multipli
+  decoded = decoded.trim().replace(/\s+/g, ' ');
+  
+  // Converti in lowercase per il confronto
+  const lowerDecoded = decoded.toLowerCase();
+  
+  // Mappatura per casi speciali (compresi nomi di città)
+  const specialCases: { [key: string]: string } = {
+    // Ricerche e referrer
+    'qr code': 'QR Code',
+    'bing search': 'Bing',
+    'google search': 'Google',
+    'duckduckgo': 'DuckDuckGo',
+    'yahoo search': 'Yahoo',
+    
+    // Social media
+    'facebook': 'Facebook',
+    'instagram': 'Instagram',
+    'linkedin': 'LinkedIn',
+    'twitter': 'Twitter',
+    'tiktok': 'TikTok',
+    'youtube': 'YouTube',
+    'whatsapp': 'WhatsApp',
+    'telegram': 'Telegram',
+    
+    // Browser
+    'chrome': 'Chrome',
+    'firefox': 'Firefox',
+    'safari': 'Safari',
+    'edge': 'Edge',
+    'opera': 'Opera',
+    
+    // OS
+    'android': 'Android',
+    'ios': 'iOS',
+    'windows': 'Windows',
+    'macos': 'macOS',
+    'linux': 'Linux',
+    'ubuntu': 'Ubuntu',
+    
+    // Dispositivi
+    'iphone': 'iPhone',
+    'ipad': 'iPad',
+    'macbook': 'MacBook',
+    'samsung': 'Samsung',
+    'xiaomi': 'Xiaomi',
+    'huawei': 'Huawei',
+    'oneplus': 'OnePlus',
+    
+    // Città famose (casi speciali)
+    'new york': 'New York',
+    'los angeles': 'Los Angeles',
+    'san francisco': 'San Francisco',
+    'san jose': 'San Jose',
+    'santa clara': 'Santa Clara',
+    'las vegas': 'Las Vegas',
+    'new delhi': 'New Delhi',
+    'buenos aires': 'Buenos Aires',
+    'rio de janeiro': 'Rio de Janeiro',
+    'são paulo': 'São Paulo',
+    'sao paulo': 'São Paulo',
+    'mexico city': 'Mexico City',
+    'costa rica': 'Costa Rica',
+    'puerto rico': 'Puerto Rico',
+    'hong kong': 'Hong Kong',
+    'kuala lumpur': 'Kuala Lumpur',
+    'cape town': 'Cape Town',
+    'tel aviv': 'Tel Aviv',
+    'abu dhabi': 'Abu Dhabi',
+    'saint petersburg': 'Saint Petersburg',
+    'ho chi minh city': 'Ho Chi Minh City'
+  };
+  
+  // Controlla se è un caso speciale
+  if (specialCases[lowerDecoded]) {
+    return specialCases[lowerDecoded];
+  }
+  
+  // Capitalizza la prima lettera di ogni parola, gestendo apostrofi e trattini
+  return decoded.split(/(\s|-|')/).map((part, index) => {
+    if (part.match(/\s|-|'/)) return part; // Mantieni separatori
+    if (part.length === 0) return part;
+    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+  }).join('');
+};
+
+// Funzione migliorata per ottenere la bandiera del paese
+const getCountryFlag = (country: string): React.ReactNode => {
+  if (!country) return '🌍';
+  
+  const countryLower = country.toLowerCase().trim();
+  
+  // Mapping per codici ISO dei paesi
+  const countryToCode: { [key: string]: string } = {
     'italy': 'IT', 'italia': 'IT',
     'united states': 'US', 'stati uniti': 'US', 'usa': 'US',
     'germany': 'DE', 'germania': 'DE',
@@ -72,137 +174,117 @@ const getCountryFlag = (countryCode: string): string => {
     'argentina': 'AR',
     'chile': 'CL',
     'colombia': 'CO',
-    'peru': 'PE', 'perù': 'PE',
-    'venezuela': 'VE',
-    'egypt': 'EG', 'egitto': 'EG',
-    'south africa': 'ZA', 'sudafrica': 'ZA',
-    'nigeria': 'NG',
-    'thailand': 'TH', 'tailandia': 'TH',
-    'singapore': 'SG',
-    'malaysia': 'MY',
-    'philippines': 'PH', 'filippine': 'PH',
-    'indonesia': 'ID',
-    'vietnam': 'VN',
-    'new zealand': 'NZ', 'nuova zelanda': 'NZ'
+    'peru': 'PE', 'perù': 'PE'
   };
+
+  const countryCode = countryToCode[countryLower];
   
-  const normalizedName = countryCode.toLowerCase().trim();
-  const isoCode = countryNameToCode[normalizedName];
-  
-  if (isoCode) {
-    const codePoints = isoCode
-      .split('')
-      .map(char => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
+  if (countryCode) {
+    return (
+      <ReactCountryFlag 
+        countryCode={countryCode} 
+        svg 
+        style={{
+          width: '1.2em',
+          height: '1.2em',
+        }}
+        title={country}
+      />
+    );
   }
   
+  // Fallback per paesi non mappati
   return '🌍';
 };
 
-// Funzione per ottenere l'emoji del browser
-const getBrowserEmoji = (browser: string): string => {
-  const browserLower = browser.toLowerCase();
-  if (browserLower.includes('chrome')) return '🟢';
-  if (browserLower.includes('firefox')) return '🦊';
-  if (browserLower.includes('safari')) return '🧭';
-  if (browserLower.includes('edge')) return '🔷';
-  if (browserLower.includes('opera')) return '⭕';
-  if (browserLower.includes('brave')) return '🦁';
-  if (browserLower.includes('samsung')) return '📱';
-  if (browserLower.includes('vivaldi')) return '🎨';
-  if (browserLower.includes('tor')) return '🔒';
-  return '🌐';
-};
-
-// Funzione per ottenere l'emoji del dispositivo
-const getDeviceEmoji = (device: string): string => {
-  const deviceLower = device.toLowerCase();
-  if (deviceLower.includes('mobile') || deviceLower.includes('phone')) return '📱';
-  if (deviceLower.includes('tablet')) return '📱';
-  if (deviceLower.includes('desktop') || deviceLower.includes('computer')) return '💻';
-  return '📱';
-};
-
-// Funzione per ottenere l'emoji del sistema operativo
-const getOSEmoji = (os: string): string => {
-  const osLower = os.toLowerCase();
-  if (osLower.includes('windows')) return '🪟';
-  if (osLower.includes('mac') || osLower.includes('darwin')) return '🍎';
-  if (osLower.includes('linux') || osLower.includes('ubuntu')) return '🐧';
-  if (osLower.includes('android')) return '🤖';
-  if (osLower.includes('ios') || osLower.includes('iphone')) return '📱';
-  if (osLower.includes('chrome')) return '💻'; // Chrome OS
-  return '💻';
-};
-
-// Funzione per ottenere il dominio da un URL
-const getDomainFromURL = (url: string): string => {
-  if (!url || url === 'Direct' || url === 'Diretto') return 'Diretto';
+// Funzione per ottenere icone dei browser
+const getBrowserIcon = (browser: string): React.ReactNode => {
+  if (!browser) return <Icon icon="mdi:web" width="1.2em" height="1.2em" />;
   
-  try {
-    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-    return urlObj.hostname.replace('www.', '');
-  } catch {
-    // Se l'URL non è valido, prova a estrarre il dominio manualmente
-    const domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-    return domain || 'Sconosciuto';
-  }
-};
-
-// Funzione per formattare i nomi in modo user-friendly
-const formatDisplayName = (value: string): string => {
-  if (!value) return 'Sconosciuto';
+  const browserLower = browser.toLowerCase().trim();
   
-  // Decodifica URL encoding
-  let decoded = decodeURIComponent(value.replace(/\+/g, ' '));
-  
-  // Converti in lowercase e poi capitalizza
-  decoded = decoded.toLowerCase();
-  
-  // Mappatura per casi speciali
-  const specialCases: { [key: string]: string } = {
-    'qr code': 'QR Code',
-    'bing search': 'Bing',
-    'google search': 'Google',
-    'duckduckgo': 'DuckDuckGo',
-    'yahoo search': 'Yahoo',
-    'facebook': 'Facebook',
-    'instagram': 'Instagram',
-    'linkedin': 'LinkedIn',
-    'twitter': 'Twitter',
-    'tiktok': 'TikTok',
-    'youtube': 'YouTube',
-    'whatsapp': 'WhatsApp',
-    'telegram': 'Telegram',
-    'chrome': 'Chrome',
-    'firefox': 'Firefox',
-    'safari': 'Safari',
-    'edge': 'Edge',
-    'opera': 'Opera',
-    'android': 'Android',
-    'ios': 'iOS',
-    'windows': 'Windows',
-    'macos': 'macOS',
-    'linux': 'Linux',
-    'ubuntu': 'Ubuntu',
-    'iphone': 'iPhone',
-    'ipad': 'iPad',
-    'macbook': 'MacBook',
-    'samsung': 'Samsung',
-    'xiaomi': 'Xiaomi',
-    'huawei': 'Huawei',
-    'oneplus': 'OnePlus'
-  };
-  
-  // Controlla se è un caso speciale
-  if (specialCases[decoded]) {
-    return specialCases[decoded];
+  if (browserLower.includes('chrome')) {
+    return <Icon icon="logos:chrome" width="1.2em" height="1.2em" />;
+  } else if (browserLower.includes('firefox')) {
+    return <Icon icon="logos:firefox" width="1.2em" height="1.2em" />;
+  } else if (browserLower.includes('safari')) {
+    return <Icon icon="logos:safari" width="1.2em" height="1.2em" />;
+  } else if (browserLower.includes('edge')) {
+    return <Icon icon="logos:microsoft-edge" width="1.2em" height="1.2em" />;
+  } else if (browserLower.includes('opera')) {
+    return <Icon icon="logos:opera" width="1.2em" height="1.2em" />;
+  } else if (browserLower.includes('brave')) {
+    return <Icon icon="logos:brave" width="1.2em" height="1.2em" />;
+  } else if (browserLower.includes('vivaldi')) {
+    return <Icon icon="logos:vivaldi" width="1.2em" height="1.2em" />;
   }
   
-  // Capitalizza la prima lettera di ogni parola
-  return decoded.split(' ').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
+  return <Icon icon="mdi:web" width="1.2em" height="1.2em" />;
+};
+
+// Funzione per ottenere icone dei sistemi operativi
+const getOSIcon = (os: string): React.ReactNode => {
+  if (!os) return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" />;
+  
+  const osLower = os.toLowerCase().trim();
+  
+  if (osLower.includes('windows')) {
+    return <Icon icon="logos:microsoft-windows" width="1.2em" height="1.2em" />;
+  } else if (osLower.includes('macos') || osLower.includes('mac os')) {
+    return <Icon icon="logos:apple" width="1.2em" height="1.2em" />;
+  } else if (osLower.includes('ios')) {
+    return <Icon icon="logos:apple" width="1.2em" height="1.2em" />;
+  } else if (osLower.includes('android')) {
+    return <Icon icon="logos:android-icon" width="1.2em" height="1.2em" />;
+  } else if (osLower.includes('linux')) {
+    return <Icon icon="logos:linux-tux" width="1.2em" height="1.2em" />;
+  } else if (osLower.includes('ubuntu')) {
+    return <Icon icon="logos:ubuntu" width="1.2em" height="1.2em" />;
+  }
+  
+  return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" />;
+};
+
+// Funzione per ottenere icone dei dispositivi
+const getDeviceIcon = (device: string): React.ReactNode => {
+  if (!device) return <Icon icon="mdi:devices" width="1.2em" height="1.2em" />;
+  
+  const deviceLower = device.toLowerCase().trim();
+  
+  if (deviceLower.includes('mobile') || deviceLower.includes('phone')) {
+    return <Icon icon="mdi:cellphone" width="1.2em" height="1.2em" />;
+  } else if (deviceLower.includes('tablet') || deviceLower.includes('ipad')) {
+    return <Icon icon="mdi:tablet" width="1.2em" height="1.2em" />;
+  } else if (deviceLower.includes('desktop') || deviceLower.includes('computer')) {
+    return <Icon icon="mdi:monitor" width="1.2em" height="1.2em" />;
+  } else if (deviceLower.includes('laptop')) {
+    return <Icon icon="mdi:laptop" width="1.2em" height="1.2em" />;
+  }
+  
+  return <Icon icon="mdi:devices" width="1.2em" height="1.2em" />;
+};
+
+// Funzione per ottenere icone delle lingue
+const getLanguageIcon = (language: string): React.ReactNode => {
+  if (!language) return '🌍';
+  
+  const langLower = language.toLowerCase().trim();
+  
+  // Mapping per bandiere delle lingue
+  if (langLower.includes('it')) return <ReactCountryFlag countryCode="IT" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('en')) return <ReactCountryFlag countryCode="US" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('es')) return <ReactCountryFlag countryCode="ES" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('fr')) return <ReactCountryFlag countryCode="FR" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('de')) return <ReactCountryFlag countryCode="DE" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('pt')) return <ReactCountryFlag countryCode="PT" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('ru')) return <ReactCountryFlag countryCode="RU" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('ja')) return <ReactCountryFlag countryCode="JP" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('zh')) return <ReactCountryFlag countryCode="CN" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('ko')) return <ReactCountryFlag countryCode="KR" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('ar')) return <ReactCountryFlag countryCode="SA" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  if (langLower.includes('hi')) return <ReactCountryFlag countryCode="IN" svg style={{ width: '1.2em', height: '1.2em' }} />;
+  
+  return '🌍';
 };
 const getLanguageEmoji = (language: string): string => {
   if (!language) return '🌍';
@@ -346,10 +428,27 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
       setError(err instanceof Error ? err.message : 'Errore sconosciuto');
     } finally {
       setIsLoading(false);
-    }
-  };
+  }
+};
 
-  useEffect(() => {
+// Backwards compatibility functions (usano le nuove funzioni sotto)
+const getBrowserEmoji = (browser: string): React.ReactNode => getBrowserIcon(browser);
+const getDeviceEmoji = (device: string): React.ReactNode => getDeviceIcon(device);  
+const getOSEmoji = (os: string): React.ReactNode => getOSIcon(os);
+
+// Funzione per ottenere il dominio da un URL
+const getDomainFromURL = (url: string): string => {
+  if (!url || url === 'Direct' || url === 'Diretto') return 'Diretto';
+  
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return urlObj.hostname.replace('www.', '');
+  } catch {
+    // Se l'URL non è valido, prova a estrarre il dominio manualmente
+    const domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    return domain || 'Sconosciuto';
+  }
+};  useEffect(() => {
     fetchDetailedAnalytics();
   }, [shortCode, filter, startDate, endDate]);
 
@@ -413,9 +512,9 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           renderItem={(country, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
-                <span className="text-sm">{getCountryFlag(country.country)}</span>
+                <span className="flex items-center">{getCountryFlag(country.country)}</span>
                 <span className="font-medium text-gray-900 truncate" title={normalizeCountryName(country.country)}>
-                  {normalizeCountryName(country.country) || 'Sconosciuto'}
+                  {formatDisplayName(normalizeCountryName(country.country)) || 'Sconosciuto'}
                 </span>
               </div>
               <div className="col-span-2 text-right font-medium text-gray-900">
@@ -449,8 +548,8 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">🏙️</span>
-                <span className="font-medium text-gray-900 capitalize truncate" title={city.city}>
-                  {city.city || 'Sconosciuto'}
+                <span className="font-medium text-gray-900 truncate" title={city.city}>
+                  {formatDisplayName(city.city) || 'Sconosciuto'}
                 </span>
               </div>
               <div className="col-span-2 text-right font-medium text-gray-900">
@@ -553,7 +652,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           renderItem={(language, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
-                <span className="text-sm">{getLanguageEmoji(language.language)}</span>
+                <span className="flex items-center">{getLanguageIcon(language.language)}</span>
                 <span className="font-medium text-gray-900 uppercase truncate" title={language.language}>
                   {language.language || 'Sconosciuto'}
                 </span>
