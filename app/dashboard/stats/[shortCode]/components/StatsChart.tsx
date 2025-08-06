@@ -80,25 +80,43 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         let dayName: string | undefined;
 
         if (filter === '24h') {
-          // Per le ore, mostra solo l'ora 
-          const baseHour = date.toLocaleTimeString('it-IT', {
+          // Per il filtro 24h, dobbiamo gestire il fuso orario correttamente
+          // Il database restituisce le date in orario italiano, ma JavaScript le converte in UTC
+          
+          // Creiamo un oggetto Date dalla stringa ricevuta
+          const originalDate = new Date(dateValue);
+          
+          // Otteniamo l'ora in formato italiano direttamente dalla data originale
+          // Usiamo Intl.DateTimeFormat per essere sicuri della formattazione
+          const formatter = new Intl.DateTimeFormat('it-IT', {
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: 'Europe/Rome'
           });
+          
+          const baseHour = formatter.format(originalDate);
           
           // Per l'asse X manteniamo la visualizzazione pulita
           displayDate = baseHour;
           
-          // Per il tooltip includiamo l'indicazione dell'ora corrente
-          fullDate = date.toLocaleString('it-IT', {
+          // Per il tooltip usiamo la data con timezone italiano
+          const fullFormatter = new Intl.DateTimeFormat('it-IT', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: 'Europe/Rome'
           });
           
-          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
+          fullDate = fullFormatter.format(originalDate);
+          
+          const dayFormatter = new Intl.DateTimeFormat('it-IT', { 
+            weekday: 'long',
+            timeZone: 'Europe/Rome'
+          });
+          
+          dayName = dayFormatter.format(originalDate);
         } else {
           // Per i giorni, mostra la data
           dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
