@@ -669,16 +669,69 @@ export function analyzeReferrerSource(request: NextRequest): {
       }
       
       // Altri siti web
+      let cleanDomain = domain;
+      try {
+        // Decodifica il domain se contiene caratteri encoded
+        if (domain.includes('%')) {
+          cleanDomain = decodeURIComponent(domain);
+        }
+      } catch {
+        // Se la decodifica fallisce, usa il domain originale
+        cleanDomain = domain;
+      }
+      
       return {
-        referrer: domain,
+        referrer: cleanDomain,
         source_type: 'website',
-        source_detail: `External Website: ${domain}`
+        source_detail: `External Website: ${cleanDomain}`
       };
       
     } catch {
-      // Se non riusciamo a parsare l'URL, usa il referrer raw
+      // Se non riusciamo a parsare l'URL, usa il referrer raw ma decodificalo
+      let cleanReferrer = rawReferrer;
+      try {
+        // Prova a decodificare il referrer
+        cleanReferrer = decodeURIComponent(rawReferrer);
+      } catch {
+        // Se la decodifica fallisce, prova con decodifiche manuali
+        cleanReferrer = rawReferrer
+          .replace(/%20/g, ' ')
+          .replace(/%21/g, '!')
+          .replace(/%22/g, '"')
+          .replace(/%23/g, '#')
+          .replace(/%24/g, '$')
+          .replace(/%25/g, '%')
+          .replace(/%26/g, '&')
+          .replace(/%27/g, "'")
+          .replace(/%28/g, '(')
+          .replace(/%29/g, ')')
+          .replace(/%2A/g, '*')
+          .replace(/%2B/g, '+')
+          .replace(/%2C/g, ',')
+          .replace(/%2D/g, '-')
+          .replace(/%2E/g, '.')
+          .replace(/%2F/g, '/')
+          .replace(/%3A/g, ':')
+          .replace(/%3B/g, ';')
+          .replace(/%3C/g, '<')
+          .replace(/%3D/g, '=')
+          .replace(/%3E/g, '>')
+          .replace(/%3F/g, '?')
+          .replace(/%40/g, '@')
+          .replace(/%5B/g, '[')
+          .replace(/%5C/g, '\\')
+          .replace(/%5D/g, ']')
+          .replace(/%5E/g, '^')
+          .replace(/%5F/g, '_')
+          .replace(/%60/g, '`')
+          .replace(/%7B/g, '{')
+          .replace(/%7C/g, '|')
+          .replace(/%7D/g, '}')
+          .replace(/%7E/g, '~');
+      }
+      
       return {
-        referrer: rawReferrer,
+        referrer: cleanReferrer,
         source_type: 'unknown',
         source_detail: 'Unparseable Referrer'
       };

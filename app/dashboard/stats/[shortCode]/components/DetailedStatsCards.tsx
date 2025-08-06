@@ -44,12 +44,30 @@ const sortData = (data: any[], sortState: SortState, nameKey: string, totalClick
     if (sortState.field === 'name') {
       aValue = formatDisplayName(a[nameKey]).toLowerCase();
       bValue = formatDisplayName(b[nameKey]).toLowerCase();
+      
+      // Gestione speciale per "sconosciuto" - sempre in fondo
+      const aIsUnknown = aValue === 'sconosciuto' || aValue === 'unknown';
+      const bIsUnknown = bValue === 'sconosciuto' || bValue === 'unknown';
+      
+      if (aIsUnknown && !bIsUnknown) return sortState.direction === 'asc' ? 1 : 1;
+      if (!aIsUnknown && bIsUnknown) return sortState.direction === 'asc' ? -1 : -1;
+      if (aIsUnknown && bIsUnknown) return 0;
+      
     } else if (sortState.field === 'percentage') {
       aValue = totalClicks > 0 ? (a.count / totalClicks) * 100 : 0;
       bValue = totalClicks > 0 ? (b.count / totalClicks) * 100 : 0;
     } else {
       aValue = a[sortState.field];
       bValue = b[sortState.field];
+      
+      // Gestione speciale per "sconosciuto" quando ordiniamo per count/unique_count
+      const aName = formatDisplayName(a[nameKey]).toLowerCase();
+      const bName = formatDisplayName(b[nameKey]).toLowerCase();
+      const aIsUnknown = aName === 'sconosciuto' || aName === 'unknown';
+      const bIsUnknown = bName === 'sconosciuto' || bName === 'unknown';
+      
+      if (aIsUnknown && !bIsUnknown) return 1; // "sconosciuto" sempre in fondo
+      if (!aIsUnknown && bIsUnknown) return -1; // "sconosciuto" sempre in fondo
     }
     
     if (aValue < bValue) return sortState.direction === 'asc' ? -1 : 1;
@@ -818,8 +836,8 @@ const getDomainFromURL = (url: string): string => {
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getReferrerIcon(referrer.referrer)}</span>
-                <span className="font-medium text-gray-900 truncate" title={referrer.referrer}>
-                  {getDomainFromURL(referrer.referrer) || 'Diretto'}
+                <span className="font-medium text-gray-900 truncate" title={formatDisplayName(referrer.referrer)}>
+                  {formatDisplayName(getDomainFromURL(referrer.referrer) || referrer.referrer) || 'Diretto'}
                 </span>
               </div>
               <div className="col-span-2 text-right font-medium text-gray-900">
