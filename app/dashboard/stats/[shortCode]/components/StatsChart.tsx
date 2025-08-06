@@ -86,36 +86,29 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         let dayName: string | undefined;
 
         if (filter === '24h') {
-          // Per il filtro 24h, dobbiamo gestire il fuso orario correttamente
-          // Il database restituisce le date in orario italiano con timezone esplicito
+          // Approccio semplificato: il database ci invia timestamp corretti
+          // Non facciamo conversioni complesse, trattiamo i timestamp come ora italiana
           
-          // Creiamo un oggetto Date dalla stringa ricevuta
-          let workingDate: Date;
-          
-          // L'API ora restituisce sempre timestamp con timezone esplicito
-          workingDate = new Date(dateValue);
-          
-          // Debug: verifica l'interpretazione della data
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🕐 Processing dateValue: ${dateValue} -> Date object: ${workingDate.toISOString()}`);
+            console.log(`🕐 Raw dateValue from API: ${dateValue}`);
           }
           
-          // Forziamo sempre l'interpretazione nel fuso orario italiano
-          // Usiamo Intl.DateTimeFormat per essere sicuri della formattazione
-          const formatter = new Intl.DateTimeFormat('it-IT', {
-            hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'Europe/Rome'
-          });
+          // Crea l'oggetto Date dal timestamp
+          const workingDate = new Date(dateValue);
           
-          const baseHour = formatter.format(workingDate);
-          
-          // Per l'asse X manteniamo la visualizzazione pulita
-          displayDate = baseHour;
-          
-          // Debug log per verificare la formattazione (solo in ambiente di sviluppo)
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🕐 Final displayDate (Italy time): ${displayDate} | Working date object: ${workingDate.toISOString()}`);
+            console.log(`🕐 Date object created: ${workingDate.toISOString()}`);
+            console.log(`🕐 Local string: ${workingDate.toLocaleString()}`);
+            console.log(`🕐 Italy timezone: ${workingDate.toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}`);
+          }
+          
+          // Usa semplicemente l'ora locale del timestamp per la visualizzazione
+          const hours = workingDate.getHours().toString().padStart(2, '0');
+          const minutes = workingDate.getMinutes().toString().padStart(2, '0');
+          displayDate = `${hours}:${minutes}`;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🕐 Final displayDate: ${displayDate}`);
           }
           
           // Per il tooltip usiamo la data con timezone italiano
