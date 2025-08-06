@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { normalizeCountryName } from '@/lib/database-helpers';
@@ -38,42 +38,39 @@ interface SortState {
 
 // Funzione per ordinare i dati
 const sortData = (data: any[], sortState: SortState, nameKey: string, totalClicks: number): any[] => {
-  return [...data].sort((a, b) => {
+  if (!data || data.length === 0) return [];
+  
+  const sorted = [...data].sort((a, b) => {
     let aValue: any, bValue: any;
     
     if (sortState.field === 'name') {
-      aValue = formatDisplayName(a[nameKey]).toLowerCase();
-      bValue = formatDisplayName(b[nameKey]).toLowerCase();
-      
-      // Gestione speciale per "sconosciuto" - sempre in fondo
-      const aIsUnknown = aValue === 'sconosciuto' || aValue === 'unknown';
-      const bIsUnknown = bValue === 'sconosciuto' || bValue === 'unknown';
-      
-      if (aIsUnknown && !bIsUnknown) return sortState.direction === 'asc' ? 1 : 1;
-      if (!aIsUnknown && bIsUnknown) return sortState.direction === 'asc' ? -1 : -1;
-      if (aIsUnknown && bIsUnknown) return 0;
-      
+      aValue = formatDisplayName(a[nameKey] || '').toLowerCase();
+      bValue = formatDisplayName(b[nameKey] || '').toLowerCase();
     } else if (sortState.field === 'percentage') {
-      aValue = totalClicks > 0 ? (a.count / totalClicks) * 100 : 0;
-      bValue = totalClicks > 0 ? (b.count / totalClicks) * 100 : 0;
+      aValue = totalClicks > 0 ? (Number(a.count || 0) / totalClicks) * 100 : 0;
+      bValue = totalClicks > 0 ? (Number(b.count || 0) / totalClicks) * 100 : 0;
     } else {
-      aValue = a[sortState.field];
-      bValue = b[sortState.field];
-      
-      // Gestione speciale per "sconosciuto" quando ordiniamo per count/unique_count
-      const aName = formatDisplayName(a[nameKey]).toLowerCase();
-      const bName = formatDisplayName(b[nameKey]).toLowerCase();
-      const aIsUnknown = aName === 'sconosciuto' || aName === 'unknown';
-      const bIsUnknown = bName === 'sconosciuto' || bName === 'unknown';
-      
-      if (aIsUnknown && !bIsUnknown) return 1; // "sconosciuto" sempre in fondo
-      if (!aIsUnknown && bIsUnknown) return -1; // "sconosciuto" sempre in fondo
+      // Per count e unique_count, assicuriamoci di avere numeri validi
+      aValue = Number(a[sortState.field]) || 0;
+      bValue = Number(b[sortState.field]) || 0;
     }
     
+    // Confronto numerico/stringa
     if (aValue < bValue) return sortState.direction === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortState.direction === 'asc' ? 1 : -1;
+    
+    // Se i valori sono uguali, ordinamento secondario per name per stabilità
+    if (sortState.field !== 'name') {
+      const aName = formatDisplayName(a[nameKey] || '').toLowerCase();
+      const bName = formatDisplayName(b[nameKey] || '').toLowerCase();
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
+    }
+    
     return 0;
   });
+  
+  return sorted;
 };
 
 // Componente per header ordinabile
@@ -569,7 +566,10 @@ const StatCard = ({
     }));
   };
   
-  const sortedData = sortData(data, sortState, nameKey, totalClicks);
+  // Usiamo useMemo per garantire che i dati siano sempre ordinati correttamente
+  const sortedData = useMemo(() => {
+    return sortData(data, sortState, nameKey, totalClicks);
+  }, [data, sortState, nameKey, totalClicks]);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -600,7 +600,7 @@ const StatCard = ({
               </span>
               <span className="col-span-2 text-right">
                 <SortableHeader field="count" currentSort={sortState} onSort={handleSort}>
-                  Visite
+                  Totali
                 </SortableHeader>
               </span>
               <span className="col-span-2 text-right">
@@ -610,7 +610,7 @@ const StatCard = ({
               </span>
               <span className="col-span-2 text-right">
                 <SortableHeader field="percentage" currentSort={sortState} onSort={handleSort}>
-                  % visite
+                  % totali
                 </SortableHeader>
               </span>
             </div>
