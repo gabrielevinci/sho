@@ -81,16 +81,10 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
 
         if (filter === '24h') {
           // Per le ore, mostra solo l'ora 
-          const isCurrentHour = item.is_current_hour;
           const baseHour = date.toLocaleTimeString('it-IT', {
             hour: '2-digit',
             minute: '2-digit'
           });
-          
-          // Debug log per l'ora corrente
-          if (isCurrentHour) {
-            console.log(`🕐 Ora corrente identificata: ${baseHour} (${item.click_totali} click totali, ${item.click_unici} click unici)`);
-          }
           
           // Per l'asse X manteniamo la visualizzazione pulita
           displayDate = baseHour;
@@ -103,10 +97,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             hour: '2-digit',
             minute: '2-digit'
           });
-          
-          if (isCurrentHour) {
-            fullDate += ' (ora corrente)';
-          }
           
           dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
         } else {
@@ -309,100 +299,19 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
     );
   };
 
-  // Componente personalizzato per i tick dell'asse X nel filtro 24h
+  // Componente personalizzato per i tick dell'asse X
   const CustomXAxisTick = (props: any) => {
     const { x, y, payload } = props;
     const value = payload.value;
     
-    if (filter !== '24h') {
-      // Comportamento normale per altri filtri
-      return (
-        <g transform={`translate(${x},${y})`}>
-          <text x={0} y={0} dy={16} textAnchor="middle" fill="#6b7280" fontSize="12">
-            {value}
-          </text>
-        </g>
-      );
-    }
-    
-    // Per il filtro 24h, verifica se questo è il tick dell'ora corrente
-    const dataPoint = chartData.find(item => item.date === value);
-    const isCurrentHour = dataPoint?.isCurrentHour;
-    
     return (
       <g transform={`translate(${x},${y})`}>
-        <text 
-          x={0} 
-          y={0} 
-          dy={16} 
-          textAnchor="middle" 
-          fill={isCurrentHour ? "#3b82f6" : "#6b7280"} 
-          fontSize="12"
-          fontWeight={isCurrentHour ? "bold" : "normal"}
-        >
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#6b7280" fontSize="12">
           {value}
         </text>
-        {isCurrentHour && (
-          <circle
-            cx={0}
-            cy={-8}
-            r={2}
-            fill="#3b82f6"
-          />
-        )}
       </g>
     );
   };
-  const CustomDot = (props: any) => {
-    const { cx, cy, payload, dataKey } = props;
-    const isCurrentHour = payload?.isCurrentHour;
-    
-    if (filter !== '24h' || !isCurrentHour) {
-      // Comportamento normale per filtri diversi da 24h o per ore non correnti
-      return null;
-    }
-    
-    // Dot speciale per l'ora corrente
-    const color = dataKey === 'clickTotali' ? '#3b82f6' : '#10b981';
-    
-    return (
-      <g>
-        {/* Anello pulsante per l'ora corrente */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={8}
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          opacity={0.6}
-        >
-          <animate
-            attributeName="r"
-            values="8;12;8"
-            dur="2s"
-            repeatCount="indefinite"
-          />
-          <animate
-            attributeName="opacity"
-            values="0.6;0.2;0.6"
-            dur="2s"
-            repeatCount="indefinite"
-          />
-        </circle>
-        {/* Dot centrale */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={5}
-          fill={color}
-          stroke="white"
-          strokeWidth={2}
-        />
-      </g>
-    );
-  };
-
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -410,7 +319,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
       const clickUnici = payload[0]?.payload?.clickUnici || 0;
       const fullDate = payload[0]?.payload?.fullDate || label;
       const dayName = payload[0]?.payload?.dayName;
-      const isCurrentHour = payload[0]?.payload?.isCurrentHour;
       
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
@@ -421,11 +329,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             {dayName && filter !== '24h' && (
               <p className="text-xs text-gray-600 capitalize">
                 {dayName}
-              </p>
-            )}
-            {isCurrentHour && (
-              <p className="text-xs text-blue-600 font-medium">
-                ⏰ Ora corrente - dati in tempo reale
               </p>
             )}
           </div>
@@ -514,7 +417,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
                 dataKey="clickTotali" 
                 stroke="#3b82f6" 
                 strokeWidth={2}
-                dot={filter === '24h' ? <CustomDot dataKey="clickTotali" /> : { fill: '#3b82f6', strokeWidth: 0, r: 4 }}
+                dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
                 activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
                 name="Click Totali"
               />
@@ -526,7 +429,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
                 stroke="#10b981" 
                 strokeWidth={2}
                 strokeDasharray="8 4"
-                dot={filter === '24h' ? <CustomDot dataKey="clickUnici" /> : { fill: '#10b981', strokeWidth: 0, r: 4 }}
+                dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
                 activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
                 name="Click Unici"
               />
