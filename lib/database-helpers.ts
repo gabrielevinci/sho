@@ -56,6 +56,60 @@ const COUNTRY_CODE_TO_NAME: { [code: string]: string } = {
 };
 
 /**
+ * Normalizza il nome della città decodificando caratteri URL-encoded
+ */
+export function normalizeCityName(city: string): string {
+  if (!city || city === 'Unknown') {
+    return 'Unknown';
+  }
+  
+  let normalized = city;
+  
+  try {
+    // Decodifica caratteri URL-encoded
+    while (normalized !== decodeURIComponent(normalized)) {
+      normalized = decodeURIComponent(normalized);
+    }
+  } catch {
+    // Se la decodifica fallisce, prova decodifiche manuali per città specifiche trovate
+    const cityMappings: { [key: string]: string } = {
+      'Council%20Bluffs': 'Council Bluffs',
+      'Frankfurt%20am%20Main': 'Frankfurt am Main', 
+      'Los%20Angeles': 'Los Angeles',
+      'Los%20Lunas': 'Los Lunas',
+      'Lule%C3%A5': 'Luleå',
+      'S%C3%A3o%20Paulo': 'São Paulo',
+      'San%20Jose': 'San Jose',
+      'Santa%20Clara': 'Santa Clara'
+    };
+    
+    if (cityMappings[city]) {
+      normalized = cityMappings[city];
+    } else {
+      // Decodifiche generiche
+      normalized = city
+        .replace(/%20/g, ' ')
+        .replace(/%C3%A5/g, 'å')
+        .replace(/%C3%A4/g, 'ä')
+        .replace(/%C3%B6/g, 'ö')
+        .replace(/%C3%A9/g, 'é')
+        .replace(/%C3%A8/g, 'è')
+        .replace(/%C3%A0/g, 'à')
+        .replace(/%C3%B1/g, 'ñ')
+        .replace(/%C3%A7/g, 'ç')
+        .replace(/%C3%BC/g, 'ü')
+        .replace(/%C3%A3/g, 'ã')
+        .replace(/%C2%B0/g, '°');
+    }
+  }
+  
+  // Trim e rimuovi spazi multipli
+  normalized = normalized.trim().replace(/\s+/g, ' ');
+  
+  return normalized;
+}
+
+/**
  * Normalizza il nome del paese convertendo codici ISO in nomi completi
 /**
  * Normalizza il nome del paese convertendo codici ISO in nomi completi
@@ -891,6 +945,7 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
     // Normalizza i dati geografici prima del salvataggio
     const normalizedCountry = normalizeCountryName(geoLocation.country || 'Unknown');
     const normalizedRegion = normalizeRegionName(geoLocation.region || 'Unknown', geoLocation.country || 'Unknown');
+    const normalizedCity = normalizeCityName(geoLocation.city || 'Unknown');
     
     // Converti IP localhost in formato valido per PostgreSQL inet
     const validIP = ip_address === 'localhost' || ip_address === 'unknown' 
@@ -898,7 +953,7 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
       : ip_address;
     
     // Log delle informazioni rilevate per debug
-    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${geoLocation.city}, IP: ${validIP.substring(0, 8)}..., Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})${dataQualityInfo}`);
+    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${normalizedCity}, IP: ${validIP.substring(0, 8)}..., Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})${dataQualityInfo}`);
     
     // Inserisci il click nel database con i dati normalizzati (NESSUNA MODIFICA AL DB)
     const result = await sql`
@@ -908,7 +963,7 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
         timezone_device, click_fingerprint_hash, source_type, source_detail
       ) VALUES (
         ${linkId}, ${normalizedCountry}, ${normalizedRegion}, 
-        ${geoLocation.city}, ${referrerInfo.referrer}, ${deviceInfo.browser_name},
+        ${normalizedCity}, ${referrerInfo.referrer}, ${deviceInfo.browser_name},
         ${deviceInfo.language_device}, ${deviceInfo.device_type}, 
         ${deviceInfo.os_name}, ${validIP}, ${user_agent},
         ${deviceInfo.timezone_device}, ${click_fingerprint_hash},
@@ -982,55 +1037,123 @@ export async function getLinkAnalytics(linkId: number, days: number = 30, startD
         LIMIT 15
       `,
       
-      // Città (con click unici) - Query migliorata per catturare tutte le città
+      // Città (con click unici) - Query completamente rivista per usare la normalizzazione
       sql`
+        WITH city_mapping AS (
+          SELECT 'Los%20Lunas' as encoded, 'Los Lunas' as decoded UNION ALL
+          SELECT 'S%C3%A3o%20Paulo', 'São Paulo' UNION ALL
+          SELECT 'Los%20Angeles', 'Los Angeles' UNION ALL
+          SELECT 'Frankfurt%20am%20Main', 'Frankfurt am Main' UNION ALL
+          SELECT 'Council%20Bluffs', 'Council Bluffs' UNION ALL
+          SELECT 'Lule%C3%A5', 'Luleå' UNION ALL
+          SELECT 'San%20Jose', 'San Jose' UNION ALL
+          SELECT 'Santa%20Clara', 'Santa Clara'
+        ),
+        processed_clicks AS (
+          SELECT 
+            id, 
+            link_id,
+            clicked_at_rome,
+            -- Completa normalizzazione di tutte le città usando la tabella di mappatura
+            CASE 
+              WHEN city IS NULL OR city = '' THEN 'Unknown'
+              WHEN EXISTS (SELECT 1 FROM city_mapping WHERE encoded = city) THEN 
+                (SELECT decoded FROM city_mapping WHERE encoded = city)
+              WHEN city LIKE '%\\%%' THEN 
+                REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                  city,
+                  '%20', ' '),
+                  '%C3%A5', 'å'),
+                  '%C3%A4', 'ä'),
+                  '%C3%B6', 'ö'),
+                  '%C3%A9', 'é'),
+                  '%C3%A8', 'è'),
+                  '%C3%A0', 'à'),
+                  '%C3%B1', 'ñ'),
+                  '%C3%A7', 'ç'),
+                  '%C3%BC', 'ü')
+              ELSE city
+            END as normalized_city,
+            click_fingerprint_hash,
+            ip_address,
+            user_agent
+          FROM clicks 
+          WHERE link_id = ${linkId} 
+            AND clicked_at_rome >= ${startDateISO} 
+            AND clicked_at_rome <= ${endDateISO}
+        )
         SELECT 
-          COALESCE(NULLIF(city, ''), 'Unknown') as city,
+          normalized_city as city,
           COUNT(*) as count,
           COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
-        FROM clicks 
-        WHERE link_id = ${linkId} 
-          AND clicked_at_rome >= ${startDateISO} 
-          AND clicked_at_rome <= ${endDateISO}
-        GROUP BY COALESCE(NULLIF(city, ''), 'Unknown')
+        FROM processed_clicks
+        GROUP BY normalized_city
         ORDER BY count DESC 
-        LIMIT 15
+        LIMIT 100  -- Aumentato il limite per includere tutte le città
       `,
       
-      // Browser (normalizzati con click unici) - Query migliorata
+      // Browser (normalizzati con click unici) - Query completamente rivista
       sql`
+        WITH normalized_browsers AS (
+          SELECT 
+            link_id,
+            clicked_at_rome,
+            CASE 
+              -- Chrome e varianti
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%chrome%' THEN 'Chrome'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%chromium%' THEN 'Chrome'
+              
+              -- Firefox e varianti
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%firefox%' THEN 'Firefox'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%mozilla%' AND LOWER(COALESCE(browser_name, '')) NOT LIKE '%seamonkey%' THEN 'Firefox'
+              
+              -- Safari e varianti
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%safari%' AND LOWER(COALESCE(browser_name, '')) NOT LIKE '%chrome%' THEN 'Safari'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%apple%' AND LOWER(COALESCE(browser_name, '')) LIKE '%webkit%' THEN 'Safari'
+              
+              -- Edge e varianti
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%edge%' THEN 'Microsoft Edge'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%edg/%' THEN 'Microsoft Edge'
+              
+              -- Opera e varianti
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%opera%' OR LOWER(COALESCE(browser_name, '')) LIKE '%opr/%' THEN 'Opera'
+              
+              -- Browser specifici per mobile e altri browser
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%samsung%' THEN 'Samsung Internet'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%brave%' THEN 'Brave'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%vivaldi%' THEN 'Vivaldi'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%yandex%' THEN 'Yandex Browser'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%ucbrowser%' THEN 'UC Browser'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%seamonkey%' THEN 'SeaMonkey'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%tor%' THEN 'Tor Browser'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%whatsapp%' THEN 'WhatsApp'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%instagram%' THEN 'Instagram'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%facebook%' THEN 'Facebook'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%snapchat%' THEN 'Snapchat'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%telegram%' THEN 'Telegram'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%tiktok%' THEN 'TikTok'
+              WHEN LOWER(COALESCE(browser_name, '')) LIKE '%ie%' OR LOWER(COALESCE(browser_name, '')) LIKE '%internet explorer%' THEN 'Internet Explorer'
+              
+              -- Fallback
+              WHEN browser_name IS NULL OR browser_name = '' THEN 'Sconosciuto'
+              ELSE 
+                -- Rimuovi numeri di versione per altri browser
+                REGEXP_REPLACE(browser_name, ' [0-9.]+$', '')
+            END as normalized_browser,
+            click_fingerprint_hash,
+            ip_address,
+            user_agent
+          FROM clicks 
+          WHERE link_id = ${linkId} 
+            AND clicked_at_rome >= ${startDateISO} 
+            AND clicked_at_rome <= ${endDateISO}
+        )
         SELECT 
-          CASE 
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%chrome%' THEN 'Chrome'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%firefox%' THEN 'Firefox'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%safari%' THEN 'Safari'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%edge%' THEN 'Microsoft Edge'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%opera%' THEN 'Opera'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%samsung%' THEN 'Samsung Internet'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%brave%' THEN 'Brave'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%vivaldi%' THEN 'Vivaldi'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%tor%' THEN 'Tor Browser'
-            ELSE COALESCE(NULLIF(browser_name, ''), 'Sconosciuto')
-          END as browser, 
+          normalized_browser as browser,
           COUNT(*) as count,
           COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
-        FROM clicks 
-        WHERE link_id = ${linkId} 
-          AND clicked_at_rome >= ${startDateISO} 
-          AND clicked_at_rome <= ${endDateISO}
-        GROUP BY 
-          CASE 
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%chrome%' THEN 'Chrome'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%firefox%' THEN 'Firefox'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%safari%' THEN 'Safari'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%edge%' THEN 'Microsoft Edge'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%opera%' THEN 'Opera'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%samsung%' THEN 'Samsung Internet'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%brave%' THEN 'Brave'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%vivaldi%' THEN 'Vivaldi'
-            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%tor%' THEN 'Tor Browser'
-            ELSE COALESCE(NULLIF(browser_name, ''), 'Sconosciuto')
-          END
+        FROM normalized_browsers
+        GROUP BY normalized_browser
         ORDER BY count DESC 
         LIMIT 15
       `,

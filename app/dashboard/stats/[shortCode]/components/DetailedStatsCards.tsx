@@ -626,34 +626,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
   }
 };
 
-// Funzione per ottenere il dominio da un URL
-const getDomainFromURL = (url: string): string => {
-  if (!url || url === 'Direct' || url === 'Diretto') return 'Diretto';
-  
-  // Se l'URL contiene caratteri URL encoded, prova a formattarlo
-  if (url.includes('%') || url.includes('+')) {
-    const formatted = formatDisplayName(url);
-    // Se la formattazione ha prodotto un risultato sensato (no http/www), usa quello
-    if (!formatted.includes('http') && !formatted.includes('www.') && formatted !== url) {
-      return formatted;
-    }
-  }
-  
-  try {
-    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-    return urlObj.hostname.replace('www.', '');
-  } catch {
-    // Se l'URL non è valido, prova a estrarre il dominio manualmente
-    const domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-    
-    // Se anche questo fallisce, applica la formattazione generale
-    if (!domain || domain === url) {
-      return formatDisplayName(url);
-    }
-    
-    return domain || 'Sconosciuto';
-  }
-};  useEffect(() => {
+  useEffect(() => {
     fetchDetailedAnalytics();
   }, [shortCode, filter, startDate, endDate]);
 
