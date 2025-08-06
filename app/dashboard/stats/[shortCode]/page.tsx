@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   BarChart3, 
-  ArrowLeft,
-  Calendar
+  ArrowLeft
 } from 'lucide-react';
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
 import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
+import EnhancedDatePicker from '@/app/dashboard/components/EnhancedDatePicker';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 import StatsChart from './components/StatsChart';
 import CombinedCharts from './components/CombinedCharts';
@@ -380,42 +380,16 @@ export default function LinkStatsPage() {
           </div>
 
           {activeFilter === 'custom' && (
-            <div className="flex flex-wrap items-end gap-4 p-4 bg-gray-50 rounded-lg mt-4">
-              <div className="flex-1 min-w-[180px]">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Data Inizio</label>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-900"
-                />
-              </div>
-              <div className="flex-1 min-w-[180px]">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Data Fine</label>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-900"
-                />
-              </div>
-              <button
-                onClick={handleCustomDateFilter}
-                disabled={!customStartDate || !customEndDate || isCustomDateLoading || isApplyingFilter}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm shadow-sm transition-all"
-              >
-                {isCustomDateLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                    Caricamento...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Applica
-                  </>
-                )}
-              </button>
+            <div className="mt-4">
+              <EnhancedDatePicker
+                startDate={customStartDate}
+                endDate={customEndDate}
+                onStartDateChange={setCustomStartDate}
+                onEndDateChange={setCustomEndDate}
+                onApply={handleCustomDateFilter}
+                disabled={isApplyingFilter}
+                loading={isCustomDateLoading}
+              />
             </div>
           )}
         </div>
@@ -456,11 +430,11 @@ export default function LinkStatsPage() {
             </div>
           </div>
 
-          {/* Card Referrer */}
+          {/* Card Origini Traffico */}
           <div className="bg-white rounded-lg shadow-sm p-6 transition-all duration-300 hover:shadow-md border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Referrer Unici</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Origini Traffico</p>
                 <p className="text-2xl font-bold text-gray-900">
                   <NoSSR fallback="---">
                     <NumberFormat value={stats.referrerCount} />
@@ -468,7 +442,9 @@ export default function LinkStatsPage() {
                 </p>
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
-                <BarChart3 className="h-5 w-5 text-purple-600" />
+                <svg className="h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                </svg>
               </div>
             </div>
           </div>

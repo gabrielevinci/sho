@@ -49,6 +49,20 @@ html {
   color: white !important;
 }
 
+/* Stili per il calendario migliorato */
+.enhanced-calendar-day-hover:hover {
+  background-color: #dbeafe;
+  transform: scale(1.05);
+  transition: all 0.15s ease;
+}
+
+.enhanced-calendar-day-selected {
+  background-color: #3b82f6;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
 /* Scrollbar personalizzate minimali */
 .scrollbar-thin {
   scrollbar-width: thin;
