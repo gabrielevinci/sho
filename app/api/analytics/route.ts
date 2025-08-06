@@ -15,25 +15,27 @@ export async function GET(request: NextRequest) {
     
     // Ottieni parametri dalla query string
     const { searchParams } = new URL(request.url);
-    const linkId = searchParams.get('linkId');
+    const shortCode = searchParams.get('shortCode');
     const days = searchParams.get('days') || '30';
     
-    if (!linkId) {
-      return NextResponse.json({ error: 'LinkId mancante' }, { status: 400 });
+    if (!shortCode) {
+      return NextResponse.json({ error: 'ShortCode mancante' }, { status: 400 });
     }
     
-    // Verifica che il link appartenga all'utente
+    // Verifica che il link appartenga all'utente usando short_code
     const linkCheck = await sql`
       SELECT id FROM links 
-      WHERE id = ${parseInt(linkId)} AND user_id = ${parseInt(session.userId)}
+      WHERE short_code = ${shortCode} AND user_id = ${session.userId}
     `;
     
     if (linkCheck.rowCount === 0) {
       return NextResponse.json({ error: 'Link non trovato o non autorizzato' }, { status: 404 });
     }
     
+    const linkId = linkCheck.rows[0].id;
+    
     // Ottieni le analitiche
-    const analytics = await getLinkAnalytics(parseInt(linkId), parseInt(days));
+    const analytics = await getLinkAnalytics(linkId, parseInt(days));
     
     return NextResponse.json({ analytics });
   } catch (error) {

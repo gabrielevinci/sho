@@ -883,7 +883,7 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
     startDate.setDate(startDate.getDate() - days);
     const startDateISO = startDate.toISOString();
     
-    const [totalClicks, uniqueClicks, countries, browsers, devices, operatingSystems, referrers, dailyClicks] = await Promise.all([
+    const [totalClicks, uniqueClicks, countries, cities, browsers, devices, operatingSystems, referrers, languages, dailyClicks] = await Promise.all([
       // Total clicks
       sql`SELECT COUNT(*) as total FROM clicks WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO}`,
       
@@ -897,37 +897,108 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND country IS NOT NULL
         GROUP BY country 
         ORDER BY count DESC 
-        LIMIT 10
+        LIMIT 15
       `,
       
-      // Browser
+      // Città
       sql`
-        SELECT browser_name as browser, COUNT(*) as count 
+        SELECT city, COUNT(*) as count 
+        FROM clicks 
+        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND city IS NOT NULL
+        GROUP BY city 
+        ORDER BY count DESC 
+        LIMIT 15
+      `,
+      
+      // Browser (normalizzati)
+      sql`
+        SELECT 
+          CASE 
+            WHEN LOWER(browser_name) LIKE '%chrome%' THEN 'Chrome'
+            WHEN LOWER(browser_name) LIKE '%firefox%' THEN 'Firefox'
+            WHEN LOWER(browser_name) LIKE '%safari%' THEN 'Safari'
+            WHEN LOWER(browser_name) LIKE '%edge%' THEN 'Microsoft Edge'
+            WHEN LOWER(browser_name) LIKE '%opera%' THEN 'Opera'
+            WHEN LOWER(browser_name) LIKE '%samsung%' THEN 'Samsung Internet'
+            WHEN LOWER(browser_name) LIKE '%brave%' THEN 'Brave'
+            WHEN LOWER(browser_name) LIKE '%vivaldi%' THEN 'Vivaldi'
+            WHEN LOWER(browser_name) LIKE '%tor%' THEN 'Tor Browser'
+            ELSE COALESCE(browser_name, 'Sconosciuto')
+          END as browser, 
+          COUNT(*) as count 
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND browser_name IS NOT NULL
-        GROUP BY browser_name 
+        GROUP BY 
+          CASE 
+            WHEN LOWER(browser_name) LIKE '%chrome%' THEN 'Chrome'
+            WHEN LOWER(browser_name) LIKE '%firefox%' THEN 'Firefox'
+            WHEN LOWER(browser_name) LIKE '%safari%' THEN 'Safari'
+            WHEN LOWER(browser_name) LIKE '%edge%' THEN 'Microsoft Edge'
+            WHEN LOWER(browser_name) LIKE '%opera%' THEN 'Opera'
+            WHEN LOWER(browser_name) LIKE '%samsung%' THEN 'Samsung Internet'
+            WHEN LOWER(browser_name) LIKE '%brave%' THEN 'Brave'
+            WHEN LOWER(browser_name) LIKE '%vivaldi%' THEN 'Vivaldi'
+            WHEN LOWER(browser_name) LIKE '%tor%' THEN 'Tor Browser'
+            ELSE COALESCE(browser_name, 'Sconosciuto')
+          END
         ORDER BY count DESC 
-        LIMIT 10
+        LIMIT 15
       `,
       
-      // Dispositivi
+      // Dispositivi (normalizzati)
       sql`
-        SELECT device_type as device, COUNT(*) as count 
+        SELECT 
+          CASE 
+            WHEN LOWER(device_type) LIKE '%mobile%' OR LOWER(device_type) LIKE '%phone%' THEN 'Mobile'
+            WHEN LOWER(device_type) LIKE '%tablet%' THEN 'Tablet'
+            WHEN LOWER(device_type) LIKE '%desktop%' OR LOWER(device_type) LIKE '%computer%' THEN 'Desktop'
+            WHEN LOWER(device_type) LIKE '%tv%' OR LOWER(device_type) LIKE '%smart%' THEN 'Smart TV'
+            ELSE COALESCE(device_type, 'Sconosciuto')
+          END as device, 
+          COUNT(*) as count 
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND device_type IS NOT NULL
-        GROUP BY device_type 
+        GROUP BY 
+          CASE 
+            WHEN LOWER(device_type) LIKE '%mobile%' OR LOWER(device_type) LIKE '%phone%' THEN 'Mobile'
+            WHEN LOWER(device_type) LIKE '%tablet%' THEN 'Tablet'
+            WHEN LOWER(device_type) LIKE '%desktop%' OR LOWER(device_type) LIKE '%computer%' THEN 'Desktop'
+            WHEN LOWER(device_type) LIKE '%tv%' OR LOWER(device_type) LIKE '%smart%' THEN 'Smart TV'
+            ELSE COALESCE(device_type, 'Sconosciuto')
+          END
         ORDER BY count DESC 
-        LIMIT 10
+        LIMIT 15
       `,
       
-      // Sistemi operativi
+      // Sistemi operativi (normalizzati)
       sql`
-        SELECT os_name as os, COUNT(*) as count 
+        SELECT 
+          CASE 
+            WHEN LOWER(os_name) LIKE '%windows%' THEN 'Windows'
+            WHEN LOWER(os_name) LIKE '%mac%' OR LOWER(os_name) LIKE '%darwin%' THEN 'macOS'
+            WHEN LOWER(os_name) LIKE '%linux%' THEN 'Linux'
+            WHEN LOWER(os_name) LIKE '%android%' THEN 'Android'
+            WHEN LOWER(os_name) LIKE '%ios%' OR LOWER(os_name) LIKE '%iphone%' THEN 'iOS'
+            WHEN LOWER(os_name) LIKE '%ubuntu%' THEN 'Ubuntu'
+            WHEN LOWER(os_name) LIKE '%chrome%' THEN 'Chrome OS'
+            ELSE COALESCE(os_name, 'Sconosciuto')
+          END as os, 
+          COUNT(*) as count 
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND os_name IS NOT NULL
-        GROUP BY os_name 
+        GROUP BY 
+          CASE 
+            WHEN LOWER(os_name) LIKE '%windows%' THEN 'Windows'
+            WHEN LOWER(os_name) LIKE '%mac%' OR LOWER(os_name) LIKE '%darwin%' THEN 'macOS'
+            WHEN LOWER(os_name) LIKE '%linux%' THEN 'Linux'
+            WHEN LOWER(os_name) LIKE '%android%' THEN 'Android'
+            WHEN LOWER(os_name) LIKE '%ios%' OR LOWER(os_name) LIKE '%iphone%' THEN 'iOS'
+            WHEN LOWER(os_name) LIKE '%ubuntu%' THEN 'Ubuntu'
+            WHEN LOWER(os_name) LIKE '%chrome%' THEN 'Chrome OS'
+            ELSE COALESCE(os_name, 'Sconosciuto')
+          END
         ORDER BY count DESC 
-        LIMIT 10
+        LIMIT 15
       `,
       
       // Referrer
@@ -937,7 +1008,17 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND referrer IS NOT NULL
         GROUP BY referrer 
         ORDER BY count DESC 
-        LIMIT 10
+        LIMIT 15
+      `,
+      
+      // Lingue
+      sql`
+        SELECT language_device as language, COUNT(*) as count 
+        FROM clicks 
+        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND language_device IS NOT NULL
+        GROUP BY language_device 
+        ORDER BY count DESC 
+        LIMIT 15
       `,
       
       // Click giornalieri
@@ -958,10 +1039,12 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
       total_clicks: parseInt(totalClicks.rows[0].total),
       unique_clicks: parseInt(uniqueClicks.rows[0].unique),
       countries: countries.rows,
+      cities: cities.rows,
       browsers: browsers.rows,
       devices: devices.rows,
       operating_systems: operatingSystems.rows,
       referrers: referrers.rows,
+      languages: languages.rows,
       daily_clicks: dailyClicks.rows
     };
   } catch (error) {
@@ -972,10 +1055,12 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
       total_clicks: 0,
       unique_clicks: 0,
       countries: [],
+      cities: [],
       browsers: [],
       devices: [],
       operating_systems: [],
       referrers: [],
+      languages: [],
       daily_clicks: []
     };
   }

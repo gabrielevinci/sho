@@ -14,6 +14,7 @@ import NoSSR from '@/app/components/NoSSR';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
 import StatsChart from './components/StatsChart';
 import CombinedCharts from './components/CombinedCharts';
+import DetailedStatsCards from './components/DetailedStatsCards';
 
 export default function LinkStatsPage() {
   const params = useParams();
@@ -601,6 +602,16 @@ export default function LinkStatsPage() {
           shortCode={shortCode}
           triggerRefresh={chartRefreshTrigger}
         />
+
+        {/* Blocco 6: Statistiche Dettagliate */}
+        <div className="mt-8">
+          <DetailedStatsCards
+            shortCode={shortCode}
+            filter={activeFilter === 'sempre' ? 'all' : activeFilter}
+            startDate={activeFilter === 'custom' ? customStartDate : undefined}
+            endDate={activeFilter === 'custom' ? customEndDate : undefined}
+          />
+        </div>
       </div>
     </div>
   );
