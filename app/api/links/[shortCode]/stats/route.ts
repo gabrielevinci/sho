@@ -365,8 +365,34 @@ export async function GET(
     // Esegui la query con parametri
     const { rows } = await sql.query(query, queryParams);
 
-    // Restituisci i risultati
-    return NextResponse.json(rows, { status: 200 });
+    // Formatta i risultati per garantire consistenza del fuso orario
+    const formattedRows = rows.map(row => {
+      const formattedRow = { ...row };
+      
+      // Per il filtro 24h, assicuriamoci che il timestamp sia interpretato correttamente
+      if (filter === '24h' && row.ora_italiana) {
+        // Forza il timestamp nel formato ISO con timezone italiano
+        const date = new Date(row.ora_italiana);
+        // Ottieni l'ora italiana e formattala in modo esplicito
+        const italianTime = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Europe/Rome',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }).format(date);
+        
+        // Aggiungi il timezone europeo per essere espliciti
+        formattedRow.ora_italiana = italianTime + '+01:00';
+      }
+      
+      return formattedRow;
+    });
+
+    // Restituisci i risultati formattati
+    return NextResponse.json(formattedRows, { status: 200 });
 
   } catch (error) {
     console.error('Error fetching link stats:', error);

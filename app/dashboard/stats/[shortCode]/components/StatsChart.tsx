@@ -72,6 +72,12 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         // Per il filtro 24h usa 'ora_italiana', per gli altri 'data_italiana'
         const dateKey = filter === '24h' ? 'ora_italiana' : 'data_italiana';
         let dateValue = item[dateKey];
+        
+        // Debug log per il fuso orario (solo in ambiente di sviluppo)
+        if (filter === '24h' && process.env.NODE_ENV === 'development') {
+          console.log(`🕐 Original dateValue from API: ${dateValue}`);
+        }
+        
         const date = new Date(dateValue);
 
         // Formatta la data per la visualizzazione
@@ -81,12 +87,25 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
 
         if (filter === '24h') {
           // Per il filtro 24h, dobbiamo gestire il fuso orario correttamente
-          // Il database restituisce le date in orario italiano, ma JavaScript le converte in UTC
+          // Il database restituisce le date in orario italiano
           
           // Creiamo un oggetto Date dalla stringa ricevuta
-          const originalDate = new Date(dateValue);
+          let workingDate: Date;
           
-          // Otteniamo l'ora in formato italiano direttamente dalla data originale
+          // Se la stringa contiene timezone info (formato aggiornato dall'API)
+          if (typeof dateValue === 'string' && (dateValue.includes('+') || dateValue.includes('Z'))) {
+            workingDate = new Date(dateValue);
+          }
+          // Se la stringa non contiene informazioni sul timezone, la trattiamo come ora italiana
+          else if (typeof dateValue === 'string' && !dateValue.includes('Z') && !dateValue.includes('+')) {
+            // Aggiungiamo esplicitamente il timezone italiano per evitare interpretazioni UTC
+            const dateStr = dateValue.replace(' ', 'T');
+            workingDate = new Date(dateStr + '+01:00'); // Fuso orario italiano (CET)
+          } else {
+            workingDate = new Date(dateValue);
+          }
+          
+          // Forziamo sempre l'interpretazione nel fuso orario italiano
           // Usiamo Intl.DateTimeFormat per essere sicuri della formattazione
           const formatter = new Intl.DateTimeFormat('it-IT', {
             hour: '2-digit',
@@ -94,10 +113,15 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             timeZone: 'Europe/Rome'
           });
           
-          const baseHour = formatter.format(originalDate);
+          const baseHour = formatter.format(workingDate);
           
           // Per l'asse X manteniamo la visualizzazione pulita
           displayDate = baseHour;
+          
+          // Debug log per verificare la formattazione (solo in ambiente di sviluppo)
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🕐 Final displayDate (Italy time): ${displayDate} | Working date object: ${workingDate.toISOString()}`);
+          }
           
           // Per il tooltip usiamo la data con timezone italiano
           const fullFormatter = new Intl.DateTimeFormat('it-IT', {
@@ -109,14 +133,14 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             timeZone: 'Europe/Rome'
           });
           
-          fullDate = fullFormatter.format(originalDate);
+          fullDate = fullFormatter.format(workingDate);
           
           const dayFormatter = new Intl.DateTimeFormat('it-IT', { 
             weekday: 'long',
             timeZone: 'Europe/Rome'
           });
           
-          dayName = dayFormatter.format(originalDate);
+          dayName = dayFormatter.format(workingDate);
         } else {
           // Per i giorni, mostra la data
           dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
