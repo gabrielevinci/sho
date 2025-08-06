@@ -8,7 +8,7 @@ import ToastContainer from './components/Toast';
 import { useToast } from '../hooks/use-toast';
 import { useDashboardData } from '../hooks/use-dashboard-data';
 import { useStatsPreloader } from '../hooks/use-stats-preloader';
-import { preloadDashboardData } from '../lib/data-preloader';
+import { preloadDashboardData, invalidateCacheOnReload } from '../lib/data-preloader';
 import { logger, UI_CONFIG } from '../lib/dashboard-config';
 
 type Workspace = {
@@ -77,13 +77,24 @@ export default function DashboardClient({
   const initializationDoneRef = useRef(false);
   
   // Salva i dati di sessione iniziali per le statistiche
+  // Effetto per invalidare la cache se la pagina è stata ricaricata
+  useEffect(() => {
+    invalidateCacheOnReload();
+  }, []);
+
   useEffect(() => {
     if (initialActiveWorkspace?.id && userId) {
       localStorage.setItem('currentWorkspaceId', initialActiveWorkspace.id);
       localStorage.setItem('currentUserId', userId);
       
+      // Rileva se la pagina è stata ricaricata
+      const isReload = performance.getEntriesByType('navigation').length > 0 
+        ? (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).type === 'reload'
+        : performance.navigation?.type === performance.navigation?.TYPE_RELOAD;
+      
       // Avvia il precaricamento lato client in background
-      preloadDashboardData(initialActiveWorkspace.id, userId).catch(error => {
+      // Forza il refresh se la pagina è stata ricaricata
+      preloadDashboardData(initialActiveWorkspace.id, userId, isReload).catch(error => {
         console.warn('⚠️ Precaricamento fallito (non critico):', error);
       });
     }

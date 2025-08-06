@@ -18,6 +18,27 @@ const preloadCache = new Map<string, PreloadedData>();
 const CACHE_DURATION = 300000;
 
 /**
+ * Verifica se la pagina è stata ricaricata (refresh)
+ */
+function isPageReloaded(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    // Usa l'API moderna se disponibile
+    const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    if (navigationEntries.length > 0) {
+      return navigationEntries[0].type === 'reload';
+    }
+    
+    // Fallback per browser più vecchi
+    return performance.navigation?.type === performance.navigation?.TYPE_RELOAD;
+  } catch (error) {
+    // Se l'API non è supportata, assumiamo che non sia un reload
+    return false;
+  }
+}
+
+/**
  * Salva la cache anche nel sessionStorage per persistenza durante la sessione
  */
 function saveToSessionStorage(key: string, data: PreloadedData) {
@@ -64,7 +85,7 @@ function isCacheValid(data: PreloadedData): boolean {
 /**
  * Precarica i dati della dashboard per un workspace specifico
  */
-export async function preloadDashboardData(workspaceId: string, userId: string) {
+export async function preloadDashboardData(workspaceId: string, userId: string, forceRefresh: boolean = false) {
   if (!workspaceId || !userId) return null;
   
   // IMPORTANTE: Il precaricamento funziona solo lato client
@@ -73,13 +94,20 @@ export async function preloadDashboardData(workspaceId: string, userId: string) 
     return null;
   }
   
+  // Se non è specificato forceRefresh, controlla se la pagina è stata ricaricata
+  const shouldForceRefresh = forceRefresh || isPageReloaded();
+  
   const cacheKey = `${userId}-${workspaceId}`;
   const cachedData = preloadCache.get(cacheKey);
   
-  // Se abbiamo dati validi in cache, ritornali
-  if (cachedData && isCacheValid(cachedData)) {
+  // Se abbiamo dati validi in cache e non è richiesto un refresh forzato, ritornali
+  if (!shouldForceRefresh && cachedData && isCacheValid(cachedData)) {
     console.log('📦 Dati dashboard caricati dalla cache');
     return cachedData;
+  }
+  
+  if (shouldForceRefresh) {
+    console.log('🔄 Refresh forzato dei dati dashboard (pagina ricaricata)');
   }
   
   try {
@@ -148,6 +176,19 @@ export async function preloadDashboardData(workspaceId: string, userId: string) 
 }
 
 /**
+ * Invalida tutta la cache se la pagina è stata ricaricata
+ * Dovrebbe essere chiamata all'inizializzazione dell'app
+ */
+export function invalidateCacheOnReload() {
+  if (typeof window === 'undefined') return;
+  
+  if (isPageReloaded()) {
+    console.log('🔄 Pagina ricaricata: invalidazione completa della cache');
+    clearAllCache();
+  }
+}
+
+/**
  * Pulisce la cache per un utente specifico
  */
 export function clearUserCache(userId: string) {
@@ -190,6 +231,17 @@ export function clearAllCache() {
 export function getCachedData(workspaceId: string, userId: string): PreloadedData | null {
   const cacheKey = `${userId}-${workspaceId}`;
   let cachedData = preloadCache.get(cacheKey);
+  
+  // Se la pagina è stata ricaricata, invalida la cache
+  if (isPageReloaded()) {
+    console.log('🔄 Pagina ricaricata: invalidazione cache');
+    preloadCache.delete(cacheKey);
+    // Pulisci anche sessionStorage
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`preload_${cacheKey}`);
+    }
+    return null;
+  }
   
   // Se non è in memoria, prova a caricare da sessionStorage
   if (!cachedData) {
