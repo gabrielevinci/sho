@@ -212,11 +212,8 @@ const StatCard = ({
   data: Array<any>;
   totalClicks: number;
   uniqueClicks: number;
-  renderItem: (item: any, index: number, categoryTotal: number) => React.ReactNode;
+    renderItem: (item: any, index: number, totalClicks: number) => React.ReactNode;
 }) => {
-  // Calcola il totale dei click per questa categoria specifica
-  const categoryTotal = data.reduce((sum, item) => sum + item.count, 0);
-  
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="p-4">
@@ -246,8 +243,8 @@ const StatCard = ({
             </div>
             
             {/* Contenuto scrollabile compatto */}
-            <div className={`${data.length > 8 ? 'max-h-48 overflow-y-auto' : ''} space-y-0.5 mt-1.5`}>
-              {data.map((item, index) => renderItem(item, index, categoryTotal))}
+            <div className={`${data.length > 8 ? 'max-h-48 overflow-y-auto pr-3' : ''} space-y-0.5 mt-1.5`}>
+              {data.map((item, index) => renderItem(item, index, totalClicks))}
             </div>
           </div>
         )}
@@ -346,15 +343,9 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Statistiche Dettagliate</h2>
-        <p className="text-gray-600">Analisi approfondita del traffico del tuo link</p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Card Paesi */}
-        <StatCard
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Card Paesi */}
+      <StatCard
           title="Paesi"
           icon={<Globe className="h-5 w-5" />}
           borderColor="border-blue-500"
@@ -363,7 +354,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.countries}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(country, index, categoryTotal) => (
+          renderItem={(country, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getCountryFlag(country.country)}</span>
@@ -382,7 +373,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((country.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((country.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
@@ -398,7 +389,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.cities}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(city, index, categoryTotal) => (
+          renderItem={(city, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">🏙️</span>
@@ -417,7 +408,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((city.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((city.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
@@ -433,7 +424,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.referrers}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(referrer, index, categoryTotal) => (
+          renderItem={(referrer, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">🔗</span>
@@ -452,7 +443,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((referrer.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((referrer.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
@@ -468,7 +459,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.browsers}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(browser, index, categoryTotal) => (
+          renderItem={(browser, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getBrowserEmoji(browser.browser)}</span>
@@ -487,7 +478,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((browser.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((browser.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
@@ -503,7 +494,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.languages}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(language, index, categoryTotal) => (
+          renderItem={(language, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getLanguageEmoji(language.language)}</span>
@@ -522,7 +513,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((language.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((language.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
@@ -538,7 +529,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.devices}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(device, index, categoryTotal) => (
+          renderItem={(device, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getDeviceEmoji(device.device)}</span>
@@ -557,7 +548,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((device.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((device.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
@@ -573,7 +564,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           data={analytics.operating_systems}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
-          renderItem={(os, index, categoryTotal) => (
+          renderItem={(os, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getOSEmoji(os.os)}</span>
@@ -592,12 +583,11 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
                 </NoSSR>
               </div>
               <div className="col-span-2 text-right text-gray-500 font-medium">
-                {categoryTotal > 0 ? ((os.count / categoryTotal) * 100).toFixed(1) : 0}%
+                {totalClicks > 0 ? ((os.count / totalClicks) * 100).toFixed(1) : 0}%
               </div>
             </div>
           )}
         />
-      </div>
     </div>
   );
 }
