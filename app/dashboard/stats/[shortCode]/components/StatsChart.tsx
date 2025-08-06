@@ -86,49 +86,59 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         let dayName: string | undefined;
 
         if (filter === '24h') {
-          // Approccio semplificato: il database ci invia timestamp corretti
-          // Non facciamo conversioni complesse, trattiamo i timestamp come ora italiana
+          // Approccio UTC: riceviamo timestamp UTC dal server e li convertiamo per la visualizzazione italiana
           
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🕐 Raw dateValue from API: ${dateValue}`);
+            console.log(`🕐 Raw UTC dateValue from API: ${dateValue}`);
           }
           
-          // Crea l'oggetto Date dal timestamp
-          const workingDate = new Date(dateValue);
+          // Il server ora ci invia timestamp UTC
+          const utcDate = new Date(dateValue);
           
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🕐 Date object created: ${workingDate.toISOString()}`);
-            console.log(`🕐 Local string: ${workingDate.toLocaleString()}`);
-            console.log(`🕐 Italy timezone: ${workingDate.toLocaleString('it-IT', { timeZone: 'Europe/Rome' })}`);
+            console.log(`🕐 UTC Date object: ${utcDate.toISOString()}`);
           }
           
-          // Usa semplicemente l'ora locale del timestamp per la visualizzazione
-          const hours = workingDate.getHours().toString().padStart(2, '0');
-          const minutes = workingDate.getMinutes().toString().padStart(2, '0');
+          // Calcola l'offset dell'ora italiana dinamicamente (stesso metodo del server)
+          const nowUTC = new Date();
+          const italianTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+          const utcTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "UTC"}));
+          const offsetMs = italianTime.getTime() - utcTime.getTime();
+          
+          // Convertirlo nell'ora italiana per la visualizzazione
+          const italianDate = new Date(utcDate.getTime() + offsetMs);
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🕐 Italian offset: ${offsetMs/1000/60/60} hours`);
+            console.log(`🕐 Italian Date object: ${italianDate.toISOString()}`);
+            console.log(`🕐 Italian local string: ${italianDate.toLocaleString()}`);
+          }
+          
+          // Usa l'ora italiana convertita per la visualizzazione
+          const hours = italianDate.getHours().toString().padStart(2, '0');
+          const minutes = italianDate.getMinutes().toString().padStart(2, '0');
           displayDate = `${hours}:${minutes}`;
           
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🕐 Final displayDate: ${displayDate}`);
+            console.log(`🕐 Final displayDate (Italian time): ${displayDate}`);
           }
           
-          // Per il tooltip usiamo la data con timezone italiano
+          // Per il tooltip, usa anche la data italiana convertita
           const fullFormatter = new Intl.DateTimeFormat('it-IT', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
             hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'Europe/Rome'
+            minute: '2-digit'
           });
           
-          fullDate = fullFormatter.format(workingDate);
+          fullDate = fullFormatter.format(italianDate);
           
           const dayFormatter = new Intl.DateTimeFormat('it-IT', { 
-            weekday: 'long',
-            timeZone: 'Europe/Rome'
+            weekday: 'long'
           });
           
-          dayName = dayFormatter.format(workingDate);
+          dayName = dayFormatter.format(italianDate);
         } else {
           // Per i giorni, mostra la data
           dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });

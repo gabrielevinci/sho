@@ -85,17 +85,29 @@ export async function GET(
 
     switch (filter) {
       case '24h':
-        // Approccio semplificato: lavoriamo direttamente con l'ora italiana
-        // senza complicazioni di conversione
+        // Approccio UTC: tutto in UTC, conversione solo per visualizzazione
+        const nowUTC = new Date();
         
-        console.log(`🕐 Generating 24h stats at server time: ${new Date().toISOString()}`);
+        // Calcola l'offset dell'ora italiana dinamicamente
+        const italianTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
+        const utcTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "UTC"}));
+        const offsetMs = italianTime.getTime() - utcTime.getTime();
         
-        // Usa direttamente PostgreSQL per calcolare l'ora italiana corrente
+        // Calcola l'ora corrente italiana convertendo da UTC
+        const currentHourItalyUTC = new Date(nowUTC.getTime() + offsetMs);
+        currentHourItalyUTC.setMinutes(0, 0, 0); // Tronca ai minuti
+        
+        // Converte di nuovo in UTC per la query (ora rappresenta l'ora italiana ma in UTC)
+        const queryBaseTime = new Date(currentHourItalyUTC.getTime() - offsetMs);
+        
+        console.log(`🕐 UTC-based calculation:`);
+        console.log(`🕐 Server UTC time: ${nowUTC.toISOString()}`);
+        console.log(`🕐 Italian offset: ${offsetMs/1000/60/60} hours`);
+        console.log(`🕐 Italian hour (UTC adjusted): ${currentHourItalyUTC.toISOString()}`);
+        console.log(`🕐 Query base time (UTC): ${queryBaseTime.toISOString()}`);
+        
         query = `
-          WITH current_hour_italy AS (
-            SELECT DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome') as current_hour
-          ),
-          clicks_ranked_globally AS (
+          WITH clicks_ranked_globally AS (
             SELECT
               id,
               clicked_at_rome,
@@ -107,30 +119,31 @@ export async function GET(
               link_id = $1
           )
           SELECT
-            serie_oraria.ora AS ora_italiana,
+            -- Restituiamo timestamp UTC che il client convertirà per la visualizzazione
+            serie_oraria.ora AT TIME ZONE 'UTC' AS ora_italiana,
             COALESCE(COUNT(cr.id), 0) AS click_totali,
             COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici,
-            -- Indica se questa è l'ora corrente
+            -- Indica se questa è l'ora corrente (confronto in UTC)
             CASE 
-              WHEN serie_oraria.ora = (SELECT current_hour FROM current_hour_italy)
+              WHEN serie_oraria.ora = $2::timestamp
               THEN true 
               ELSE false 
             END AS is_current_hour
           FROM
             generate_series(
-              (SELECT current_hour FROM current_hour_italy) - INTERVAL '23 hours',
-              (SELECT current_hour FROM current_hour_italy),
+              $2::timestamp - INTERVAL '23 hours',
+              $2::timestamp,
               '1 hour'
             ) AS serie_oraria(ora)
           LEFT JOIN
             clicks_ranked_globally cr ON DATE_TRUNC('hour', cr.clicked_at_rome) = serie_oraria.ora
-            AND cr.clicked_at_rome >= ((SELECT current_hour FROM current_hour_italy) - INTERVAL '24 hours')
+            AND cr.clicked_at_rome >= ($2::timestamp - INTERVAL '24 hours')
           GROUP BY
             serie_oraria.ora
           ORDER BY
             serie_oraria.ora ASC;
         `;
-        queryParams = [linkId];
+        queryParams = [linkId, queryBaseTime.toISOString()];
         break;
 
       case '7d':
