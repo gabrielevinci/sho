@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { CalendarDays, TrendingUp, Users } from 'lucide-react';
+import TimeFormat from '@/app/components/TimeFormat';
+import { formatDate, DATE_FORMAT_OPTIONS } from '@/app/lib/datetime-config';
 
 interface ChartDataPoint {
   date: string;
@@ -73,50 +75,37 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         let dateValue = item[dateKey];
         const date = new Date(dateValue);
 
-        // Formatta la data per la visualizzazione
+        // IMPORTANTE: Forza sempre il fuso orario Europe/Rome per garantire
+        // che gli orari mostrati corrispondano a quelli del server,
+        // indipendentemente dal fuso orario del browser dell'utente
         let displayDate: string;
         let fullDate: string;
         let dayName: string | undefined;
 
         if (filter === '24h') {
-          // Per le ore, mostra solo l'ora
-          displayDate = date.toLocaleTimeString('it-IT', {
-            hour: '2-digit',
-            minute: '2-digit'
+          // Per le ore, forza il fuso orario di Roma e mostra solo l'ora
+          displayDate = formatDate.toLocaleTimeString(date, DATE_FORMAT_OPTIONS.timeOnly);
+          fullDate = formatDate.toLocaleString(date, DATE_FORMAT_OPTIONS.dateTime);
+          dayName = formatDate.toLocaleDateString(date, { 
+            weekday: 'long',
+            timeZone: 'Europe/Rome'
           });
-          fullDate = date.toLocaleString('it-IT', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
         } else {
-          // Per i giorni, mostra la data
-          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
+          // Per i giorni, forza il fuso orario di Roma
+          dayName = formatDate.toLocaleDateString(date, { 
+            weekday: 'long',
+            timeZone: 'Europe/Rome'
+          });
           
           if (filter === 'all') {
             // Per il filtro "all", usa formato più compatto per gestire periodi lunghi
-            displayDate = date.toLocaleDateString('it-IT', {
-              day: '2-digit',
-              month: '2-digit',
-              year: '2-digit'
-            });
+            displayDate = formatDate.toLocaleDateString(date, DATE_FORMAT_OPTIONS.chartYear);
           } else {
             // Per altri filtri, formato senza anno
-            displayDate = date.toLocaleDateString('it-IT', {
-              day: '2-digit',
-              month: '2-digit'
-            });
+            displayDate = formatDate.toLocaleDateString(date, DATE_FORMAT_OPTIONS.dateShort);
           }
           
-          fullDate = date.toLocaleDateString('it-IT', {
-            weekday: 'long',
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric'
-          });
+          fullDate = formatDate.toLocaleDateString(date, DATE_FORMAT_OPTIONS.dateTimeLong);
         }
 
         const transformedItem = {
