@@ -30,6 +30,16 @@ export interface RobustFingerprint {
   correlationKey: string;              // Chiave per correlazione tra sessioni
 }
 
+interface DeviceInfo {
+  browserName: string;
+  browserVersion: string;
+  osName: string;
+  osVersion: string;
+  deviceType: string;
+  primaryLanguage: string;
+  acceptEncoding: string;
+}
+
 /**
  * Genera un fingerprint robusto combinando multiple fonti
  */
@@ -91,7 +101,7 @@ export async function generateRobustFingerprint(request: NextRequest): Promise<R
 /**
  * Analizza informazioni del dispositivo con fallback robusti
  */
-function analyzeDeviceInfo(request: NextRequest) {
+function analyzeDeviceInfo(request: NextRequest): DeviceInfo {
   const userAgent = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language') || '';
   const acceptEncoding = request.headers.get('accept-encoding') || '';
@@ -101,7 +111,7 @@ function analyzeDeviceInfo(request: NextRequest) {
   
   // Normalizza informazioni browser
   let browserName = result.browser.name || 'Unknown';
-  let browserVersion = result.browser.version || '0';
+  const browserVersion = result.browser.version || '0';
   
   // Gestisci casi speciali per app mobili
   if (userAgent.includes('Instagram')) browserName = 'Instagram';
@@ -112,7 +122,7 @@ function analyzeDeviceInfo(request: NextRequest) {
   
   // Normalizza OS
   let osName = result.os.name || 'Unknown';
-  let osVersion = result.os.version || '0';
+  const osVersion = result.os.version || '0';
   
   if (osName.toLowerCase().includes('mac')) osName = 'macOS';
   else if (osName.toLowerCase().includes('win')) osName = 'Windows';
@@ -138,8 +148,7 @@ function analyzeDeviceInfo(request: NextRequest) {
     osVersion: osVersion.split('.')[0], // Solo major version
     deviceType,
     primaryLanguage,
-    acceptEncoding,
-    userAgent: userAgent.substring(0, 200) // Limitato per evitare hash troppo lunghi
+    acceptEncoding
   };
 }
 
@@ -183,7 +192,7 @@ function generateGeoComponent(geoInfo: RobustGeoInfo): string {
 /**
  * Genera componente dispositivo stabile tra browser
  */
-function generateDeviceComponent(request: NextRequest, deviceInfo: any): string {
+function generateDeviceComponent(request: NextRequest, deviceInfo: DeviceInfo): string {
   // Elementi che dovrebbero essere stabili per lo stesso dispositivo fisico
   const stableElements = [
     deviceInfo.osName,
@@ -199,7 +208,7 @@ function generateDeviceComponent(request: NextRequest, deviceInfo: any): string 
 /**
  * Genera componente browser specifico
  */
-function generateBrowserComponent(request: NextRequest, deviceInfo: any): string {
+function generateBrowserComponent(request: NextRequest, deviceInfo: DeviceInfo): string {
   const browserElements = [
     deviceInfo.browserName,
     deviceInfo.browserVersion,
@@ -238,7 +247,7 @@ function generatePrimaryFingerprint(deviceStableHash: string, sessionHash: strin
 /**
  * Genera chiave di correlazione per tracking cross-sessione
  */
-function generateCorrelationKey(geoInfo: RobustGeoInfo, deviceInfo: any): string {
+function generateCorrelationKey(geoInfo: RobustGeoInfo, deviceInfo: DeviceInfo): string {
   // Combina elementi molto stabili per correlazione a lungo termine
   const correlationElements = [
     geoInfo.country,
@@ -253,7 +262,7 @@ function generateCorrelationKey(geoInfo: RobustGeoInfo, deviceInfo: any): string
 /**
  * Calcola confidence complessiva del fingerprint
  */
-function calculateFingerprintConfidence(geoInfo: RobustGeoInfo, deviceInfo: any, sources: string[]): number {
+function calculateFingerprintConfidence(geoInfo: RobustGeoInfo, deviceInfo: DeviceInfo, sources: string[]): number {
   let confidence = 30; // Base confidence
   
   // Confidence geografica

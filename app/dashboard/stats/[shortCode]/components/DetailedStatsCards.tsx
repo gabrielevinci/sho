@@ -37,15 +37,15 @@ interface SortState {
 }
 
 // Funzione per ordinare i dati
-const sortData = (data: any[], sortState: SortState, nameKey: string, totalClicks: number): any[] => {
+const sortData = (data: Array<Record<string, unknown>>, sortState: SortState, nameKey: string, totalClicks: number): Array<Record<string, unknown>> => {
   if (!data || data.length === 0) return [];
   
   const sorted = [...data].sort((a, b) => {
-    let aValue: any, bValue: any;
+    let aValue: string | number, bValue: string | number;
     
     if (sortState.field === 'name') {
-      aValue = formatDisplayName(a[nameKey] || '').toLowerCase();
-      bValue = formatDisplayName(b[nameKey] || '').toLowerCase();
+      aValue = formatDisplayName(String(a[nameKey] || '')).toLowerCase();
+      bValue = formatDisplayName(String(b[nameKey] || '')).toLowerCase();
     } else if (sortState.field === 'percentage') {
       aValue = totalClicks > 0 ? (Number(a.count || 0) / totalClicks) * 100 : 0;
       bValue = totalClicks > 0 ? (Number(b.count || 0) / totalClicks) * 100 : 0;
@@ -61,8 +61,8 @@ const sortData = (data: any[], sortState: SortState, nameKey: string, totalClick
     
     // Se i valori sono uguali, ordinamento secondario per name per stabilità
     if (sortState.field !== 'name') {
-      const aName = formatDisplayName(a[nameKey] || '').toLowerCase();
-      const bName = formatDisplayName(b[nameKey] || '').toLowerCase();
+      const aName = formatDisplayName(String(a[nameKey] || '')).toLowerCase();
+      const bName = formatDisplayName(String(b[nameKey] || '')).toLowerCase();
       if (aName < bName) return -1;
       if (aName > bName) return 1;
     }
@@ -247,7 +247,7 @@ const formatDisplayName = (value: string): string => {
   }
   
   // Capitalizza la prima lettera di ogni parola, gestendo apostrofi e trattini
-  return decoded.split(/(\s|-|')/).map((part, index) => {
+  return decoded.split(/(\s|-|')/).map((part, _) => {
     if (part.match(/\s|-|'/)) return part; // Mantieni separatori
     if (part.length === 0) return part;
     return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
@@ -405,50 +405,6 @@ const getLanguageIcon = (language: string): React.ReactNode => {
   
   return '🌍';
 };
-const getLanguageEmoji = (language: string): string => {
-  if (!language) return '🌍';
-  
-  const langLower = language.toLowerCase().trim();
-  
-  // Mapping per codici lingua standard
-  const languageToFlag: { [key: string]: string } = {
-    'it': '🇮🇹', 'it-it': '🇮🇹', 'italian': '🇮🇹', 'italiano': '🇮🇹',
-    'en': '🇺🇸', 'en-us': '🇺🇸', 'en-gb': '🇬🇧', 'english': '🇺🇸', 'inglese': '🇺🇸',
-    'es': '🇪🇸', 'es-es': '🇪🇸', 'spanish': '🇪🇸', 'spagnolo': '🇪🇸',
-    'fr': '🇫🇷', 'fr-fr': '🇫🇷', 'french': '🇫🇷', 'francese': '🇫🇷',
-    'de': '🇩🇪', 'de-de': '🇩🇪', 'german': '🇩🇪', 'tedesco': '🇩🇪',
-    'pt': '🇵🇹', 'pt-pt': '🇵🇹', 'pt-br': '🇧🇷', 'portuguese': '🇵🇹', 'portoghese': '🇵🇹',
-    'ru': '🇷🇺', 'ru-ru': '🇷🇺', 'russian': '🇷🇺', 'russo': '🇷�',
-    'ja': '🇯🇵', 'ja-jp': '🇯🇵', 'japanese': '🇯🇵', 'giapponese': '🇯🇵',
-    'ko': '🇰🇷', 'ko-kr': '🇰🇷', 'korean': '🇰🇷', 'coreano': '🇰🇷',
-    'zh': '🇨🇳', 'zh-cn': '🇨🇳', 'zh-tw': '🇹🇼', 'chinese': '🇨🇳', 'cinese': '🇨🇳',
-    'ar': '🇸🇦', 'ar-sa': '🇸🇦', 'arabic': '🇸🇦', 'arabo': '🇸🇦',
-    'nl': '🇳🇱', 'nl-nl': '🇳🇱', 'dutch': '🇳🇱', 'olandese': '🇳🇱',
-    'sv': '🇸🇪', 'sv-se': '🇸🇪', 'swedish': '🇸🇪', 'svedese': '🇸🇪',
-    'no': '🇳🇴', 'no-no': '🇳🇴', 'norwegian': '🇳🇴', 'norvegese': '🇳🇴',
-    'da': '🇩🇰', 'da-dk': '🇩🇰', 'danish': '🇩🇰', 'danese': '��',
-    'fi': '🇫🇮', 'fi-fi': '🇫🇮', 'finnish': '🇫🇮', 'finlandese': '🇫🇮',
-    'pl': '🇵🇱', 'pl-pl': '🇵🇱', 'polish': '🇵🇱', 'polacco': '🇵🇱',
-    'tr': '🇹🇷', 'tr-tr': '🇹🇷', 'turkish': '🇹🇷', 'turco': '🇹🇷',
-    'el': '🇬🇷', 'el-gr': '🇬🇷', 'greek': '🇬🇷', 'greco': '🇬🇷',
-    'he': '🇮🇱', 'he-il': '🇮🇱', 'hebrew': '🇮🇱', 'ebraico': '🇮🇱',
-    'hi': '🇮🇳', 'hi-in': '🇮🇳', 'hindi': '🇮🇳',
-    'th': '🇹🇭', 'th-th': '🇹🇭', 'thai': '🇹🇭',
-    'vi': '🇻🇳', 'vi-vn': '🇻🇳', 'vietnamese': '��'
-  };
-  
-  // Prova a trovare una corrispondenza diretta
-  const flag = languageToFlag[langLower];
-  if (flag) return flag;
-  
-  // Prova a estrarre il codice lingua (primi 2 caratteri)
-  const langCode = langLower.substring(0, 2);
-  const langFlag = languageToFlag[langCode];
-  if (langFlag) return langFlag;
-  
-  return '🌍';
-};
-
 // Funzione per estrarre il dominio dall'URL del referrer
 const getDomainFromURL = (url: string): string => {
   if (!url || url.toLowerCase() === 'unknown' || url.toLowerCase() === 'sconosciuto' || url === 'direct') {
@@ -537,24 +493,20 @@ const getReferrerIcon = (referrer: string): React.ReactNode => {
 const StatCard = ({ 
   title, 
   icon, 
-  borderColor, 
   bgColor, 
   iconColor, 
   data, 
-  totalClicks, 
-  uniqueClicks,
+  totalClicks,
   renderItem,
   nameKey
 }: {
   title: string;
   icon: React.ReactNode;
-  borderColor: string;
   bgColor: string;
   iconColor: string;
-  data: Array<any>;
+  data: Array<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   totalClicks: number;
-  uniqueClicks: number;
-  renderItem: (item: any, index: number, totalClicks: number) => React.ReactNode;
+  renderItem: (item: any, index: number, totalClicks: number) => React.ReactNode; // eslint-disable-line @typescript-eslint/no-explicit-any
   nameKey: string;
 }) => {
   const [sortState, setSortState] = useState<SortState>({ field: 'count', direction: 'desc' });
@@ -666,11 +618,6 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
   }
 };
 
-// Backwards compatibility functions (usano le nuove funzioni sotto)
-const getBrowserEmoji = (browser: string): React.ReactNode => getBrowserIcon(browser);
-const getDeviceEmoji = (device: string): React.ReactNode => getDeviceIcon(device);  
-const getOSEmoji = (os: string): React.ReactNode => getOSIcon(os);
-
 // Funzione per ottenere il dominio da un URL
 const getDomainFromURL = (url: string): string => {
   if (!url || url === 'Direct' || url === 'Diretto') return 'Diretto';
@@ -753,12 +700,10 @@ const getDomainFromURL = (url: string): string => {
       <StatCard
           title="Paesi"
           icon={<Globe className="h-5 w-5" />}
-          borderColor="border-blue-500"
           bgColor="bg-blue-100"
           iconColor="text-blue-600"
           data={analytics.countries}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="country"
           renderItem={(country, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
@@ -789,12 +734,10 @@ const getDomainFromURL = (url: string): string => {
         <StatCard
           title="Città"
           icon={<MapPin className="h-5 w-5" />}
-          borderColor="border-indigo-500"
           bgColor="bg-indigo-100"
           iconColor="text-indigo-600"
           data={analytics.cities}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="city"
           renderItem={(city, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
@@ -825,12 +768,10 @@ const getDomainFromURL = (url: string): string => {
         <StatCard
           title="Origine Traffico"
           icon={<Share2 className="h-5 w-5" />}
-          borderColor="border-green-500"
           bgColor="bg-green-100"
           iconColor="text-green-600"
           data={analytics.referrers}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="referrer"
           renderItem={(referrer, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
@@ -861,12 +802,10 @@ const getDomainFromURL = (url: string): string => {
         <StatCard
           title="Browser"
           icon={<Monitor className="h-5 w-5" />}
-          borderColor="border-purple-500"
           bgColor="bg-purple-100"
           iconColor="text-purple-600"
           data={analytics.browsers}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="browser"
           renderItem={(browser, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
@@ -897,12 +836,10 @@ const getDomainFromURL = (url: string): string => {
         <StatCard
           title="Lingue"
           icon={<Languages className="h-5 w-5" />}
-          borderColor="border-pink-500"
           bgColor="bg-pink-100"
           iconColor="text-pink-600"
           data={analytics.languages}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="language"
           renderItem={(language, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
@@ -933,12 +870,10 @@ const getDomainFromURL = (url: string): string => {
         <StatCard
           title="Dispositivi"
           icon={<Smartphone className="h-5 w-5" />}
-          borderColor="border-teal-500"
           bgColor="bg-teal-100"
           iconColor="text-teal-600"
           data={analytics.devices}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="device"
           renderItem={(device, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
@@ -969,12 +904,10 @@ const getDomainFromURL = (url: string): string => {
         <StatCard
           title="Sistemi Operativi"
           icon={<HardDrive className="h-5 w-5" />}
-          borderColor="border-orange-500"
           bgColor="bg-orange-100"
           iconColor="text-orange-600"
           data={analytics.operating_systems}
           totalClicks={analytics.total_clicks}
-          uniqueClicks={analytics.unique_clicks}
           nameKey="os"
           renderItem={(os, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">

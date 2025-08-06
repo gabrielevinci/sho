@@ -4,7 +4,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import { createHash } from 'crypto';
 
 export interface ImprovedClickData {
   ip: string;
@@ -248,12 +247,26 @@ function isPrivateIP(ip: string): boolean {
  * Prova API esterne per geolocalizzazione con timeout e fallback
  */
 async function tryExternalGeoAPI(ip: string): Promise<{ country: string; region: string; city: string; source: string } | null> {
+interface IpapiResponse {
+  country_name?: string;
+  country?: string;
+  region?: string;
+  region_code?: string;
+  city?: string;
+}
+
+interface IpApiResponse {
+  country?: string;
+  regionName?: string;
+  city?: string;
+}
+
   const apis = [
     {
       name: 'ipapi',
       url: `http://ipapi.co/${ip}/json/`,
       timeout: 2500,
-      parser: (data: any) => ({
+      parser: (data: IpapiResponse) => ({
         country: data.country_name || data.country,
         region: data.region || data.region_code,
         city: data.city
@@ -263,7 +276,7 @@ async function tryExternalGeoAPI(ip: string): Promise<{ country: string; region:
       name: 'ip-api',
       url: `http://ip-api.com/json/${ip}?fields=country,regionName,city`,
       timeout: 2500,
-      parser: (data: any) => ({
+      parser: (data: IpApiResponse) => ({
         country: data.country,
         region: data.regionName,
         city: data.city

@@ -133,7 +133,6 @@ function normalizeIP(ip: string): string {
 export async function getRobustGeoLocation(request: NextRequest): Promise<RobustGeoInfo> {
   const timestamp = Date.now();
   const ipInfo = extractBestIP(request);
-  const ipHash = createHash('sha256').update(ipInfo.ip).digest('hex').substring(0, 16);
   
   // Controlla cache prima
   const cached = ipGeoCache.get(ipInfo.ip);
@@ -243,11 +242,32 @@ async function fetchExternalGeoInfo(ip: string, timestamp: number): Promise<Robu
 
   const ipHash = createHash('sha256').update(ip).digest('hex').substring(0, 16);
 
+interface IpapiGeoResponse {
+  country_name?: string;
+  country?: string;
+  region?: string;
+  region_code?: string;
+  city?: string;
+}
+
+interface IpApiGeoResponse {
+  country?: string;
+  regionName?: string;
+  region?: string;
+  city?: string;
+}
+
+interface IpInfoResponse {
+  country?: string;
+  region?: string;
+  city?: string;
+}
+
   // Lista di API di geolocalizzazione con fallback
   const geoApis = [
     {
       url: `http://ipapi.co/${ip}/json/`,
-      parser: (data: any) => ({
+      parser: (data: IpapiGeoResponse) => ({
         country: data.country_name || data.country,
         region: data.region || data.region_code,
         city: data.city
@@ -256,7 +276,7 @@ async function fetchExternalGeoInfo(ip: string, timestamp: number): Promise<Robu
     },
     {
       url: `http://ip-api.com/json/${ip}`,
-      parser: (data: any) => ({
+      parser: (data: IpApiGeoResponse) => ({
         country: data.country,
         region: data.regionName || data.region,
         city: data.city
@@ -265,7 +285,7 @@ async function fetchExternalGeoInfo(ip: string, timestamp: number): Promise<Robu
     },
     {
       url: `https://ipinfo.io/${ip}/json`,
-      parser: (data: any) => ({
+      parser: (data: IpInfoResponse) => ({
         country: data.country,
         region: data.region,
         city: data.city
@@ -333,7 +353,6 @@ function getIntelligentFallback(request: NextRequest, ipInfo: { ip: string; conf
   
   // Controlla Accept-Language per suggerimenti geografici
   const acceptLanguage = request.headers.get('accept-language') || '';
-  const userAgent = request.headers.get('user-agent') || '';
 
   let country = 'Unknown';
   let region = 'Unknown';
