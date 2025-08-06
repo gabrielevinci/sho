@@ -6,6 +6,8 @@ import FolderizedLinksList from './components/FolderizedLinksList';
 import { deleteLink } from './actions';
 import ToastContainer from './components/Toast';
 import { useToast } from '../hooks/use-toast';
+import { useDashboardData } from '../hooks/use-dashboard-data';
+import { logger, UI_CONFIG } from '../lib/dashboard-config';
 
 type Workspace = {
   id: string;
@@ -39,12 +41,18 @@ export default function DashboardClient({
   initialActiveWorkspace, 
   initialLinks 
 }: DashboardClientProps) {
+  // Stati principali
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [defaultFolderId, setDefaultFolderId] = useState<string | null>(null);
   const [links, setLinks] = useState<LinkFromDB[]>(initialLinks);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(initialActiveWorkspace?.id || null);
-  const [isMovingLinks, setIsMovingLinks] = useState(false); // Indicatore di spostamento in corso
+  const [isMovingLinks, setIsMovingLinks] = useState(false);
+  
+  // Stati per il loading
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isFoldersLoading, setIsFoldersLoading] = useState(false);
+  const [isLinksLoading, setIsLinksLoading] = useState(false);
   
   // Stati per la cronologia di navigazione
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
@@ -52,103 +60,113 @@ export default function DashboardClient({
   
   const { toasts, removeToast, success, error: showError } = useToast();
   
+  // Hook per la gestione dei dati della dashboard
+  const { isLoading: isDataLoading, refreshData } = useDashboardData({
+    workspaceId: initialActiveWorkspace?.id || '',
+    onError: showError
+  });
+  
+  // Ref per evitare race conditions
+  const initializationDoneRef = useRef(false);
+  
   // Sincronizza lo stato dei link quando initialLinks cambia
   useEffect(() => {
-    setLinks(initialLinks);
+    if (JSON.stringify(links) !== JSON.stringify(initialLinks)) {
+      setLinks(initialLinks);
+    }
   }, [initialLinks]);
   
-  // Rileva il cambio di workspace e reimposta la selezione della cartella
+  // Gestisce il cambio di workspace
   useEffect(() => {
     if (initialActiveWorkspace?.id && initialActiveWorkspace.id !== currentWorkspaceId) {
+      console.log('🔄 Cambio workspace rilevato:', initialActiveWorkspace.id);
       setCurrentWorkspaceId(initialActiveWorkspace.id);
-      // Reset della selezione della cartella quando cambia workspace
+      // Reset completo dello stato
       setSelectedFolderId(null);
       setDefaultFolderId(null);
       setFolders([]);
-      // Reset della cronologia di navigazione
       setNavigationHistory([]);
       setNavigationIndex(-1);
+      initializationDoneRef.current = false;
+      setIsInitialLoading(true);
     }
   }, [initialActiveWorkspace?.id, currentWorkspaceId]);
   
-  // Trova l'ID della cartella "Tutti i link" al caricamento
-  const findDefaultFolderId = useCallback(async () => {
-    if (!initialActiveWorkspace) return;
-    
-    try {
-      const response = await fetch(`/api/folders?workspaceId=${initialActiveWorkspace.id}`);
-      const data = await response.json();
-      
-      if (data.folders) {
-        setFolders(data.folders);
-        const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
-        if (defaultFolder) {
-          setDefaultFolderId(defaultFolder.id);
-          // Seleziona sempre la cartella "Tutti i link" quando viene trovata
-          setSelectedFolderId(defaultFolder.id);
-          // Inizializza la cronologia di navigazione
-          setNavigationHistory([defaultFolder.id]);
-          setNavigationIndex(0);
-        }
-      }
-    } catch (error) {
-      console.error('Errore durante il caricamento delle cartelle:', error);
-    }
-  }, [initialActiveWorkspace]);
-
+  // Inizializzazione delle cartelle - eseguito solo una volta per workspace
   useEffect(() => {
-    findDefaultFolderId();
-  }, [findDefaultFolderId]);
+    if (!initialActiveWorkspace?.id || initializationDoneRef.current) {
+      return;
+    }
+    
+    const initializeFolders = async () => {
+      logger.debug('Inizializzazione cartelle per workspace:', initialActiveWorkspace.id);
+      setIsFoldersLoading(true);
+      
+      // Aggiungi un delay per evitare il flash
+      await new Promise(resolve => setTimeout(resolve, UI_CONFIG.INITIAL_LOAD_DELAY));
+      
+      try {
+        const data = await refreshData('folders');
+        
+        if (data?.folders) {
+          setFolders(data.folders);
+          const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
+          
+          if (defaultFolder) {
+            setDefaultFolderId(defaultFolder.id);
+            setSelectedFolderId(defaultFolder.id);
+            setNavigationHistory([defaultFolder.id]);
+            setNavigationIndex(0);
+            logger.info('Cartella predefinita selezionata:', defaultFolder.name);
+          }
+        }
+      } catch (error) {
+        logger.error('Errore durante l\'inizializzazione delle cartelle:', error);
+      } finally {
+        setIsFoldersLoading(false);
+        setIsInitialLoading(false);
+        initializationDoneRef.current = true;
+      }
+    };
+    
+    initializeFolders();
+  }, [initialActiveWorkspace?.id, refreshData]);
   
   const handleUpdateLinks = useCallback(async () => {
-    // Ricarica solo i link senza refreshare la pagina
-    if (!initialActiveWorkspace) return;
+    if (!initialActiveWorkspace?.id || isLinksLoading || isDataLoading) return;
+    
+    logger.debug('Aggiornamento link richiesto');
+    setIsLinksLoading(true);
     
     try {
-      // Usa sempre l'API con supporto per cartelle multiple
-      const apiUrl = `/api/links-with-folders?workspaceId=${initialActiveWorkspace.id}`;
-      
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-      
-      if (data.links) {
-        console.log(`✅ Caricati ${data.links.length} link, aggiornando stato...`);
-        
-        // Debug: Mostra le prime associazioni per verificare
-        if (data.links.length > 0) {
-          const sampleLink = data.links[0];
-          console.log('� Debug - Primo link:', {
-            id: sampleLink.id,
-            title: sampleLink.title || sampleLink.original_url,
-            folders: sampleLink.folders?.length || 0,
-            folderNames: sampleLink.folders?.map((f: { name: string }) => f.name) || []
-          });
-        }
-        
+      const data = await refreshData('links');
+      if (data?.links) {
+        logger.info(`Caricati ${data.links.length} link aggiornati`);
         setLinks(data.links);
-        console.log('✅ Stato link aggiornato');
       }
     } catch (error) {
-      console.error('❌ Errore durante il caricamento dei link:', error);
+      logger.error('Errore durante l\'aggiornamento dei link:', error);
+    } finally {
+      setIsLinksLoading(false);
     }
-  }, [initialActiveWorkspace]);
+  }, [initialActiveWorkspace?.id, isLinksLoading, isDataLoading, refreshData]);
 
   const handleUpdateFolders = useCallback(async () => {
-    // Ricarica solo le cartelle senza refreshare la pagina
-    if (!initialActiveWorkspace) return;
+    if (!initialActiveWorkspace?.id || isFoldersLoading || isDataLoading) return;
+    
+    logger.debug('Aggiornamento cartelle richiesto');
+    setIsFoldersLoading(true);
     
     try {
-      const response = await fetch(`/api/folders?workspaceId=${initialActiveWorkspace.id}`);
-      const data = await response.json();
-      
-      if (data.folders) {
+      const data = await refreshData('folders');
+      if (data?.folders) {
+        logger.info(`Caricate ${data.folders.length} cartelle aggiornate`);
         setFolders(data.folders);
         
         // Mantieni la selezione corrente se la cartella esiste ancora
         if (selectedFolderId) {
           const selectedFolderExists = data.folders.some((f: Folder) => f.id === selectedFolderId);
           if (!selectedFolderExists) {
-            // Se la cartella selezionata non esiste più, seleziona la cartella "Tutti i link"
             const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
             if (defaultFolder) {
               setSelectedFolderId(defaultFolder.id);
@@ -156,7 +174,6 @@ export default function DashboardClient({
             }
           }
         } else {
-          // Se non c'è selezione, seleziona la cartella "Tutti i link"
           const defaultFolder = data.folders.find((f: { name: string; id: string }) => f.name === 'Tutti i link');
           if (defaultFolder) {
             setSelectedFolderId(defaultFolder.id);
@@ -165,9 +182,11 @@ export default function DashboardClient({
         }
       }
     } catch (error) {
-      console.error('Errore durante il caricamento delle cartelle:', error);
+      logger.error('Errore durante l\'aggiornamento delle cartelle:', error);
+    } finally {
+      setIsFoldersLoading(false);
     }
-  }, [initialActiveWorkspace, selectedFolderId]);
+  }, [initialActiveWorkspace?.id, selectedFolderId, isFoldersLoading, isDataLoading, refreshData]);
 
   const handleDeleteLink = useCallback(async (shortCode: string) => {
     try {
@@ -313,7 +332,16 @@ export default function DashboardClient({
       <ToastContainer toasts={toasts} onClose={removeToast} />
 
       <div className="flex-1 flex overflow-hidden">
-        {initialActiveWorkspace && (
+        {isInitialLoading && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Caricamento dashboard...</p>
+            </div>
+          </div>
+        )}
+        
+        {!isInitialLoading && initialActiveWorkspace && (
           <div className="flex w-full h-full">
             <div className="w-96 dashboard-sidebar bg-gray-50 border-r border-gray-200 flex flex-col h-full transition-all duration-300">
               <FolderSidebar
@@ -324,12 +352,23 @@ export default function DashboardClient({
                 onLinkDrop={handleLinkDrop}
                 onToast={handleToast}
                 folders={folders}
-                onClearSelectionRef={handleClearSelectionRef} // Pass the clearSelectionRef function
+                onClearSelectionRef={handleClearSelectionRef}
               />
             </div>
             
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-auto p-6">
+              <div className="flex-1 overflow-auto p-6 relative">
+                {(isLinksLoading || isFoldersLoading) && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <div className="bg-white rounded-lg shadow-lg p-2 flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="text-sm text-gray-600">
+                        {isLinksLoading ? 'Caricamento link...' : 'Caricamento cartelle...'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
                 <FolderizedLinksList
                   links={links}
                   selectedFolderId={selectedFolderId}
@@ -352,7 +391,7 @@ export default function DashboardClient({
           </div>
         )}
         
-        {!initialActiveWorkspace && (
+        {!isInitialLoading && !initialActiveWorkspace && (
           <div className="flex-1 flex items-center justify-center p-12">
             <div className="text-center bg-white rounded-3xl shadow-md p-8">
               <h2 className="text-xl font-semibold text-gray-700">Nessun workspace trovato.</h2>

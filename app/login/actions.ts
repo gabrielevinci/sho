@@ -82,11 +82,13 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
     session.workspaceId = defaultWorkspace.id; // Salva l'ID del workspace nella sessione
     await session.save();
 
+    console.log(`✅ Login successful for user ${user.id}, workspace ${defaultWorkspace.id}`);
+
   } catch (error) {
     console.error('Login Error:', error);
     return { message: 'Si è verificato un errore durante il login. Riprova.', success: false };
   }
 
-  // 6. Reindirizza alla dashboard
+  // 6. Reindirizza alla dashboard con prefetch
   redirect('/dashboard');
 }

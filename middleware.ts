@@ -23,21 +23,28 @@ export async function middleware(request: NextRequest) {
       // Se il cookie è malformato, scaduto o la password è sbagliata, lo ignoriamo.
       // La sessionData rimane { isLoggedIn: false }
       console.error('Middleware: Failed to unseal session', error);
+      
+      // Opzionalmente, cancella il cookie malformato
+      const response = NextResponse.next();
+      response.cookies.delete(sessionOptions.cookieName);
+      return response;
     }
   }
   
   const { isLoggedIn } = sessionData;
   const { pathname } = request.nextUrl;
 
-  // Logica di reindirizzamento (invariata)
+  // Logica di reindirizzamento migliorata
   // 1. Se l'utente è loggato e va su /login o /register, reindirizza a /dashboard
   if (isLoggedIn && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const url = new URL('/dashboard', request.url);
+    return NextResponse.redirect(url);
   }
 
   // 2. Se l'utente NON è loggato e va su /dashboard, reindirizza a /login
   if (!isLoggedIn && pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    const url = new URL('/login', request.url);
+    return NextResponse.redirect(url);
   }
 
   // 3. In tutti gli altri casi, prosegui

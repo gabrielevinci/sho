@@ -4,7 +4,9 @@ import { sql } from '@vercel/postgres';
 import { logout, createDefaultFolder } from './actions';
 import DashboardClient from './dashboard-client';
 import WorkspaceSwitcher from './workspace-switcher';
+import NoSSR from '@/app/components/NoSSR';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 type Workspace = {
   id: string;
@@ -42,7 +44,14 @@ async function getWorkspacesForUser(userId: string): Promise<Workspace[]> {
 }
 
 async function getLinksForWorkspace(userId: string, workspaceId: string): Promise<LinkFromDB[]> {
+  if (!userId || !workspaceId) {
+    console.warn('⚠️ getLinksForWorkspace chiamato con parametri mancanti', { userId, workspaceId });
+    return [];
+  }
+  
   try {
+    console.log(`🔍 Caricamento link per workspace: ${workspaceId}, utente: ${userId}`);
+    
     // Prima verifichiamo se la vista unified_click_analytics esiste
     const { rows: viewExists } = await sql`
       SELECT EXISTS (
@@ -187,6 +196,16 @@ export default async function DashboardPage() {
 
   const activeWorkspace = userWorkspaces.find(ws => ws.id === session.workspaceId);
   
+  // Loading component
+  const DashboardLoading = () => (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Caricamento dashboard...</p>
+      </div>
+    </div>
+  );
+  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex-shrink-0">
@@ -200,10 +219,12 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
-            <WorkspaceSwitcher 
-              workspaces={userWorkspaces} 
-              activeWorkspace={activeWorkspace}
-            />
+            <NoSSR fallback={<div className="w-32 h-8 bg-gray-200 rounded animate-pulse"></div>}>
+              <WorkspaceSwitcher 
+                workspaces={userWorkspaces} 
+                activeWorkspace={activeWorkspace}
+              />
+            </NoSSR>
             <form action={logout}>
               <button type="submit" className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">
                 Logout
@@ -214,10 +235,14 @@ export default async function DashboardPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <DashboardClient 
-          initialActiveWorkspace={activeWorkspace}
-          initialLinks={userLinks}
-        />
+        <Suspense fallback={<DashboardLoading />}>
+          <NoSSR fallback={<DashboardLoading />}>
+            <DashboardClient 
+              initialActiveWorkspace={activeWorkspace}
+              initialLinks={userLinks}
+            />
+          </NoSSR>
+        </Suspense>
       </div>
     </div>
   );
