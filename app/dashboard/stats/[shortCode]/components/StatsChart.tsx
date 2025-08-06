@@ -86,30 +86,28 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         let dayName: string | undefined;
 
         if (filter === '24h') {
-          // Approccio UTC: riceviamo timestamp UTC dal server e li convertiamo per la visualizzazione italiana
+          // Approccio diretto con offset fisso: riceviamo timestamp UTC e li convertiamo con offset fisso
           
           if (process.env.NODE_ENV === 'development') {
             console.log(`🕐 Raw UTC dateValue from API: ${dateValue}`);
           }
           
-          // Il server ora ci invia timestamp UTC
+          // Il server ci invia timestamp UTC
           const utcDate = new Date(dateValue);
           
           if (process.env.NODE_ENV === 'development') {
             console.log(`🕐 UTC Date object: ${utcDate.toISOString()}`);
           }
           
-          // Calcola l'offset dell'ora italiana dinamicamente (stesso metodo del server)
-          const nowUTC = new Date();
-          const italianTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-          const utcTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "UTC"}));
-          const offsetMs = italianTime.getTime() - utcTime.getTime();
+          // Usa offset fisso per agosto 2025 (ora legale italiana = UTC+2)
+          const ITALIAN_OFFSET_HOURS = 2;
+          const ITALIAN_OFFSET_MS = ITALIAN_OFFSET_HOURS * 60 * 60 * 1000;
           
-          // Convertirlo nell'ora italiana per la visualizzazione
-          const italianDate = new Date(utcDate.getTime() + offsetMs);
+          // Convertirlo nell'ora italiana aggiungendo l'offset fisso
+          const italianDate = new Date(utcDate.getTime() + ITALIAN_OFFSET_MS);
           
           if (process.env.NODE_ENV === 'development') {
-            console.log(`🕐 Italian offset: ${offsetMs/1000/60/60} hours`);
+            console.log(`🕐 Fixed Italian offset: +${ITALIAN_OFFSET_HOURS} hours`);
             console.log(`🕐 Italian Date object: ${italianDate.toISOString()}`);
             console.log(`🕐 Italian local string: ${italianDate.toLocaleString()}`);
           }

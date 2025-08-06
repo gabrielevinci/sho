@@ -85,26 +85,28 @@ export async function GET(
 
     switch (filter) {
       case '24h':
-        // Approccio UTC: tutto in UTC, conversione solo per visualizzazione
+        // Approccio diretto: usa offset fisso per agosto 2025 (ora legale italiana = UTC+2)
         const nowUTC = new Date();
         
-        // Calcola l'offset dell'ora italiana dinamicamente
-        const italianTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "Europe/Rome"}));
-        const utcTime = new Date(nowUTC.toLocaleString("en-US", {timeZone: "UTC"}));
-        const offsetMs = italianTime.getTime() - utcTime.getTime();
+        // Agosto 2025: Italia in ora legale = UTC+2
+        const ITALIAN_OFFSET_HOURS = 2;
+        const ITALIAN_OFFSET_MS = ITALIAN_OFFSET_HOURS * 60 * 60 * 1000;
         
-        // Calcola l'ora corrente italiana convertendo da UTC
-        const currentHourItalyUTC = new Date(nowUTC.getTime() + offsetMs);
-        currentHourItalyUTC.setMinutes(0, 0, 0); // Tronca ai minuti
+        // Calcola l'ora italiana attuale
+        const nowItalian = new Date(nowUTC.getTime() + ITALIAN_OFFSET_MS);
         
-        // Converte di nuovo in UTC per la query (ora rappresenta l'ora italiana ma in UTC)
-        const queryBaseTime = new Date(currentHourItalyUTC.getTime() - offsetMs);
+        // Tronca all'ora (es: 23:45 -> 23:00)
+        const currentHourItalian = new Date(nowItalian);
+        currentHourItalian.setMinutes(0, 0, 0);
         
-        console.log(`🕐 UTC-based calculation:`);
+        // Converte di nuovo in UTC per la query PostgreSQL
+        const currentHourUTC = new Date(currentHourItalian.getTime() - ITALIAN_OFFSET_MS);
+        
+        console.log(`🕐 Fixed offset calculation:`);
         console.log(`🕐 Server UTC time: ${nowUTC.toISOString()}`);
-        console.log(`🕐 Italian offset: ${offsetMs/1000/60/60} hours`);
-        console.log(`🕐 Italian hour (UTC adjusted): ${currentHourItalyUTC.toISOString()}`);
-        console.log(`🕐 Query base time (UTC): ${queryBaseTime.toISOString()}`);
+        console.log(`🕐 Italian time (UTC+2): ${nowItalian.toISOString()}`);
+        console.log(`🕐 Current hour Italian: ${currentHourItalian.toISOString()}`);
+        console.log(`🕐 Current hour UTC (for query): ${currentHourUTC.toISOString()}`);
         
         query = `
           WITH clicks_ranked_globally AS (
@@ -119,11 +121,11 @@ export async function GET(
               link_id = $1
           )
           SELECT
-            -- Restituiamo timestamp UTC che il client convertirà per la visualizzazione
-            serie_oraria.ora AT TIME ZONE 'UTC' AS ora_italiana,
+            -- Restituiamo timestamp UTC puri che il client convertirà
+            serie_oraria.ora AS ora_italiana,
             COALESCE(COUNT(cr.id), 0) AS click_totali,
             COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici,
-            -- Indica se questa è l'ora corrente (confronto in UTC)
+            -- Indica se questa è l'ora corrente (confronto UTC)
             CASE 
               WHEN serie_oraria.ora = $2::timestamp
               THEN true 
@@ -143,7 +145,7 @@ export async function GET(
           ORDER BY
             serie_oraria.ora ASC;
         `;
-        queryParams = [linkId, queryBaseTime.toISOString()];
+        queryParams = [linkId, currentHourUTC.toISOString()];
         break;
 
       case '7d':
