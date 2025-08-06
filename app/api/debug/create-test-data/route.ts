@@ -42,12 +42,12 @@ export async function POST(request: NextRequest) {
         INSERT INTO clicks (
           link_id, country, region, city, referrer, browser_name, 
           language_device, device_type, os_name, ip_address, user_agent, 
-          timezone_device, click_fingerprint_hash, source_type, source_detail
+          timezone_device, click_fingerprint_hash
         ) VALUES (
           ${linkId}, 'Test Country', 'Test Region', 'Test City', 
           ${referrer}, 'Test Browser', 'en', 'Desktop', 'Test OS', 
           '127.0.0.1', 'Test User Agent', 'Europe/Rome', 
-          'test_hash_${Date.now()}_${index}', 'test', 'Test Source Detail'
+          'test_hash_${Date.now()}_${index}'
         )
       `;
     });

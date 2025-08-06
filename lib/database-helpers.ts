@@ -529,8 +529,6 @@ export async function isShortCodeTaken(shortCode: string): Promise<boolean> {
  */
 export function analyzeReferrerSource(request: NextRequest): {
   referrer: string;
-  source_type: string;
-  source_detail: string;
 } {
   const url = new URL(request.url);
   const rawReferrer = request.headers.get('referer') || request.headers.get('referrer') || '';
@@ -540,9 +538,7 @@ export function analyzeReferrerSource(request: NextRequest): {
   const qrParam = url.searchParams.get('qr');
   if (qrParam === '1' || qrParam === 'true') {
     return {
-      referrer: 'QR Code',
-      source_type: 'qr_code',
-      source_detail: 'QR Code Scanner'
+      referrer: 'QR Code'
     };
   }
   
@@ -557,9 +553,7 @@ export function analyzeReferrerSource(request: NextRequest): {
     if (utmCampaign) sourceDetail += ` - ${utmCampaign}`;
     
     return {
-      referrer: `UTM: ${sourceDetail}`,
-      source_type: 'utm_campaign',
-      source_detail: sourceDetail
+      referrer: `UTM: ${sourceDetail}`
     };
   }
   
@@ -570,25 +564,19 @@ export function analyzeReferrerSource(request: NextRequest): {
   
   if (fbclid) {
     return {
-      referrer: 'Facebook',
-      source_type: 'social_media',
-      source_detail: 'Facebook Click ID'
+      referrer: 'Facebook'
     };
   }
   
   if (gclid) {
     return {
-      referrer: 'Google Ads',
-      source_type: 'paid_advertising',
-      source_detail: 'Google Click ID'
+      referrer: 'Google Ads'
     };
   }
   
   if (igshid) {
     return {
-      referrer: 'Instagram',
-      source_type: 'social_media',
-      source_detail: 'Instagram Share ID'
+      referrer: 'Instagram'
     };
   }
   
@@ -601,124 +589,94 @@ export function analyzeReferrerSource(request: NextRequest): {
       // Social Media
       if (domain.includes('facebook.com') || domain.includes('fb.com')) {
         return {
-          referrer: 'Facebook',
-          source_type: 'social_media',
-          source_detail: 'Facebook Website'
+          referrer: 'Facebook'
         };
       }
       
       if (domain.includes('instagram.com')) {
         return {
-          referrer: 'Instagram',
-          source_type: 'social_media',
-          source_detail: 'Instagram Website'
+          referrer: 'Instagram'
         };
       }
       
       if (domain.includes('twitter.com') || domain.includes('t.co') || domain.includes('x.com')) {
         return {
-          referrer: 'Twitter/X',
-          source_type: 'social_media',
-          source_detail: 'Twitter Website'
+          referrer: 'Twitter/X'
         };
       }
       
       if (domain.includes('linkedin.com')) {
         return {
-          referrer: 'LinkedIn',
-          source_type: 'social_media',
-          source_detail: 'LinkedIn Website'
+          referrer: 'LinkedIn'
         };
       }
       
       if (domain.includes('tiktok.com')) {
         return {
-          referrer: 'TikTok',
-          source_type: 'social_media',
-          source_detail: 'TikTok Website'
+          referrer: 'TikTok'
         };
       }
       
       if (domain.includes('youtube.com') || domain.includes('youtu.be')) {
         return {
-          referrer: 'YouTube',
-          source_type: 'social_media',
-          source_detail: 'YouTube Website'
+          referrer: 'YouTube'
         };
       }
       
       if (domain.includes('whatsapp.com') || domain.includes('wa.me')) {
         return {
-          referrer: 'WhatsApp',
-          source_type: 'messaging',
-          source_detail: 'WhatsApp Web'
+          referrer: 'WhatsApp'
         };
       }
       
       if (domain.includes('telegram.org') || domain.includes('t.me')) {
         return {
-          referrer: 'Telegram',
-          source_type: 'messaging',
-          source_detail: 'Telegram Website'
+          referrer: 'Telegram'
         };
       }
       
       // Search Engines
       if (domain.includes('google.') || domain.includes('google.com')) {
         return {
-          referrer: 'Google Search',
-          source_type: 'search_engine',
-          source_detail: 'Google Organic'
+          referrer: 'Google Search'
         };
       }
       
       if (domain.includes('bing.com')) {
         return {
-          referrer: 'Bing Search',
-          source_type: 'search_engine',
-          source_detail: 'Bing Organic'
+          referrer: 'Bing Search'
         };
       }
       
       if (domain.includes('yahoo.com')) {
         return {
-          referrer: 'Yahoo Search',
-          source_type: 'search_engine',
-          source_detail: 'Yahoo Organic'
+          referrer: 'Yahoo Search'
         };
       }
       
       if (domain.includes('duckduckgo.com')) {
         return {
-          referrer: 'DuckDuckGo',
-          source_type: 'search_engine',
-          source_detail: 'DuckDuckGo Organic'
+          referrer: 'DuckDuckGo'
         };
       }
       
       // Email providers
       if (domain.includes('gmail.com') || domain.includes('mail.google.com')) {
         return {
-          referrer: 'Gmail',
-          source_type: 'email',
-          source_detail: 'Gmail Client'
+          referrer: 'Gmail'
         };
       }
       
       if (domain.includes('outlook.') || domain.includes('hotmail.') || domain.includes('live.com')) {
         return {
-          referrer: 'Outlook',
-          source_type: 'email',
-          source_detail: 'Outlook Client'
+          referrer: 'Outlook'
         };
       }
       
       // Se è il nostro stesso dominio, è un click interno
       if (domain.includes('sho-smoky.vercel.app') || domain.includes('localhost')) {
         return {
-          referrer: 'Internal',
-          source_type: 'internal',
-          source_detail: 'Same Website'
+          referrer: 'Internal'
         };
       }
       
@@ -735,9 +693,7 @@ export function analyzeReferrerSource(request: NextRequest): {
       }
       
       return {
-        referrer: cleanDomain,
-        source_type: 'website',
-        source_detail: `External Website: ${cleanDomain}`
+        referrer: cleanDomain
       };
       
     } catch {
@@ -785,9 +741,7 @@ export function analyzeReferrerSource(request: NextRequest): {
       }
       
       return {
-        referrer: cleanReferrer,
-        source_type: 'unknown',
-        source_detail: 'Unparseable Referrer'
+        referrer: cleanReferrer
       };
     }
   }
@@ -797,72 +751,56 @@ export function analyzeReferrerSource(request: NextRequest): {
     // App Instagram
     if (userAgent.includes('Instagram')) {
       return {
-        referrer: 'Instagram App',
-        source_type: 'social_media',
-        source_detail: 'Instagram Mobile App'
+        referrer: 'Instagram App'
       };
     }
     
     // App Facebook
     if (userAgent.includes('FBAN') || userAgent.includes('FBAV')) {
       return {
-        referrer: 'Facebook App',
-        source_type: 'social_media',
-        source_detail: 'Facebook Mobile App'
+        referrer: 'Facebook App'
       };
     }
     
     // WhatsApp
     if (userAgent.includes('WhatsApp')) {
       return {
-        referrer: 'WhatsApp App',
-        source_type: 'messaging',
-        source_detail: 'WhatsApp Mobile App'
+        referrer: 'WhatsApp App'
       };
     }
     
     // Telegram
     if (userAgent.includes('Telegram')) {
       return {
-        referrer: 'Telegram App',
-        source_type: 'messaging',
-        source_detail: 'Telegram Mobile App'
+        referrer: 'Telegram App'
       };
     }
     
     // TikTok
     if (userAgent.includes('TikTok')) {
       return {
-        referrer: 'TikTok App',
-        source_type: 'social_media',
-        source_detail: 'TikTok Mobile App'
+        referrer: 'TikTok App'
       };
     }
     
     // Twitter
     if (userAgent.includes('Twitter')) {
       return {
-        referrer: 'Twitter App',
-        source_type: 'social_media',
-        source_detail: 'Twitter Mobile App'
+        referrer: 'Twitter App'
       };
     }
     
     // LinkedIn
     if (userAgent.includes('LinkedInApp')) {
       return {
-        referrer: 'LinkedIn App',
-        source_type: 'social_media',
-        source_detail: 'LinkedIn Mobile App'
+        referrer: 'LinkedIn App'
       };
     }
   }
   
   // 5. FALLBACK - Click diretto
   return {
-    referrer: 'Direct',
-    source_type: 'direct',
-    source_detail: 'Direct Access'
+    referrer: 'Direct'
   };
 }
 export async function recordClick(request: NextRequest, linkId: number): Promise<Click> {
@@ -953,21 +891,20 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
       : ip_address;
     
     // Log delle informazioni rilevate per debug
-    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${normalizedCity}, IP: ${validIP.substring(0, 8)}..., Fonte: ${referrerInfo.referrer} (${referrerInfo.source_type})${dataQualityInfo}`);
+    console.log(`📊 Click rilevato - Browser: ${deviceInfo.browser_name}, OS: ${deviceInfo.os_name}, Paese: ${normalizedCountry}, Città: ${normalizedCity}, IP: ${validIP.substring(0, 8)}..., Fonte: ${referrerInfo.referrer}${dataQualityInfo}`);
     
-    // Inserisci il click nel database con i dati normalizzati (NESSUNA MODIFICA AL DB)
+    // Inserisci il click nel database con i dati normalizzati
     const result = await sql`
       INSERT INTO clicks (
         link_id, country, region, city, referrer, browser_name, 
         language_device, device_type, os_name, ip_address, user_agent, 
-        timezone_device, click_fingerprint_hash, source_type, source_detail
+        timezone_device, click_fingerprint_hash
       ) VALUES (
         ${linkId}, ${normalizedCountry}, ${normalizedRegion}, 
         ${normalizedCity}, ${referrerInfo.referrer}, ${deviceInfo.browser_name},
         ${deviceInfo.language_device}, ${deviceInfo.device_type}, 
         ${deviceInfo.os_name}, ${validIP}, ${user_agent},
-        ${deviceInfo.timezone_device}, ${click_fingerprint_hash},
-        ${referrerInfo.source_type}, ${referrerInfo.source_detail}
+        ${deviceInfo.timezone_device}, ${click_fingerprint_hash}
       ) RETURNING *
     `;
     
