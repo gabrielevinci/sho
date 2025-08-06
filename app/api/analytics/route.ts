@@ -16,7 +16,9 @@ export async function GET(request: NextRequest) {
     // Ottieni parametri dalla query string
     const { searchParams } = new URL(request.url);
     const shortCode = searchParams.get('shortCode');
-    const days = searchParams.get('days') || '30';
+    const days = searchParams.get('days');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
     
     if (!shortCode) {
       return NextResponse.json({ error: 'ShortCode mancante' }, { status: 400 });
@@ -34,8 +36,16 @@ export async function GET(request: NextRequest) {
     
     const linkId = linkCheck.rows[0].id;
     
-    // Ottieni le analitiche
-    const analytics = await getLinkAnalytics(linkId, parseInt(days));
+    // Ottieni le analitiche con date personalizzate o giorni
+    let analytics;
+    if (startDate && endDate) {
+      // Usa date personalizzate
+      analytics = await getLinkAnalytics(linkId, undefined, startDate, endDate);
+    } else {
+      // Usa il numero di giorni (default 30)
+      const daysNumber = days ? parseInt(days) : 30;
+      analytics = await getLinkAnalytics(linkId, daysNumber);
+    }
     
     return NextResponse.json({ analytics });
   } catch (error) {

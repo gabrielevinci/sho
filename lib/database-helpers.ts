@@ -928,198 +928,236 @@ export async function recordClick(request: NextRequest, linkId: number): Promise
 
 /**
  * Ottiene le statistiche di un link
+ * @param linkId ID del link
+ * @param days Numero di giorni da considerare (opzionale se si usano startDate/endDate)
+ * @param startDate Data di inizio specifica (opzionale)
+ * @param endDate Data di fine specifica (opzionale)
  */
-export async function getLinkAnalytics(linkId: number, days: number = 30) {
+export async function getLinkAnalytics(linkId: number, days: number = 30, startDate?: string, endDate?: string) {
   try {
-    // Calcola la data di inizio basata sui giorni
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    const startDateISO = startDate.toISOString();
+    let startDateISO: string;
+    let endDateISO: string;
+    
+    if (startDate && endDate) {
+      // Usa le date personalizzate
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0); // Inizio della giornata di inizio
+      startDateISO = start.toISOString();
+      
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Fine della giornata di fine
+      endDateISO = end.toISOString();
+    } else {
+      // Calcola la data di inizio basata sui giorni
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+      start.setHours(0, 0, 0, 0); // Inizio della giornata di inizio
+      startDateISO = start.toISOString();
+      
+      // Per la data di fine, usa la fine della giornata corrente
+      const end = new Date();
+      end.setHours(23, 59, 59, 999); // Fine della giornata corrente
+      endDateISO = end.toISOString();
+    }
     
     const [totalClicks, uniqueClicks, countries, cities, browsers, devices, operatingSystems, referrers, languages, dailyClicks] = await Promise.all([
       // Total clicks
-      sql`SELECT COUNT(*) as total FROM clicks WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO}`,
+      sql`SELECT COUNT(*) as total FROM clicks WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND clicked_at_rome <= ${endDateISO}`,
       
-      // Unique clicks (basato su fingerprint hash)
-      sql`SELECT COUNT(DISTINCT click_fingerprint_hash) as unique FROM clicks WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO}`,
+      // Unique clicks (migliorato per gestire fingerprint mancanti)
+      sql`SELECT COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique FROM clicks WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND clicked_at_rome <= ${endDateISO}`,
       
-      // Paesi (con click unici)
+      // Paesi (con click unici) - Query migliorata per catturare tutti i paesi
       sql`
         SELECT 
-          country, 
+          COALESCE(NULLIF(country, ''), 'Unknown') as country,
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND country IS NOT NULL
-        GROUP BY country 
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
+        GROUP BY COALESCE(NULLIF(country, ''), 'Unknown')
         ORDER BY count DESC 
         LIMIT 15
       `,
       
-      // Città (con click unici)
+      // Città (con click unici) - Query migliorata per catturare tutte le città
       sql`
         SELECT 
-          city, 
+          COALESCE(NULLIF(city, ''), 'Unknown') as city,
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND city IS NOT NULL
-        GROUP BY city 
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
+        GROUP BY COALESCE(NULLIF(city, ''), 'Unknown')
         ORDER BY count DESC 
         LIMIT 15
       `,
       
-      // Browser (normalizzati con click unici)
+      // Browser (normalizzati con click unici) - Query migliorata
       sql`
         SELECT 
           CASE 
-            WHEN LOWER(browser_name) LIKE '%chrome%' THEN 'Chrome'
-            WHEN LOWER(browser_name) LIKE '%firefox%' THEN 'Firefox'
-            WHEN LOWER(browser_name) LIKE '%safari%' THEN 'Safari'
-            WHEN LOWER(browser_name) LIKE '%edge%' THEN 'Microsoft Edge'
-            WHEN LOWER(browser_name) LIKE '%opera%' THEN 'Opera'
-            WHEN LOWER(browser_name) LIKE '%samsung%' THEN 'Samsung Internet'
-            WHEN LOWER(browser_name) LIKE '%brave%' THEN 'Brave'
-            WHEN LOWER(browser_name) LIKE '%vivaldi%' THEN 'Vivaldi'
-            WHEN LOWER(browser_name) LIKE '%tor%' THEN 'Tor Browser'
-            ELSE COALESCE(browser_name, 'Sconosciuto')
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%chrome%' THEN 'Chrome'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%firefox%' THEN 'Firefox'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%safari%' THEN 'Safari'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%edge%' THEN 'Microsoft Edge'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%opera%' THEN 'Opera'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%samsung%' THEN 'Samsung Internet'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%brave%' THEN 'Brave'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%vivaldi%' THEN 'Vivaldi'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%tor%' THEN 'Tor Browser'
+            ELSE COALESCE(NULLIF(browser_name, ''), 'Sconosciuto')
           END as browser, 
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND browser_name IS NOT NULL
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
         GROUP BY 
           CASE 
-            WHEN LOWER(browser_name) LIKE '%chrome%' THEN 'Chrome'
-            WHEN LOWER(browser_name) LIKE '%firefox%' THEN 'Firefox'
-            WHEN LOWER(browser_name) LIKE '%safari%' THEN 'Safari'
-            WHEN LOWER(browser_name) LIKE '%edge%' THEN 'Microsoft Edge'
-            WHEN LOWER(browser_name) LIKE '%opera%' THEN 'Opera'
-            WHEN LOWER(browser_name) LIKE '%samsung%' THEN 'Samsung Internet'
-            WHEN LOWER(browser_name) LIKE '%brave%' THEN 'Brave'
-            WHEN LOWER(browser_name) LIKE '%vivaldi%' THEN 'Vivaldi'
-            WHEN LOWER(browser_name) LIKE '%tor%' THEN 'Tor Browser'
-            ELSE COALESCE(browser_name, 'Sconosciuto')
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%chrome%' THEN 'Chrome'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%firefox%' THEN 'Firefox'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%safari%' THEN 'Safari'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%edge%' THEN 'Microsoft Edge'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%opera%' THEN 'Opera'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%samsung%' THEN 'Samsung Internet'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%brave%' THEN 'Brave'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%vivaldi%' THEN 'Vivaldi'
+            WHEN LOWER(COALESCE(browser_name, '')) LIKE '%tor%' THEN 'Tor Browser'
+            ELSE COALESCE(NULLIF(browser_name, ''), 'Sconosciuto')
           END
         ORDER BY count DESC 
         LIMIT 15
       `,
       
-      // Dispositivi (normalizzati con click unici)
+      // Dispositivi (normalizzati con click unici) - Query migliorata
       sql`
         SELECT 
           CASE 
-            WHEN LOWER(device_type) LIKE '%mobile%' OR LOWER(device_type) LIKE '%phone%' THEN 'Mobile'
-            WHEN LOWER(device_type) LIKE '%tablet%' THEN 'Tablet'
-            WHEN LOWER(device_type) LIKE '%desktop%' OR LOWER(device_type) LIKE '%computer%' THEN 'Desktop'
-            WHEN LOWER(device_type) LIKE '%tv%' OR LOWER(device_type) LIKE '%smart%' THEN 'Smart TV'
-            ELSE COALESCE(device_type, 'Sconosciuto')
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%mobile%' OR LOWER(COALESCE(device_type, '')) LIKE '%phone%' THEN 'Mobile'
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%tablet%' THEN 'Tablet'
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%desktop%' OR LOWER(COALESCE(device_type, '')) LIKE '%computer%' THEN 'Desktop'
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%tv%' OR LOWER(COALESCE(device_type, '')) LIKE '%smart%' THEN 'Smart TV'
+            ELSE COALESCE(NULLIF(device_type, ''), 'Sconosciuto')
           END as device, 
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND device_type IS NOT NULL
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
         GROUP BY 
           CASE 
-            WHEN LOWER(device_type) LIKE '%mobile%' OR LOWER(device_type) LIKE '%phone%' THEN 'Mobile'
-            WHEN LOWER(device_type) LIKE '%tablet%' THEN 'Tablet'
-            WHEN LOWER(device_type) LIKE '%desktop%' OR LOWER(device_type) LIKE '%computer%' THEN 'Desktop'
-            WHEN LOWER(device_type) LIKE '%tv%' OR LOWER(device_type) LIKE '%smart%' THEN 'Smart TV'
-            ELSE COALESCE(device_type, 'Sconosciuto')
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%mobile%' OR LOWER(COALESCE(device_type, '')) LIKE '%phone%' THEN 'Mobile'
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%tablet%' THEN 'Tablet'
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%desktop%' OR LOWER(COALESCE(device_type, '')) LIKE '%computer%' THEN 'Desktop'
+            WHEN LOWER(COALESCE(device_type, '')) LIKE '%tv%' OR LOWER(COALESCE(device_type, '')) LIKE '%smart%' THEN 'Smart TV'
+            ELSE COALESCE(NULLIF(device_type, ''), 'Sconosciuto')
           END
         ORDER BY count DESC 
         LIMIT 15
       `,
       
-      // Sistemi operativi (normalizzati con click unici)
+      // Sistemi operativi (normalizzati con click unici) - Query migliorata
       sql`
         SELECT 
           CASE 
-            WHEN LOWER(os_name) LIKE '%windows%' THEN 'Windows'
-            WHEN LOWER(os_name) LIKE '%mac%' OR LOWER(os_name) LIKE '%darwin%' THEN 'macOS'
-            WHEN LOWER(os_name) LIKE '%linux%' THEN 'Linux'
-            WHEN LOWER(os_name) LIKE '%android%' THEN 'Android'
-            WHEN LOWER(os_name) LIKE '%ios%' OR LOWER(os_name) LIKE '%iphone%' THEN 'iOS'
-            WHEN LOWER(os_name) LIKE '%ubuntu%' THEN 'Ubuntu'
-            WHEN LOWER(os_name) LIKE '%chrome%' THEN 'Chrome OS'
-            ELSE COALESCE(os_name, 'Sconosciuto')
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%windows%' THEN 'Windows'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%mac%' OR LOWER(COALESCE(os_name, '')) LIKE '%darwin%' THEN 'macOS'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%linux%' THEN 'Linux'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%android%' THEN 'Android'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%ios%' OR LOWER(COALESCE(os_name, '')) LIKE '%iphone%' THEN 'iOS'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%ubuntu%' THEN 'Ubuntu'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%chrome%' THEN 'Chrome OS'
+            ELSE COALESCE(NULLIF(os_name, ''), 'Sconosciuto')
           END as os, 
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND os_name IS NOT NULL
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
         GROUP BY 
           CASE 
-            WHEN LOWER(os_name) LIKE '%windows%' THEN 'Windows'
-            WHEN LOWER(os_name) LIKE '%mac%' OR LOWER(os_name) LIKE '%darwin%' THEN 'macOS'
-            WHEN LOWER(os_name) LIKE '%linux%' THEN 'Linux'
-            WHEN LOWER(os_name) LIKE '%android%' THEN 'Android'
-            WHEN LOWER(os_name) LIKE '%ios%' OR LOWER(os_name) LIKE '%iphone%' THEN 'iOS'
-            WHEN LOWER(os_name) LIKE '%ubuntu%' THEN 'Ubuntu'
-            WHEN LOWER(os_name) LIKE '%chrome%' THEN 'Chrome OS'
-            ELSE COALESCE(os_name, 'Sconosciuto')
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%windows%' THEN 'Windows'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%mac%' OR LOWER(COALESCE(os_name, '')) LIKE '%darwin%' THEN 'macOS'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%linux%' THEN 'Linux'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%android%' THEN 'Android'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%ios%' OR LOWER(COALESCE(os_name, '')) LIKE '%iphone%' THEN 'iOS'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%ubuntu%' THEN 'Ubuntu'
+            WHEN LOWER(COALESCE(os_name, '')) LIKE '%chrome%' THEN 'Chrome OS'
+            ELSE COALESCE(NULLIF(os_name, ''), 'Sconosciuto')
           END
         ORDER BY count DESC 
         LIMIT 15
       `,
       
-      // Referrer (con click unici e normalizzazione)
+      // Referrer (con click unici e normalizzazione) - Query migliorata
       sql`
         SELECT 
           CASE 
-            WHEN referrer LIKE '%qr%code%' OR referrer LIKE '%qr%20code%' THEN 'QR Code'
-            WHEN referrer LIKE '%bing%search%' OR referrer LIKE '%bing%20search%' THEN 'Bing'
-            WHEN referrer LIKE '%google%search%' OR referrer LIKE '%google%20search%' THEN 'Google'
-            WHEN referrer LIKE '%facebook%' THEN 'Facebook'
-            WHEN referrer LIKE '%instagram%' THEN 'Instagram'
-            WHEN referrer LIKE '%twitter%' OR referrer LIKE '%x.com%' THEN 'Twitter/X'
-            WHEN referrer LIKE '%linkedin%' THEN 'LinkedIn'
-            WHEN referrer LIKE '%youtube%' THEN 'YouTube'
-            WHEN referrer LIKE '%whatsapp%' THEN 'WhatsApp'
-            WHEN referrer LIKE '%telegram%' THEN 'Telegram'
-            WHEN referrer LIKE '%tiktok%' THEN 'TikTok'
-            WHEN referrer LIKE '%duckduckgo%' THEN 'DuckDuckGo'
-            WHEN referrer LIKE '%yahoo%' THEN 'Yahoo'
-            WHEN referrer LIKE '%reddit%' THEN 'Reddit'
-            WHEN referrer LIKE '%pinterest%' THEN 'Pinterest'
-            ELSE COALESCE(referrer, 'Accesso diretto')
+            WHEN COALESCE(referrer, '') LIKE '%qr%code%' OR COALESCE(referrer, '') LIKE '%qr%20code%' THEN 'QR Code'
+            WHEN COALESCE(referrer, '') LIKE '%bing%search%' OR COALESCE(referrer, '') LIKE '%bing%20search%' THEN 'Bing'
+            WHEN COALESCE(referrer, '') LIKE '%google%search%' OR COALESCE(referrer, '') LIKE '%google%20search%' THEN 'Google'
+            WHEN COALESCE(referrer, '') LIKE '%facebook%' THEN 'Facebook'
+            WHEN COALESCE(referrer, '') LIKE '%instagram%' THEN 'Instagram'
+            WHEN COALESCE(referrer, '') LIKE '%twitter%' OR COALESCE(referrer, '') LIKE '%x.com%' THEN 'Twitter/X'
+            WHEN COALESCE(referrer, '') LIKE '%linkedin%' THEN 'LinkedIn'
+            WHEN COALESCE(referrer, '') LIKE '%youtube%' THEN 'YouTube'
+            WHEN COALESCE(referrer, '') LIKE '%whatsapp%' THEN 'WhatsApp'
+            WHEN COALESCE(referrer, '') LIKE '%telegram%' THEN 'Telegram'
+            WHEN COALESCE(referrer, '') LIKE '%tiktok%' THEN 'TikTok'
+            WHEN COALESCE(referrer, '') LIKE '%duckduckgo%' THEN 'DuckDuckGo'
+            WHEN COALESCE(referrer, '') LIKE '%yahoo%' THEN 'Yahoo'
+            WHEN COALESCE(referrer, '') LIKE '%reddit%' THEN 'Reddit'
+            WHEN COALESCE(referrer, '') LIKE '%pinterest%' THEN 'Pinterest'
+            ELSE COALESCE(NULLIF(referrer, ''), 'Accesso diretto')
           END as referrer, 
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND referrer IS NOT NULL
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
         GROUP BY 
           CASE 
-            WHEN referrer LIKE '%qr%code%' OR referrer LIKE '%qr%20code%' THEN 'QR Code'
-            WHEN referrer LIKE '%bing%search%' OR referrer LIKE '%bing%20search%' THEN 'Bing'
-            WHEN referrer LIKE '%google%search%' OR referrer LIKE '%google%20search%' THEN 'Google'
-            WHEN referrer LIKE '%facebook%' THEN 'Facebook'
-            WHEN referrer LIKE '%instagram%' THEN 'Instagram'
-            WHEN referrer LIKE '%twitter%' OR referrer LIKE '%x.com%' THEN 'Twitter/X'
-            WHEN referrer LIKE '%linkedin%' THEN 'LinkedIn'
-            WHEN referrer LIKE '%youtube%' THEN 'YouTube'
-            WHEN referrer LIKE '%whatsapp%' THEN 'WhatsApp'
-            WHEN referrer LIKE '%telegram%' THEN 'Telegram'
-            WHEN referrer LIKE '%tiktok%' THEN 'TikTok'
-            WHEN referrer LIKE '%duckduckgo%' THEN 'DuckDuckGo'
-            WHEN referrer LIKE '%yahoo%' THEN 'Yahoo'
-            WHEN referrer LIKE '%reddit%' THEN 'Reddit'
-            WHEN referrer LIKE '%pinterest%' THEN 'Pinterest'
-            ELSE COALESCE(referrer, 'Accesso diretto')
+            WHEN COALESCE(referrer, '') LIKE '%qr%code%' OR COALESCE(referrer, '') LIKE '%qr%20code%' THEN 'QR Code'
+            WHEN COALESCE(referrer, '') LIKE '%bing%search%' OR COALESCE(referrer, '') LIKE '%bing%20search%' THEN 'Bing'
+            WHEN COALESCE(referrer, '') LIKE '%google%search%' OR COALESCE(referrer, '') LIKE '%google%20search%' THEN 'Google'
+            WHEN COALESCE(referrer, '') LIKE '%facebook%' THEN 'Facebook'
+            WHEN COALESCE(referrer, '') LIKE '%instagram%' THEN 'Instagram'
+            WHEN COALESCE(referrer, '') LIKE '%twitter%' OR COALESCE(referrer, '') LIKE '%x.com%' THEN 'Twitter/X'
+            WHEN COALESCE(referrer, '') LIKE '%linkedin%' THEN 'LinkedIn'
+            WHEN COALESCE(referrer, '') LIKE '%youtube%' THEN 'YouTube'
+            WHEN COALESCE(referrer, '') LIKE '%whatsapp%' THEN 'WhatsApp'
+            WHEN COALESCE(referrer, '') LIKE '%telegram%' THEN 'Telegram'
+            WHEN COALESCE(referrer, '') LIKE '%tiktok%' THEN 'TikTok'
+            WHEN COALESCE(referrer, '') LIKE '%duckduckgo%' THEN 'DuckDuckGo'
+            WHEN COALESCE(referrer, '') LIKE '%yahoo%' THEN 'Yahoo'
+            WHEN COALESCE(referrer, '') LIKE '%reddit%' THEN 'Reddit'
+            WHEN COALESCE(referrer, '') LIKE '%pinterest%' THEN 'Pinterest'
+            ELSE COALESCE(NULLIF(referrer, ''), 'Accesso diretto')
           END
         ORDER BY count DESC 
         LIMIT 15
       `,
       
-      // Lingue (con click unici)
+      // Lingue (con click unici) - Query migliorata
       sql`
         SELECT 
-          language_device as language, 
+          COALESCE(NULLIF(language_device, ''), 'Unknown') as language,
           COUNT(*) as count,
-          COUNT(DISTINCT click_fingerprint_hash) as unique_count
+          COUNT(DISTINCT COALESCE(click_fingerprint_hash, ip_address::text, user_agent)) as unique_count
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND language_device IS NOT NULL
-        GROUP BY language_device 
+        WHERE link_id = ${linkId} 
+          AND clicked_at_rome >= ${startDateISO} 
+          AND clicked_at_rome <= ${endDateISO}
+        GROUP BY COALESCE(NULLIF(language_device, ''), 'Unknown')
         ORDER BY count DESC 
         LIMIT 15
       `,
@@ -1130,7 +1168,7 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
           DATE(clicked_at_rome) as date,
           COUNT(*) as clicks
         FROM clicks 
-        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO}
+        WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND clicked_at_rome <= ${endDateISO}
         GROUP BY DATE(clicked_at_rome) 
         ORDER BY date DESC
         LIMIT 30

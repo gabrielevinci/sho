@@ -588,20 +588,28 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
       setIsLoading(true);
       setError(null);
       
-      let days = '365'; // Default
-      
-      // Converti il filtro in giorni
-      if (filter === '24h') days = '1';
-      else if (filter === '7d') days = '7';
-      else if (filter === '30d') days = '30';
-      else if (filter === '90d') days = '90';
-      else if (filter === '365d') days = '365';
-      else if (filter === 'all' || filter === 'sempre') days = '9999';
-      
+      // Costruisci i parametri della query
       const params = new URLSearchParams({
-        shortCode,
-        days
+        shortCode
       });
+      
+      // Se abbiamo date personalizzate, usale; altrimenti converti il filtro in giorni
+      if (filter === 'custom' && startDate && endDate) {
+        params.append('startDate', startDate);
+        params.append('endDate', endDate);
+      } else {
+        let days = '365'; // Default
+        
+        // Converti il filtro in giorni
+        if (filter === '24h') days = '1';
+        else if (filter === '7d') days = '7';
+        else if (filter === '30d') days = '30';
+        else if (filter === '90d') days = '90';
+        else if (filter === '365d') days = '365';
+        else if (filter === 'all' || filter === 'sempre') days = '9999';
+        
+        params.append('days', days);
+      }
       
       const response = await fetch(`/api/analytics?${params.toString()}`);
       
