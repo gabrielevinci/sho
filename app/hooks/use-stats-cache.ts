@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCachedData } from './use-cached-data';
+import { getCachedLinkStats, setCachedLinkStats } from '../lib/data-preloader';
 
 /**
  * Hook per gestire la cache delle statistiche dei link
  * 
  * Questo hook implementa un sistema di cache intelligente che:
- * 1. Carica tutti i dati delle statistiche una volta sola
- * 2. Filtra localmente i dati per i filtri predefiniti (istantaneo)
- * 3. Richiede dati aggiuntivi solo per date personalizzate
+ * 1. Controlla prima le statistiche precaricate per caricamento istantaneo
+ * 2. Carica tutti i dati delle statistiche una volta sola
+ * 3. Filtra localmente i dati per i filtri predefiniti (istantaneo)
+ * 4. Richiede dati aggiuntivi solo per date personalizzate
  * 
  * @example
  * ```tsx
@@ -128,10 +130,24 @@ const customDateCache = new Map<string, FilteredStats>();
  * Hook per gestire la cache delle statistiche
  * Carica tutti i dati una volta sola e filtra localmente
  */
-export function useStatsCache(shortCode: string) {
+export function useStatsCache(shortCode: string, workspaceId?: string, userId?: string) {
   const [customDateStats, setCustomDateStats] = useState<Map<string, FilteredStats>>(new Map());
   const [loadingCustomDate, setLoadingCustomDate] = useState(false);
   const [customDateError, setCustomDateError] = useState<string | null>(null);
+  const [preloadedData, setPreloadedData] = useState<AllStatsData | null>(null);
+  const [isUsingPreloaded, setIsUsingPreloaded] = useState(false);
+
+  // Controlla se abbiamo statistiche precaricate
+  useEffect(() => {
+    if (workspaceId && userId && shortCode && !preloadedData) {
+      const cached = getCachedLinkStats(workspaceId, userId, shortCode);
+      if (cached) {
+        console.log('⚡ Statistiche caricate dalla cache precaricata per', shortCode);
+        setPreloadedData(cached);
+        setIsUsingPreloaded(true);
+      }
+    }
+  }, [shortCode, workspaceId, userId, preloadedData]);
 
   // Fetch dei dati completi usando il sistema di cache esistente
   const {
@@ -147,7 +163,14 @@ export function useStatsCache(shortCode: string) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Errore HTTP ${response.status}: ${response.statusText}`);
       }
-      return response.json();
+      const data = await response.json();
+      
+      // Salva nella cache precaricata per future visite
+      if (workspaceId && userId) {
+        setCachedLinkStats(workspaceId, userId, shortCode, data);
+      }
+      
+      return data;
     },
     {
       cacheType: 'analytics',
@@ -158,9 +181,13 @@ export function useStatsCache(shortCode: string) {
     }
   );
 
+  // Usa i dati precaricati se disponibili, altrimenti quelli dalla cache normale
+  const effectiveStatsData = preloadedData || allStatsData;
+  const effectiveLoading = isUsingPreloaded ? false : statsLoading;
+
   // Funzione per estrarre le statistiche filtrate dai dati completi
   const getFilteredStats = useCallback((filter: FilterType): FilteredStats | null => {
-    if (!allStatsData) return null;
+    if (!effectiveStatsData) return null;
 
     const suffixMap: { [key: string]: string } = {
       'sempre': '_sempre',
@@ -174,7 +201,7 @@ export function useStatsCache(shortCode: string) {
     const suffix = suffixMap[filter];
     if (!suffix) return null;
 
-    const stats = allStatsData.allStats;
+    const stats = effectiveStatsData.allStats;
 
     return {
       clickTotali: stats[`click_totali${suffix}` as keyof typeof stats] as number,
@@ -187,7 +214,7 @@ export function useStatsCache(shortCode: string) {
       dispositivoCount: stats[`dispositivo${suffix}` as keyof typeof stats] as number,
       sistemaOperativoCount: stats[`sistema_operativo${suffix}` as keyof typeof stats] as number,
     };
-  }, [allStatsData]);
+  }, [effectiveStatsData]);
 
   // Funzione per ottenere statistiche per date personalizzate
   const getCustomDateStats = useCallback(async (startDate: string, endDate: string): Promise<FilteredStats> => {
@@ -239,7 +266,7 @@ export function useStatsCache(shortCode: string) {
     startDate?: string, 
     endDate?: string
   ): Promise<LinkStats | null> => {
-    if (!allStatsData) return null;
+    if (!effectiveStatsData) return null;
 
     let stats: FilteredStats | null = null;
 
@@ -252,50 +279,56 @@ export function useStatsCache(shortCode: string) {
     if (!stats) return null;
 
     return {
-      link: allStatsData.link,
+      link: effectiveStatsData.link,
       stats
     };
-  }, [allStatsData, getFilteredStats, getCustomDateStats]);
+  }, [effectiveStatsData, getFilteredStats, getCustomDateStats]);
 
   // Funzione per invalidare la cache
   const invalidateCache = useCallback(() => {
     revalidateStats();
     setCustomDateStats(new Map());
     customDateCache.clear();
+    // Resetta anche i dati precaricati
+    setPreloadedData(null);
+    setIsUsingPreloaded(false);
   }, [revalidateStats]);
 
   // Funzione per ottenere statistiche immediate per filtri predefiniti (senza async)
   const getImmediateStats = useCallback((filter: FilterType): LinkStats | null => {
-    if (!allStatsData || filter === 'custom') return null;
+    if (!effectiveStatsData || filter === 'custom') return null;
     
     const stats = getFilteredStats(filter);
     if (!stats) return null;
 
     return {
-      link: allStatsData.link,
+      link: effectiveStatsData.link,
       stats
     };
-  }, [allStatsData, getFilteredStats]);
+  }, [effectiveStatsData, getFilteredStats]);
 
   // Funzione di debug per visualizzare lo stato della cache
   const debugCache = useCallback(() => {
     if (typeof window !== 'undefined') {
       console.group('🔍 Stats Cache Debug');
+      console.log('📊 Effective Stats Data:', effectiveStatsData);
+      console.log('🚀 Using Preloaded:', isUsingPreloaded);
       console.log('📊 All Stats Data:', allStatsData);
+      console.log('🎯 Preloaded Data:', preloadedData);
       console.log('📅 Custom Date Cache:', Object.fromEntries(customDateCache));
       console.log('🔄 Local Custom Stats:', Object.fromEntries(customDateStats));
       console.log('⏳ Loading State:', { 
-        isStatsLoading: statsLoading, 
+        isStatsLoading: effectiveLoading, 
         isCustomDateLoading: loadingCustomDate 
       });
       console.log('❌ Error State:', { statsError, customDateError });
       console.groupEnd();
     }
-  }, [allStatsData, customDateStats, statsLoading, loadingCustomDate, statsError, customDateError]);
+  }, [effectiveStatsData, isUsingPreloaded, allStatsData, preloadedData, customDateStats, effectiveLoading, loadingCustomDate, statsError, customDateError]);
 
   return {
     // Dati e stato
-    isLoading: statsLoading,
+    isLoading: effectiveLoading,
     error: statsError || customDateError,
     isCustomDateLoading: loadingCustomDate,
     
@@ -308,6 +341,6 @@ export function useStatsCache(shortCode: string) {
     debugCache: process.env.NODE_ENV === 'development' ? debugCache : () => {},
     
     // Dati grezzi (per debug o usi avanzati)
-    allStatsData
+    allStatsData: effectiveStatsData
   };
 }

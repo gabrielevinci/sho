@@ -196,6 +196,9 @@ export default async function DashboardPage() {
 
   const activeWorkspace = userWorkspaces.find(ws => ws.id === session.workspaceId);
   
+  // Nota: Il precaricamento viene ora eseguito solo lato client per evitare errori server-side
+  // Il precaricamento sarà gestito dal DashboardClient e dal hook useStatsPreloader
+  
   // Loading component
   const DashboardLoading = () => (
     <div className="flex-1 flex items-center justify-center">
@@ -240,6 +243,7 @@ export default async function DashboardPage() {
             <DashboardClient 
               initialActiveWorkspace={activeWorkspace}
               initialLinks={userLinks}
+              userId={session.userId}
             />
           </NoSSR>
         </Suspense>

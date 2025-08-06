@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   BarChart3, 
@@ -12,6 +12,7 @@ import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import EnhancedDatePicker from '@/app/dashboard/components/EnhancedDatePicker';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
+import { useSessionData } from '@/app/hooks/use-session-data';
 import StatsChart from './components/StatsChart';
 import CombinedCharts from './components/CombinedCharts';
 import DetailedStatsCards from './components/DetailedStatsCards';
@@ -21,6 +22,9 @@ export default function LinkStatsPage() {
   const router = useRouter();
   const shortCode = params.shortCode as string;
   
+  // Ottieni i dati di sessione per abilitare il precaricamento delle statistiche
+  const { workspaceId, userId } = useSessionData();
+  
   const [linkStats, setLinkStats] = useState<LinkStats | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('sempre');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -29,7 +33,7 @@ export default function LinkStatsPage() {
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0); // Nuovo stato per controllare il refresh del grafico
 
-  // Utilizziamo il nuovo hook per la cache delle statistiche
+  // Utilizziamo il nuovo hook per la cache delle statistiche con supporto per dati precaricati
   const {
     isLoading,
     error,
@@ -38,7 +42,48 @@ export default function LinkStatsPage() {
     getImmediateStats,
     invalidateCache,
     debugCache
-  } = useStatsCache(shortCode);
+  } = useStatsCache(shortCode, workspaceId, userId);
+  
+  // Stato per indicare se i dati sono stati caricati dalla cache precaricata
+  const [isFromPreloadedCache, setIsFromPreloadedCache] = useState(false);
+  
+  // Ref per evitare ricreazione delle funzioni
+  const getImmediateStatsRef = useRef(getImmediateStats);
+  const getStatsForFilterRef = useRef(getStatsForFilter);
+  const invalidateCacheRef = useRef(invalidateCache);
+  const hasInitializedRef = useRef(false);
+  
+  // Aggiorna i ref quando cambiano le funzioni
+  useEffect(() => {
+    getImmediateStatsRef.current = getImmediateStats;
+    getStatsForFilterRef.current = getStatsForFilter;
+    invalidateCacheRef.current = invalidateCache;
+  }, [getImmediateStats, getStatsForFilter, invalidateCache]);
+  
+  // Effetto per far scomparire il badge dopo 3 secondi
+  useEffect(() => {
+    if (isFromPreloadedCache) {
+      const timer = setTimeout(() => {
+        setIsFromPreloadedCache(false);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isFromPreloadedCache]);
+  
+  // Effetto per applicare immediatamente le statistiche se disponibili dalla cache precaricata
+  // IMPORTANTE: questo useEffect NON deve avere getImmediateStats nelle dipendenze per evitare loop infiniti
+  useEffect(() => {
+    if (!linkStats && shortCode && workspaceId && userId) {
+      const immediateStats = getImmediateStatsRef.current(activeFilter);
+      if (immediateStats) {
+        console.log('⚡ Statistiche applicate immediatamente dalla cache precaricata');
+        setLinkStats(immediateStats);
+        setIsFromPreloadedCache(true);
+        setChartRefreshTrigger(prev => prev + 1);
+      }
+    }
+  }, [shortCode, workspaceId, userId, activeFilter]); // Rimuoviamo getImmediateStats e linkStats dalle dipendenze
 
   const filters: { value: FilterType; label: string }[] = [
     { value: 'sempre', label: 'Sempre' },
@@ -54,21 +99,23 @@ export default function LinkStatsPage() {
   const applyFilter = useCallback(async (filter: FilterType, startDate?: string, endDate?: string) => {
     try {
       setIsApplyingFilter(true);
+      setIsFromPreloadedCache(false); // Reset dell'indicatore quando facciamo una nuova richiesta
       
       if (filter === 'custom' && startDate && endDate) {
         // Per date personalizzate, potrebbe essere necessaria una richiesta al server
-        const stats = await getStatsForFilter(filter, startDate, endDate);
+        const stats = await getStatsForFilterRef.current(filter, startDate, endDate);
         if (stats) {
           setLinkStats(stats);
         }
       } else {
         // Per filtri predefiniti, usa i dati dalla cache (immediato)
-        const stats = getImmediateStats(filter);
+        const stats = getImmediateStatsRef.current(filter);
         if (stats) {
           setLinkStats(stats);
+          setIsFromPreloadedCache(true); // Indica che è dalla cache
         } else {
           // Fallback se i dati non sono ancora caricati
-          const statsAsync = await getStatsForFilter(filter);
+          const statsAsync = await getStatsForFilterRef.current(filter);
           if (statsAsync) {
             setLinkStats(statsAsync);
           }
@@ -80,17 +127,18 @@ export default function LinkStatsPage() {
     } finally {
       setIsApplyingFilter(false);
     }
-  }, [getStatsForFilter, getImmediateStats]);
+  }, []); // Nessuna dipendenza perché usiamo i ref
 
-  // Carica le statistiche iniziali
+  // Carica le statistiche iniziali - solo una volta quando i dati diventano disponibili
   useEffect(() => {
-    if (!isLoading && !error) {
+    if (!isLoading && !error && !linkStats && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
       // Applica il filtro predefinito quando i dati sono pronti
       applyFilter(activeFilter);
       // Triggera il caricamento iniziale del grafico
       setChartRefreshTrigger(prev => prev + 1);
     }
-  }, [isLoading, error, applyFilter, activeFilter]);
+  }, [isLoading, error, linkStats, activeFilter]); // Rimuoviamo applyFilter dalle dipendenze
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
@@ -115,7 +163,7 @@ export default function LinkStatsPage() {
   };
 
   const handleUpdateFromActions = () => {
-    invalidateCache(); // Ricarica le statistiche dopo un'azione e applica il filtro corrente
+    invalidateCacheRef.current(); // Ricarica le statistiche dopo un'azione e applica il filtro corrente
     setTimeout(() => {
       applyFilter(activeFilter, customStartDate, customEndDate);
     }, 100);
@@ -188,7 +236,11 @@ export default function LinkStatsPage() {
     </div>
   );
 
-  if (isLoading || isApplyingFilter) {
+  // Mostra skeleton loader solo se stiamo veramente caricando e non abbiamo dati
+  const shouldShowSkeleton = (isLoading && !linkStats && isApplyingFilter) || 
+                            (isLoading && !linkStats && !workspaceId && !userId);
+  
+  if (shouldShowSkeleton) {
     return <SkeletonLoader />;
   }
 
@@ -258,6 +310,11 @@ export default function LinkStatsPage() {
               <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                 <BarChart3 className="h-6 w-6 mr-2 text-blue-600" />
                 Statistiche Link
+                {isFromPreloadedCache && (
+                  <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    ⚡ Caricamento istantaneo
+                  </span>
+                )}
               </h1>
               <p className="text-gray-600 text-sm">
                 Analisi dettagliata delle performance

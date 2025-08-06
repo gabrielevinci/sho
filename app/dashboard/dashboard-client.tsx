@@ -7,6 +7,8 @@ import { deleteLink } from './actions';
 import ToastContainer from './components/Toast';
 import { useToast } from '../hooks/use-toast';
 import { useDashboardData } from '../hooks/use-dashboard-data';
+import { useStatsPreloader } from '../hooks/use-stats-preloader';
+import { preloadDashboardData } from '../lib/data-preloader';
 import { logger, UI_CONFIG } from '../lib/dashboard-config';
 
 type Workspace = {
@@ -35,11 +37,13 @@ type LinkFromDB = {
 interface DashboardClientProps {
   initialActiveWorkspace: Workspace | undefined;
   initialLinks: LinkFromDB[];
+  userId: string; // Aggiungiamo l'userId
 }
 
 export default function DashboardClient({ 
   initialActiveWorkspace, 
-  initialLinks 
+  initialLinks,
+  userId 
 }: DashboardClientProps) {
   // Stati principali
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -66,21 +70,47 @@ export default function DashboardClient({
     onError: showError
   });
   
+  // Hook per il precaricamento delle statistiche
+  const { preloadStatsForVisibleLinks } = useStatsPreloader();
+  
   // Ref per evitare race conditions
   const initializationDoneRef = useRef(false);
+  
+  // Salva i dati di sessione iniziali per le statistiche
+  useEffect(() => {
+    if (initialActiveWorkspace?.id && userId) {
+      localStorage.setItem('currentWorkspaceId', initialActiveWorkspace.id);
+      localStorage.setItem('currentUserId', userId);
+      
+      // Avvia il precaricamento lato client in background
+      preloadDashboardData(initialActiveWorkspace.id, userId).catch(error => {
+        console.warn('⚠️ Precaricamento fallito (non critico):', error);
+      });
+    }
+  }, [initialActiveWorkspace?.id, userId]);
   
   // Sincronizza lo stato dei link quando initialLinks cambia
   useEffect(() => {
     if (JSON.stringify(links) !== JSON.stringify(initialLinks)) {
       setLinks(initialLinks);
+      
+      // Precarica statistiche per i link visibili
+      if (initialActiveWorkspace?.id && userId && initialLinks.length > 0) {
+        preloadStatsForVisibleLinks(initialLinks, initialActiveWorkspace.id, userId);
+      }
     }
-  }, [initialLinks]);
+  }, [initialLinks, initialActiveWorkspace?.id, userId, preloadStatsForVisibleLinks]);
   
   // Gestisce il cambio di workspace
   useEffect(() => {
     if (initialActiveWorkspace?.id && initialActiveWorkspace.id !== currentWorkspaceId) {
       console.log('🔄 Cambio workspace rilevato:', initialActiveWorkspace.id);
       setCurrentWorkspaceId(initialActiveWorkspace.id);
+      
+      // Salva workspaceId e userId nel localStorage per le statistiche
+      localStorage.setItem('currentWorkspaceId', initialActiveWorkspace.id);
+      localStorage.setItem('currentUserId', userId);
+      
       // Reset completo dello stato
       setSelectedFolderId(null);
       setDefaultFolderId(null);
@@ -90,7 +120,7 @@ export default function DashboardClient({
       initializationDoneRef.current = false;
       setIsInitialLoading(true);
     }
-  }, [initialActiveWorkspace?.id, currentWorkspaceId]);
+  }, [initialActiveWorkspace?.id, currentWorkspaceId, userId]);
   
   // Inizializzazione delle cartelle - eseguito solo una volta per workspace
   useEffect(() => {
@@ -143,13 +173,18 @@ export default function DashboardClient({
       if (data?.links) {
         logger.info(`Caricati ${data.links.length} link aggiornati`);
         setLinks(data.links);
+        
+        // Precarica statistiche per i nuovi link
+        if (userId) {
+          preloadStatsForVisibleLinks(data.links, initialActiveWorkspace.id, userId);
+        }
       }
     } catch (error) {
       logger.error('Errore durante l\'aggiornamento dei link:', error);
     } finally {
       setIsLinksLoading(false);
     }
-  }, [initialActiveWorkspace?.id, isLinksLoading, isDataLoading, refreshData]);
+  }, [initialActiveWorkspace?.id, isLinksLoading, isDataLoading, refreshData, userId, preloadStatsForVisibleLinks]);
 
   const handleUpdateFolders = useCallback(async () => {
     if (!initialActiveWorkspace?.id || isFoldersLoading || isDataLoading) return;
