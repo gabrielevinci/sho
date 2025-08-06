@@ -22,6 +22,10 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [visibleLines, setVisibleLines] = useState({
+    clickTotali: true,
+    clickUnici: true
+  });
 
   // Funzione per recuperare i dati del grafico
   const fetchChartData = async () => {
@@ -239,6 +243,54 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
   const totalClicks = chartData.reduce((sum, item) => sum + item.clickTotali, 0);
   const uniqueClicks = chartData.reduce((sum, item) => sum + item.clickUnici, 0);
 
+  // Gestione click sulla leggenda per nascondere/mostrare le linee
+  const handleLegendClick = (dataKey: string) => {
+    setVisibleLines(prev => ({
+      ...prev,
+      [dataKey]: !prev[dataKey as keyof typeof prev]
+    }));
+  };
+
+  // Leggenda personalizzata sempre visibile
+  const CustomLegend = () => {
+    // Definiamo manualmente i dati della leggenda per mantenerla sempre visibile
+    const legendItems = [
+      {
+        dataKey: 'clickTotali',
+        color: '#3b82f6',
+        label: 'Click Totali'
+      },
+      {
+        dataKey: 'clickUnici',
+        color: '#10b981',
+        label: 'Click Unici'
+      }
+    ];
+    
+    return (
+      <div className="flex justify-center space-x-6 mt-4">
+        {legendItems.map((item, index) => (
+          <div
+            key={`legend-${index}`}
+            className={`flex items-center space-x-2 cursor-pointer select-none transition-opacity duration-200 ${
+              !visibleLines[item.dataKey as keyof typeof visibleLines] ? 'opacity-50' : 'opacity-100'
+            } hover:opacity-80`}
+            onClick={() => handleLegendClick(item.dataKey)}
+          >
+            <div
+              className={`w-4 h-0.5 ${item.dataKey === 'clickUnici' ? 'border-dashed border-t-2' : ''}`}
+              style={{ 
+                backgroundColor: item.color,
+                borderColor: item.dataKey === 'clickUnici' ? item.color : 'transparent'
+              }}
+            />
+            <span className="text-sm text-gray-600">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -336,28 +388,36 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
               tickFormatter={(value) => Math.round(value).toString()}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="clickTotali" 
-              stroke="#3b82f6" 
-              strokeWidth={2}
-              dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
-              activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
-              name="Click Totali"
-            />
-            <Line 
-              type="monotone" 
-              dataKey="clickUnici" 
-              stroke="#10b981" 
-              strokeWidth={2}
-              dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
-              activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
-              name="Click Unici"
-            />
+            {/* Rimuoviamo la Legend di recharts e la renderizziamo manualmente sotto */}
+            {visibleLines.clickTotali && (
+              <Line 
+                type="monotone" 
+                dataKey="clickTotali" 
+                stroke="#3b82f6" 
+                strokeWidth={2}
+                dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
+                activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                name="Click Totali"
+              />
+            )}
+            {visibleLines.clickUnici && (
+              <Line 
+                type="monotone" 
+                dataKey="clickUnici" 
+                stroke="#10b981" 
+                strokeWidth={2}
+                strokeDasharray="8 4"
+                dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
+                activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
+                name="Click Unici"
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
+      
+      {/* Leggenda personalizzata sempre visibile */}
+      <CustomLegend />
     </div>
   );
 };
