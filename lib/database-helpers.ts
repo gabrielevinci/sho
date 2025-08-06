@@ -1010,15 +1010,50 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Referrer (con click unici)
+      // Referrer (con click unici e normalizzazione)
       sql`
         SELECT 
-          referrer, 
+          CASE 
+            WHEN referrer LIKE '%qr%code%' OR referrer LIKE '%qr%20code%' THEN 'QR Code'
+            WHEN referrer LIKE '%bing%search%' OR referrer LIKE '%bing%20search%' THEN 'Bing'
+            WHEN referrer LIKE '%google%search%' OR referrer LIKE '%google%20search%' THEN 'Google'
+            WHEN referrer LIKE '%facebook%' THEN 'Facebook'
+            WHEN referrer LIKE '%instagram%' THEN 'Instagram'
+            WHEN referrer LIKE '%twitter%' OR referrer LIKE '%x.com%' THEN 'Twitter/X'
+            WHEN referrer LIKE '%linkedin%' THEN 'LinkedIn'
+            WHEN referrer LIKE '%youtube%' THEN 'YouTube'
+            WHEN referrer LIKE '%whatsapp%' THEN 'WhatsApp'
+            WHEN referrer LIKE '%telegram%' THEN 'Telegram'
+            WHEN referrer LIKE '%tiktok%' THEN 'TikTok'
+            WHEN referrer LIKE '%duckduckgo%' THEN 'DuckDuckGo'
+            WHEN referrer LIKE '%yahoo%' THEN 'Yahoo'
+            WHEN referrer LIKE '%reddit%' THEN 'Reddit'
+            WHEN referrer LIKE '%pinterest%' THEN 'Pinterest'
+            ELSE COALESCE(referrer, 'Accesso diretto')
+          END as referrer, 
           COUNT(*) as count,
           COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND referrer IS NOT NULL
-        GROUP BY referrer 
+        GROUP BY 
+          CASE 
+            WHEN referrer LIKE '%qr%code%' OR referrer LIKE '%qr%20code%' THEN 'QR Code'
+            WHEN referrer LIKE '%bing%search%' OR referrer LIKE '%bing%20search%' THEN 'Bing'
+            WHEN referrer LIKE '%google%search%' OR referrer LIKE '%google%20search%' THEN 'Google'
+            WHEN referrer LIKE '%facebook%' THEN 'Facebook'
+            WHEN referrer LIKE '%instagram%' THEN 'Instagram'
+            WHEN referrer LIKE '%twitter%' OR referrer LIKE '%x.com%' THEN 'Twitter/X'
+            WHEN referrer LIKE '%linkedin%' THEN 'LinkedIn'
+            WHEN referrer LIKE '%youtube%' THEN 'YouTube'
+            WHEN referrer LIKE '%whatsapp%' THEN 'WhatsApp'
+            WHEN referrer LIKE '%telegram%' THEN 'Telegram'
+            WHEN referrer LIKE '%tiktok%' THEN 'TikTok'
+            WHEN referrer LIKE '%duckduckgo%' THEN 'DuckDuckGo'
+            WHEN referrer LIKE '%yahoo%' THEN 'Yahoo'
+            WHEN referrer LIKE '%reddit%' THEN 'Reddit'
+            WHEN referrer LIKE '%pinterest%' THEN 'Pinterest'
+            ELSE COALESCE(referrer, 'Accesso diretto')
+          END
         ORDER BY count DESC 
         LIMIT 15
       `,

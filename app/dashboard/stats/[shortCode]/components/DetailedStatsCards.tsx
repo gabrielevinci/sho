@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import NumberFormat from '@/app/components/NumberFormat';
 import NoSSR from '@/app/components/NoSSR';
 import { normalizeCountryName } from '@/lib/database-helpers';
-import { Globe, MapPin, Share2, Monitor, Languages, Smartphone, HardDrive } from 'lucide-react';
+import { Globe, MapPin, Share2, Monitor, Languages, Smartphone, HardDrive, ChevronUp, ChevronDown } from 'lucide-react';
 import ReactCountryFlag from 'react-country-flag';
 import { Icon } from '@iconify/react';
 
@@ -27,6 +27,56 @@ interface DetailedStatsCardsProps {
   startDate?: string;
   endDate?: string;
 }
+
+type SortField = 'name' | 'count' | 'unique_count';
+type SortDirection = 'asc' | 'desc';
+
+interface SortState {
+  field: SortField;
+  direction: SortDirection;
+}
+
+// Funzione per ordinare i dati
+const sortData = (data: any[], sortState: SortState, nameKey: string): any[] => {
+  return [...data].sort((a, b) => {
+    let aValue: any, bValue: any;
+    
+    if (sortState.field === 'name') {
+      aValue = formatDisplayName(a[nameKey]).toLowerCase();
+      bValue = formatDisplayName(b[nameKey]).toLowerCase();
+    } else {
+      aValue = a[sortState.field];
+      bValue = b[sortState.field];
+    }
+    
+    if (aValue < bValue) return sortState.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortState.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+};
+
+// Componente per header ordinabile
+const SortableHeader = ({ children, field, currentSort, onSort }: {
+  children: React.ReactNode;
+  field: SortField;
+  currentSort: SortState;
+  onSort: (field: SortField) => void;
+}) => {
+  const isActive = currentSort.field === field;
+  const IconComponent = isActive && currentSort.direction === 'asc' ? ChevronUp : ChevronDown;
+  
+  return (
+    <button
+      onClick={() => onSort(field)}
+      className="flex items-center space-x-1 hover:text-gray-700 transition-colors"
+    >
+      <span>{children}</span>
+      <IconComponent 
+        className={`h-3 w-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30'}`} 
+      />
+    </button>
+  );
+};
 
 // Funzione migliorata per ottenere la bandiera del paese
 
@@ -416,7 +466,8 @@ const StatCard = ({
   data, 
   totalClicks, 
   uniqueClicks,
-  renderItem 
+  renderItem,
+  nameKey
 }: {
   title: string;
   icon: React.ReactNode;
@@ -426,8 +477,20 @@ const StatCard = ({
   data: Array<any>;
   totalClicks: number;
   uniqueClicks: number;
-    renderItem: (item: any, index: number, totalClicks: number) => React.ReactNode;
+  renderItem: (item: any, index: number, totalClicks: number) => React.ReactNode;
+  nameKey: string;
 }) => {
+  const [sortState, setSortState] = useState<SortState>({ field: 'count', direction: 'desc' });
+  
+  const handleSort = (field: SortField) => {
+    setSortState(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+  
+  const sortedData = sortData(data, sortState, nameKey);
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="p-4">
@@ -448,17 +511,29 @@ const StatCard = ({
           <p className="text-gray-500 text-xs py-4 text-center">Nessun dato</p>
         ) : (
           <div>
-            {/* Header tabella compatto */}
+            {/* Header tabella compatto con ordinamento */}
             <div className="grid grid-cols-12 gap-2 text-[10px] font-medium text-gray-500 uppercase tracking-wide pb-1.5 border-b border-gray-100">
-              <span className="col-span-6">Nome</span>
-              <span className="col-span-2 text-right">Visite</span>
-              <span className="col-span-2 text-right">Unici</span>
+              <span className="col-span-6">
+                <SortableHeader field="name" currentSort={sortState} onSort={handleSort}>
+                  Nome
+                </SortableHeader>
+              </span>
+              <span className="col-span-2 text-right">
+                <SortableHeader field="count" currentSort={sortState} onSort={handleSort}>
+                  Visite
+                </SortableHeader>
+              </span>
+              <span className="col-span-2 text-right">
+                <SortableHeader field="unique_count" currentSort={sortState} onSort={handleSort}>
+                  Unici
+                </SortableHeader>
+              </span>
               <span className="col-span-2 text-right">% visite</span>
             </div>
             
             {/* Contenuto scrollabile compatto */}
-            <div className={`${data.length > 8 ? 'max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400' : ''} space-y-0.5 mt-1.5 pr-1`}>
-              {data.map((item, index) => renderItem(item, index, totalClicks))}
+            <div className={`${sortedData.length > 8 ? 'max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400' : ''} space-y-0.5 mt-1.5 pr-1`}>
+              {sortedData.map((item, index) => renderItem(item, index, totalClicks))}
             </div>
           </div>
         )}
@@ -600,6 +675,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.countries}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="country"
           renderItem={(country, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
@@ -635,6 +711,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.cities}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="city"
           renderItem={(city, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
@@ -670,6 +747,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.referrers}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="referrer"
           renderItem={(referrer, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
@@ -705,6 +783,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.browsers}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="browser"
           renderItem={(browser, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
@@ -740,6 +819,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.languages}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="language"
           renderItem={(language, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
@@ -775,6 +855,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.devices}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="device"
           renderItem={(device, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
@@ -810,6 +891,7 @@ const getDomainFromURL = (url: string): string => {
           data={analytics.operating_systems}
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
+          nameKey="os"
           renderItem={(os, index, totalClicks) => (
             <div key={index} className="grid grid-cols-12 gap-2 py-1.5 text-xs hover:bg-gray-50 rounded">
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
