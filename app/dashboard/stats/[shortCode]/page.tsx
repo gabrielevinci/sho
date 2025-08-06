@@ -32,6 +32,7 @@ export default function LinkStatsPage() {
   const [toastMessage, setToastMessage] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState<number>(0); // Nuovo stato per controllare il refresh del grafico
+  const [hasInitialDelay, setHasInitialDelay] = useState(true); // Previene flash dell'errore
 
   // Utilizziamo il nuovo hook per la cache delle statistiche con supporto per dati precaricati
   const {
@@ -43,9 +44,6 @@ export default function LinkStatsPage() {
     invalidateCache,
     debugCache
   } = useStatsCache(shortCode, workspaceId, userId);
-  
-  // Stato per indicare se i dati sono stati caricati dalla cache precaricata
-  const [isFromPreloadedCache, setIsFromPreloadedCache] = useState(false);
   
   // Ref per evitare ricreazione delle funzioni
   const getImmediateStatsRef = useRef(getImmediateStats);
@@ -60,16 +58,14 @@ export default function LinkStatsPage() {
     invalidateCacheRef.current = invalidateCache;
   }, [getImmediateStats, getStatsForFilter, invalidateCache]);
   
-  // Effetto per far scomparire il badge dopo 3 secondi
+  // Rimuovi delay iniziale dopo un breve momento
   useEffect(() => {
-    if (isFromPreloadedCache) {
-      const timer = setTimeout(() => {
-        setIsFromPreloadedCache(false);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isFromPreloadedCache]);
+    const timer = setTimeout(() => {
+      setHasInitialDelay(false);
+    }, 200); // 200ms di delay per evitare flash degli errori
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   // Effetto per applicare immediatamente le statistiche se disponibili dalla cache precaricata
   // IMPORTANTE: questo useEffect NON deve avere getImmediateStats nelle dipendenze per evitare loop infiniti
@@ -79,7 +75,6 @@ export default function LinkStatsPage() {
       if (immediateStats) {
         console.log('⚡ Statistiche applicate immediatamente dalla cache precaricata');
         setLinkStats(immediateStats);
-        setIsFromPreloadedCache(true);
         setChartRefreshTrigger(prev => prev + 1);
       }
     }
@@ -99,7 +94,6 @@ export default function LinkStatsPage() {
   const applyFilter = useCallback(async (filter: FilterType, startDate?: string, endDate?: string) => {
     try {
       setIsApplyingFilter(true);
-      setIsFromPreloadedCache(false); // Reset dell'indicatore quando facciamo una nuova richiesta
       
       if (filter === 'custom' && startDate && endDate) {
         // Per date personalizzate, potrebbe essere necessaria una richiesta al server
@@ -112,7 +106,6 @@ export default function LinkStatsPage() {
         const stats = getImmediateStatsRef.current(filter);
         if (stats) {
           setLinkStats(stats);
-          setIsFromPreloadedCache(true); // Indica che è dalla cache
         } else {
           // Fallback se i dati non sono ancora caricati
           const statsAsync = await getStatsForFilterRef.current(filter);
@@ -237,8 +230,11 @@ export default function LinkStatsPage() {
   );
 
   // Mostra skeleton loader solo se stiamo veramente caricando e non abbiamo dati
-  const shouldShowSkeleton = (isLoading && !linkStats && isApplyingFilter) || 
-                            (isLoading && !linkStats && !workspaceId && !userId);
+  // Aggiungiamo un delay per evitare flash dei messaggi di errore quando abbiamo precaricamento
+  const shouldShowSkeleton = (isLoading && !linkStats) || 
+                            (!workspaceId || !userId) ||
+                            (!linkStats && !error) ||
+                            hasInitialDelay; // Se non abbiamo né dati né errore, mostra skeleton
   
   if (shouldShowSkeleton) {
     return <SkeletonLoader />;
@@ -310,11 +306,6 @@ export default function LinkStatsPage() {
               <h1 className="text-2xl font-bold text-gray-900 flex items-center">
                 <BarChart3 className="h-6 w-6 mr-2 text-blue-600" />
                 Statistiche Link
-                {isFromPreloadedCache && (
-                  <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    ⚡ Caricamento istantaneo
-                  </span>
-                )}
               </h1>
               <p className="text-gray-600 text-sm">
                 Analisi dettagliata delle performance

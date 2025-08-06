@@ -184,6 +184,8 @@ export function useStatsCache(shortCode: string, workspaceId?: string, userId?: 
   // Usa i dati precaricati se disponibili, altrimenti quelli dalla cache normale
   const effectiveStatsData = preloadedData || allStatsData;
   const effectiveLoading = isUsingPreloaded ? false : statsLoading;
+  // Non mostrare errori se abbiamo dati precaricati disponibili
+  const effectiveError = isUsingPreloaded ? null : (statsError || customDateError);
 
   // Funzione per estrarre le statistiche filtrate dai dati completi
   const getFilteredStats = useCallback((filter: FilterType): FilteredStats | null => {
@@ -329,7 +331,7 @@ export function useStatsCache(shortCode: string, workspaceId?: string, userId?: 
   return {
     // Dati e stato
     isLoading: effectiveLoading,
-    error: statsError || customDateError,
+    error: effectiveError,
     isCustomDateLoading: loadingCustomDate,
     
     // Funzioni principali
