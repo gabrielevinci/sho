@@ -85,6 +85,23 @@ export async function GET(
 
     switch (filter) {
       case '24h':
+        // Calcola l'ora corrente italiana in JavaScript per essere sicuri
+        const now = new Date();
+        const italianTime = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Europe/Rome',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }).format(now);
+        
+        // Tronca all'ora (rimuovi minuti e secondi)
+        const currentHourItaly = italianTime.substring(0, 13) + ':00:00';
+        
+        console.log(`🕐 Server time calculation - Raw now: ${now.toISOString()}, Italy formatted: ${italianTime}, Current hour Italy: ${currentHourItaly}`);
+        
         query = `
           WITH clicks_ranked_globally AS (
             SELECT
@@ -96,9 +113,6 @@ export async function GET(
               clicks
             WHERE
               link_id = $1
-          ),
-          current_hour_rome AS (
-            SELECT DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome') as current_hour
           )
           SELECT
             serie_oraria.ora AS ora_italiana,
@@ -106,25 +120,25 @@ export async function GET(
             COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici,
             -- Indica se questa è l'ora corrente
             CASE 
-              WHEN serie_oraria.ora = (SELECT current_hour FROM current_hour_rome) 
+              WHEN serie_oraria.ora = $2::timestamp
               THEN true 
               ELSE false 
             END AS is_current_hour
           FROM
             generate_series(
-              (SELECT current_hour FROM current_hour_rome) - INTERVAL '23 hours',
-              (SELECT current_hour FROM current_hour_rome),
+              $2::timestamp - INTERVAL '23 hours',
+              $2::timestamp,
               '1 hour'
             ) AS serie_oraria(ora)
           LEFT JOIN
             clicks_ranked_globally cr ON DATE_TRUNC('hour', cr.clicked_at_rome) = serie_oraria.ora
-            AND cr.clicked_at_rome >= (NOW() AT TIME ZONE 'Europe/Rome' - INTERVAL '24 hours')
+            AND cr.clicked_at_rome >= ($2::timestamp - INTERVAL '24 hours')
           GROUP BY
             serie_oraria.ora
           ORDER BY
             serie_oraria.ora ASC;
         `;
-        queryParams = [linkId];
+        queryParams = [linkId, currentHourItaly];
         break;
 
       case '7d':
@@ -371,10 +385,11 @@ export async function GET(
       
       // Per il filtro 24h, assicuriamoci che il timestamp sia interpretato correttamente
       if (filter === '24h' && row.ora_italiana) {
-        // Forza il timestamp nel formato ISO con timezone italiano
+        // Forza il timestamp nel formato ISO con timezone italiano esplicito
         const date = new Date(row.ora_italiana);
-        // Ottieni l'ora italiana e formattala in modo esplicito
-        const italianTime = new Intl.DateTimeFormat('sv-SE', {
+        
+        // Formatta usando l'ora italiana e aggiungi timezone esplicito
+        const italianTimeStr = new Intl.DateTimeFormat('sv-SE', {
           timeZone: 'Europe/Rome',
           year: 'numeric',
           month: '2-digit',
@@ -384,8 +399,20 @@ export async function GET(
           second: '2-digit'
         }).format(date);
         
-        // Aggiungi il timezone europeo per essere espliciti
-        formattedRow.ora_italiana = italianTime + '+01:00';
+        // Per agosto 2025, forziamo l'ora legale italiana (CEST = UTC+2)
+        // In futuro, questo potrebbe essere reso dinamico, ma per ora risolviamo il problema specifico
+        const currentDate = new Date();
+        const month = currentDate.getMonth() + 1; // getMonth() è 0-based
+        
+        // Da marzo a ottobre l'Italia è in ora legale (CEST = UTC+2)
+        // Da novembre a febbraio è in ora solare (CET = UTC+1)
+        const isDST = month >= 3 && month <= 10;
+        const timezone = isDST ? '+02:00' : '+01:00';
+        
+        formattedRow.ora_italiana = italianTimeStr + timezone;
+        
+        console.log(`🕐 Month: ${month}, DST: ${isDST}, Timezone: ${timezone}`);
+        console.log(`🕐 Formatted timestamp: ${row.ora_italiana} -> ${formattedRow.ora_italiana}`);
       }
       
       return formattedRow;

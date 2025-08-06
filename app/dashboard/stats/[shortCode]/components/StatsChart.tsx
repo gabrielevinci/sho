@@ -87,22 +87,17 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
 
         if (filter === '24h') {
           // Per il filtro 24h, dobbiamo gestire il fuso orario correttamente
-          // Il database restituisce le date in orario italiano
+          // Il database restituisce le date in orario italiano con timezone esplicito
           
           // Creiamo un oggetto Date dalla stringa ricevuta
           let workingDate: Date;
           
-          // Se la stringa contiene timezone info (formato aggiornato dall'API)
-          if (typeof dateValue === 'string' && (dateValue.includes('+') || dateValue.includes('Z'))) {
-            workingDate = new Date(dateValue);
-          }
-          // Se la stringa non contiene informazioni sul timezone, la trattiamo come ora italiana
-          else if (typeof dateValue === 'string' && !dateValue.includes('Z') && !dateValue.includes('+')) {
-            // Aggiungiamo esplicitamente il timezone italiano per evitare interpretazioni UTC
-            const dateStr = dateValue.replace(' ', 'T');
-            workingDate = new Date(dateStr + '+01:00'); // Fuso orario italiano (CET)
-          } else {
-            workingDate = new Date(dateValue);
+          // L'API ora restituisce sempre timestamp con timezone esplicito
+          workingDate = new Date(dateValue);
+          
+          // Debug: verifica l'interpretazione della data
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`🕐 Processing dateValue: ${dateValue} -> Date object: ${workingDate.toISOString()}`);
           }
           
           // Forziamo sempre l'interpretazione nel fuso orario italiano
