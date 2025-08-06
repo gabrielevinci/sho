@@ -174,7 +174,7 @@ export async function GET(
       console.log(`Filtering clicks for date range: ${startDate} to ${endDate} (usando clicked_at_rome)`);
       
       statsResult = await sql`
-        WITH ranked_clicks AS (
+        WITH all_clicks_ranked AS (
           SELECT
             clicked_at_rome,
             click_fingerprint_hash,
@@ -188,7 +188,21 @@ export async function GET(
             ROW_NUMBER() OVER(PARTITION BY click_fingerprint_hash ORDER BY clicked_at_rome ASC) as rn
           FROM clicks 
           WHERE link_id = ${link.id}
-            AND clicked_at_rome >= ${startDate}::date
+        ),
+        clicks_in_range AS (
+          SELECT
+            clicked_at_rome,
+            click_fingerprint_hash,
+            referrer,
+            country,
+            city,
+            browser_name,
+            language_device,
+            device_type,
+            os_name,
+            rn
+          FROM all_clicks_ranked
+          WHERE clicked_at_rome >= ${startDate}::date
             AND clicked_at_rome < (${endDate}::date + INTERVAL '1 day')
         )
         SELECT 
@@ -201,7 +215,7 @@ export async function GET(
           COUNT(DISTINCT CASE WHEN language_device IS NOT NULL THEN language_device END) as lingua_count,
           COUNT(DISTINCT CASE WHEN device_type IS NOT NULL THEN device_type END) as dispositivo_count,
           COUNT(DISTINCT CASE WHEN os_name IS NOT NULL THEN os_name END) as sistema_operativo_count
-        FROM ranked_clicks
+        FROM clicks_in_range
       `;
     } else {
       // Per tutti gli altri filtri, usa la tabella statistiche_link
