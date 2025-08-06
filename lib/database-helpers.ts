@@ -890,9 +890,12 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
       // Unique clicks (basato su fingerprint hash)
       sql`SELECT COUNT(DISTINCT click_fingerprint_hash) as unique FROM clicks WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO}`,
       
-      // Paesi
+      // Paesi (con click unici)
       sql`
-        SELECT country, COUNT(*) as count 
+        SELECT 
+          country, 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND country IS NOT NULL
         GROUP BY country 
@@ -900,9 +903,12 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Città
+      // Città (con click unici)
       sql`
-        SELECT city, COUNT(*) as count 
+        SELECT 
+          city, 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND city IS NOT NULL
         GROUP BY city 
@@ -910,7 +916,7 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Browser (normalizzati)
+      // Browser (normalizzati con click unici)
       sql`
         SELECT 
           CASE 
@@ -925,7 +931,8 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
             WHEN LOWER(browser_name) LIKE '%tor%' THEN 'Tor Browser'
             ELSE COALESCE(browser_name, 'Sconosciuto')
           END as browser, 
-          COUNT(*) as count 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND browser_name IS NOT NULL
         GROUP BY 
@@ -945,7 +952,7 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Dispositivi (normalizzati)
+      // Dispositivi (normalizzati con click unici)
       sql`
         SELECT 
           CASE 
@@ -955,7 +962,8 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
             WHEN LOWER(device_type) LIKE '%tv%' OR LOWER(device_type) LIKE '%smart%' THEN 'Smart TV'
             ELSE COALESCE(device_type, 'Sconosciuto')
           END as device, 
-          COUNT(*) as count 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND device_type IS NOT NULL
         GROUP BY 
@@ -970,7 +978,7 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Sistemi operativi (normalizzati)
+      // Sistemi operativi (normalizzati con click unici)
       sql`
         SELECT 
           CASE 
@@ -983,7 +991,8 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
             WHEN LOWER(os_name) LIKE '%chrome%' THEN 'Chrome OS'
             ELSE COALESCE(os_name, 'Sconosciuto')
           END as os, 
-          COUNT(*) as count 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND os_name IS NOT NULL
         GROUP BY 
@@ -1001,9 +1010,12 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Referrer
+      // Referrer (con click unici)
       sql`
-        SELECT referrer, COUNT(*) as count 
+        SELECT 
+          referrer, 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND referrer IS NOT NULL
         GROUP BY referrer 
@@ -1011,9 +1023,12 @@ export async function getLinkAnalytics(linkId: number, days: number = 30) {
         LIMIT 15
       `,
       
-      // Lingue
+      // Lingue (con click unici)
       sql`
-        SELECT language_device as language, COUNT(*) as count 
+        SELECT 
+          language_device as language, 
+          COUNT(*) as count,
+          COUNT(DISTINCT click_fingerprint_hash) as unique_count
         FROM clicks 
         WHERE link_id = ${linkId} AND clicked_at_rome >= ${startDateISO} AND language_device IS NOT NULL
         GROUP BY language_device 

@@ -10,13 +10,13 @@ interface DetailedAnalytics {
   link_id: number;
   total_clicks: number;
   unique_clicks: number;
-  countries: Array<{ country: string; count: number }>;
-  cities: Array<{ city: string; count: number }>;
-  browsers: Array<{ browser: string; count: number }>;
-  devices: Array<{ device: string; count: number }>;
-  operating_systems: Array<{ os: string; count: number }>;
-  referrers: Array<{ referrer: string; count: number }>;
-  languages: Array<{ language: string; count: number }>;
+  countries: Array<{ country: string; count: number; unique_count: number }>;
+  cities: Array<{ city: string; count: number; unique_count: number }>;
+  browsers: Array<{ browser: string; count: number; unique_count: number }>;
+  devices: Array<{ device: string; count: number; unique_count: number }>;
+  operating_systems: Array<{ os: string; count: number; unique_count: number }>;
+  referrers: Array<{ referrer: string; count: number; unique_count: number }>;
+  languages: Array<{ language: string; count: number; unique_count: number }>;
 }
 
 interface DetailedStatsCardsProps {
@@ -214,37 +214,41 @@ const StatCard = ({
   uniqueClicks: number;
   renderItem: (item: any, index: number) => React.ReactNode;
 }) => (
-  <div className={`bg-white rounded-lg shadow-sm border-l-4 ${borderColor} transition-all duration-300 hover:shadow-md`}>
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <div className={`p-3 ${bgColor} rounded-full`}>
-            <div className={`h-5 w-5 ${iconColor}`}>
-              {icon}
-            </div>
+  <div className={`bg-white rounded-lg shadow-sm border-l-4 ${borderColor} transition-all duration-300 hover:shadow-md h-72`}>
+    <div className="p-6 h-full flex flex-col">
+      <div className="flex items-center space-x-3 mb-4">
+        <div className={`p-2 ${bgColor} rounded-full`}>
+          <div className={`h-4 w-4 ${iconColor}`}>
+            {icon}
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-500">{data.length} elementi unici</p>
-          </div>
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <p className="text-sm text-gray-500">{data.length} elementi</p>
         </div>
       </div>
       
-      <div className="space-y-2">
+      <div className="flex-1 overflow-hidden">
         {data.length === 0 ? (
           <p className="text-gray-500 text-sm">Nessun dato disponibile</p>
         ) : (
-          data.slice(0, 8).map((item, index) => renderItem(item, index))
+          <div className="h-full">
+            {/* Header tabella */}
+            <div className="flex justify-between items-center text-xs font-medium text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-200 mb-3">
+              <span>Nome</span>
+              <div className="flex gap-8">
+                <span>Visite</span>
+                <span>Unici</span>
+              </div>
+            </div>
+            
+            {/* Contenuto scrollabile */}
+            <div className={`${data.length > 5 ? 'h-44 overflow-y-auto pr-2' : ''} space-y-1`}>
+              {data.map((item, index) => renderItem(item, index))}
+            </div>
+          </div>
         )}
       </div>
-      
-      {data.length > 8 && (
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500 text-center">
-            E altri {data.length - 8} elementi...
-          </p>
-        </div>
-      )}
     </div>
   </div>
 );
@@ -345,7 +349,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
         <p className="text-gray-600">Analisi approfondita del traffico del tuo link</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Card Paesi */}
         <StatCard
           title="Paesi"
@@ -357,21 +361,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(country, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">{getCountryFlag(country.country)}</span>
-                <span className="text-sm font-medium text-gray-900">
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">{getCountryFlag(country.country)}</span>
+                <span className="text-sm font-medium text-gray-900 truncate">
                   {normalizeCountryName(country.country) || 'Sconosciuto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={country.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((country.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-blue-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={country.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
@@ -389,21 +395,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(city, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">🏙️</span>
-                <span className="text-sm font-medium text-gray-900 capitalize">
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">🏙️</span>
+                <span className="text-sm font-medium text-gray-900 capitalize truncate">
                   {city.city || 'Sconosciuto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={city.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((city.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-indigo-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={city.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
@@ -421,21 +429,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(referrer, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">🔗</span>
-                <span className="text-sm font-medium text-gray-900 truncate max-w-28" title={referrer.referrer}>
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">🔗</span>
+                <span className="text-sm font-medium text-gray-900 truncate" title={referrer.referrer}>
                   {getDomainFromURL(referrer.referrer) || 'Diretto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={referrer.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((referrer.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-green-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={referrer.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
@@ -453,21 +463,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(browser, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">{getBrowserEmoji(browser.browser)}</span>
-                <span className="text-sm font-medium text-gray-900">
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">{getBrowserEmoji(browser.browser)}</span>
+                <span className="text-sm font-medium text-gray-900 truncate">
                   {browser.browser || 'Sconosciuto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={browser.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((browser.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-purple-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={browser.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
@@ -485,21 +497,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(language, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">{getLanguageEmoji(language.language)}</span>
-                <span className="text-sm font-medium text-gray-900 uppercase">
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">{getLanguageEmoji(language.language)}</span>
+                <span className="text-sm font-medium text-gray-900 uppercase truncate">
                   {language.language || 'Sconosciuto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={language.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((language.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-pink-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={language.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
@@ -517,21 +531,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(device, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">{getDeviceEmoji(device.device)}</span>
-                <span className="text-sm font-medium text-gray-900">
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">{getDeviceEmoji(device.device)}</span>
+                <span className="text-sm font-medium text-gray-900 truncate">
                   {device.device || 'Sconosciuto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={device.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((device.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-teal-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={device.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
@@ -549,21 +565,23 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
           totalClicks={analytics.total_clicks}
           uniqueClicks={analytics.unique_clicks}
           renderItem={(os, index) => (
-            <div key={index} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg">{getOSEmoji(os.os)}</span>
-                <span className="text-sm font-medium text-gray-900">
+            <div key={index} className="flex items-center justify-between py-2">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <span className="text-base">{getOSEmoji(os.os)}</span>
+                <span className="text-sm font-medium text-gray-900 truncate">
                   {os.os || 'Sconosciuto'}
                 </span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="flex gap-8 text-right">
+                <div className="text-sm font-medium text-gray-900 min-w-12">
                   <NoSSR fallback="--">
                     <NumberFormat value={os.count} />
                   </NoSSR>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {analytics.total_clicks > 0 ? ((os.count / analytics.total_clicks) * 100).toFixed(1) : 0}%
+                <div className="text-sm font-medium text-orange-600 min-w-12">
+                  <NoSSR fallback="--">
+                    <NumberFormat value={os.unique_count} />
+                  </NoSSR>
                 </div>
               </div>
             </div>
