@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useClickOutside } from '../hooks/useClickOutside';
 
@@ -21,6 +21,46 @@ const MONTHS = [
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
+// Utility functions for better date handling
+const createSafeDate = (year: number, month: number, day: number): Date => {
+  const date = new Date(year, month, day);
+  // Normalizza l'ora per evitare problemi di timezone
+  date.setHours(12, 0, 0, 0);
+  return date;
+};
+
+const formatDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateString = (dateString: string): Date | null => {
+  if (!dateString) return null;
+  try {
+    const [year, month, day] = dateString.split('-').map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+    return createSafeDate(year, month - 1, day);
+  } catch {
+    return null;
+  }
+};
+
+const isSameDay = (date1: Date, date2: Date): boolean => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
+
+const isDateBetween = (date: Date, start: Date, end: Date): boolean => {
+  const dateTime = date.getTime();
+  const startTime = start.getTime();
+  const endTime = end.getTime();
+  return dateTime >= Math.min(startTime, endTime) && 
+         dateTime <= Math.max(startTime, endTime);
+};
+
 export default function EnhancedDatePicker({
   startDate,
   endDate,
@@ -40,155 +80,220 @@ export default function EnhancedDatePicker({
     setIsOpen(false);
   }, isOpen);
 
-  const today = new Date();
-  const startDateObj = startDate ? new Date(startDate) : null;
-  const endDateObj = endDate ? new Date(endDate) : null;
+  const today = useMemo(() => {
+    const now = new Date();
+    return createSafeDate(now.getFullYear(), now.getMonth(), now.getDate());
+  }, []);
 
-  // Ottieni i giorni del mese
-  const getDaysInMonth = (month: number, year: number) => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+  const startDateObj = useMemo(() => parseDateString(startDate), [startDate]);
+  const endDateObj = useMemo(() => parseDateString(endDate), [endDate]);
+
+  // Reset the selection state when dates are cleared externally
+  useEffect(() => {
+    if (!startDate && !endDate) {
+      setSelectingStart(true);
+    }
+  }, [startDate, endDate]);
+
+  // Navigate to the month containing the selected start date when opening
+  useEffect(() => {
+    if (isOpen && startDateObj) {
+      setCurrentMonth(startDateObj.getMonth());
+      setCurrentYear(startDateObj.getFullYear());
+    }
+  }, [isOpen, startDateObj]);
+
+  // Ottieni i giorni del mese con migliore gestione dei bordi
+  const getDaysInMonth = useCallback((month: number, year: number) => {
+    const firstDay = createSafeDate(year, month, 1);
+    const lastDay = createSafeDate(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = firstDay.getDay();
 
     const days = [];
 
     // Giorni del mese precedente per riempire la prima settimana
-    for (let i = startDayOfWeek - 1; i >= 0; i--) {
-      const prevDate = new Date(year, month, -i);
+    for (let i = startDayOfWeek; i > 0; i--) {
+      const prevDate = createSafeDate(year, month, 1 - i);
       days.push({ date: prevDate, isCurrentMonth: false });
     }
 
     // Giorni del mese corrente
     for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(year, month, i);
+      const date = createSafeDate(year, month, i);
       days.push({ date, isCurrentMonth: true });
     }
 
-    // Giorni del mese successivo per riempire le ultime settimane
+    // Giorni del mese successivo per riempire l'ultima settimana
     const totalCells = Math.ceil(days.length / 7) * 7;
+    let nextDay = 1;
     for (let i = days.length; i < totalCells; i++) {
-      const nextDate: Date = new Date(year, month + 1, i - days.length + 1);
+      const nextDate = createSafeDate(year, month + 1, nextDay);
       days.push({ date: nextDate, isCurrentMonth: false });
+      nextDay++;
     }
 
     return days;
-  };
+  }, []);
 
-  const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
-  };
-
-  const isDateInRange = (date: Date) => {
+  const isDateInRange = useCallback((date: Date) => {
     if (!startDateObj || !endDateObj) return false;
-    return date >= startDateObj && date <= endDateObj;
-  };
+    return isDateBetween(date, startDateObj, endDateObj);
+  }, [startDateObj, endDateObj]);
 
-  const isDateStart = (date: Date) => {
+  const isDateStart = useCallback((date: Date) => {
     if (!startDateObj) return false;
-    return date.toDateString() === startDateObj.toDateString();
-  };
+    return isSameDay(date, startDateObj);
+  }, [startDateObj]);
 
-  const isDateEnd = (date: Date) => {
+  const isDateEnd = useCallback((date: Date) => {
     if (!endDateObj) return false;
-    return date.toDateString() === endDateObj.toDateString();
-  };
+    return isSameDay(date, endDateObj);
+  }, [endDateObj]);
 
-  const isDateInHoverRange = (date: Date) => {
-    if (!hoverDate) return false;
-    if (selectingStart) return false;
-    if (!startDateObj) return false;
-    
-    const start = startDateObj;
-    const end = hoverDate;
-    const startTime = start.getTime();
-    const endTime = end.getTime();
-    const dateTime = date.getTime();
-    
-    return dateTime >= Math.min(startTime, endTime) && 
-           dateTime <= Math.max(startTime, endTime);
-  };
+  const isDateInHoverRange = useCallback((date: Date) => {
+    if (!hoverDate || selectingStart || !startDateObj) return false;
+    return isDateBetween(date, startDateObj, hoverDate);
+  }, [hoverDate, selectingStart, startDateObj]);
 
-  const handleDateClick = (date: Date) => {
+  const handleDateClick = useCallback((date: Date) => {
+    const dateString = formatDateString(date);
+    
     if (selectingStart) {
-      onStartDateChange(formatDate(date));
+      onStartDateChange(dateString);
       onEndDateChange(''); // Reset end date
       setSelectingStart(false);
+      setHoverDate(null);
     } else {
       if (startDateObj && date < startDateObj) {
         // Se la data di fine è prima della data di inizio, scambia
-        onStartDateChange(formatDate(date));
-        onEndDateChange(formatDate(startDateObj));
+        onStartDateChange(dateString);
+        onEndDateChange(formatDateString(startDateObj));
       } else {
-        onEndDateChange(formatDate(date));
+        onEndDateChange(dateString);
       }
       setSelectingStart(true);
+      setHoverDate(null);
     }
-  };
+  }, [selectingStart, startDateObj, onStartDateChange, onEndDateChange]);
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     if (direction === 'next') {
       if (currentMonth === 11) {
         setCurrentMonth(0);
-        setCurrentYear(currentYear + 1);
+        setCurrentYear(prev => prev + 1);
       } else {
-        setCurrentMonth(currentMonth + 1);
+        setCurrentMonth(prev => prev + 1);
       }
     } else {
       if (currentMonth === 0) {
         setCurrentMonth(11);
-        setCurrentYear(currentYear - 1);
+        setCurrentYear(prev => prev - 1);
       } else {
-        setCurrentMonth(currentMonth - 1);
+        setCurrentMonth(prev => prev - 1);
       }
     }
-  };
+  }, [currentMonth]);
 
-  const getQuickDateRanges = () => {
-    const today = new Date();
+  const getQuickDateRanges = useCallback(() => {
+    const todayClone = createSafeDate(today.getFullYear(), today.getMonth(), today.getDate());
+    
     const ranges = [
       {
         label: 'Oggi',
-        start: today,
-        end: today
+        start: todayClone,
+        end: todayClone
       },
       {
         label: 'Ultimi 7 giorni',
-        start: new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000),
-        end: today
+        start: createSafeDate(today.getFullYear(), today.getMonth(), today.getDate() - 6),
+        end: todayClone
       },
       {
         label: 'Ultimi 30 giorni',
-        start: new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000),
-        end: today
+        start: createSafeDate(today.getFullYear(), today.getMonth(), today.getDate() - 29),
+        end: todayClone
       },
       {
         label: 'Questo mese',
-        start: new Date(today.getFullYear(), today.getMonth(), 1),
-        end: today
+        start: createSafeDate(today.getFullYear(), today.getMonth(), 1),
+        end: todayClone
       },
       {
         label: 'Mese scorso',
-        start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-        end: new Date(today.getFullYear(), today.getMonth(), 0)
+        start: createSafeDate(today.getFullYear(), today.getMonth() - 1, 1),
+        end: createSafeDate(today.getFullYear(), today.getMonth(), 0)
       }
     ];
     return ranges;
-  };
+  }, [today]);
 
-  const applyQuickRange = (start: Date, end: Date) => {
-    onStartDateChange(formatDate(start));
-    onEndDateChange(formatDate(end));
+  const applyQuickRange = useCallback((start: Date, end: Date) => {
+    onStartDateChange(formatDateString(start));
+    onEndDateChange(formatDateString(end));
     setSelectingStart(true);
-  };
+    setHoverDate(null);
+  }, [onStartDateChange, onEndDateChange]);
 
-  const clearDates = () => {
+  const clearDates = useCallback(() => {
     onStartDateChange('');
     onEndDateChange('');
     setSelectingStart(true);
-  };
+    setHoverDate(null);
+  }, [onStartDateChange, onEndDateChange]);
 
-  const days = getDaysInMonth(currentMonth, currentYear);
+  const handleApply = useCallback(() => {
+    if (startDate && endDate) {
+      onApply();
+      setIsOpen(false);
+    }
+  }, [startDate, endDate, onApply]);
+
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setHoverDate(null);
+  }, []);
+
+  const days = useMemo(() => getDaysInMonth(currentMonth, currentYear), [getDaysInMonth, currentMonth, currentYear]);
+
+  // Validation: ensure dates are in correct order
+  const hasValidDateRange = useMemo(() => {
+    if (!startDate || !endDate) return false;
+    const start = parseDateString(startDate);
+    const end = parseDateString(endDate);
+    return start && end && start <= end;
+  }, [startDate, endDate]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'Escape':
+          event.preventDefault();
+          handleClose();
+          break;
+        case 'Enter':
+          if (hasValidDateRange) {
+            event.preventDefault();
+            handleApply();
+          }
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          navigateMonth('prev');
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          navigateMonth('next');
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, hasValidDateRange, handleClose, handleApply, navigateMonth]);
 
   return (
     <div className="relative">
@@ -197,22 +302,25 @@ export default function EnhancedDatePicker({
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
         className="flex items-center justify-between w-full px-4 py-3 border border-gray-300 rounded-lg bg-white hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        aria-label="Seleziona periodo di date"
       >
         <div className="flex items-center space-x-3">
           <Calendar className="h-5 w-5 text-gray-500" />
           <div className="text-left">
-            {startDate && endDate ? (
+            {hasValidDateRange ? (
               <div className="text-sm">
                 <span className="font-medium text-gray-900">
-                  {new Date(startDate).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                  {startDateObj?.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                 </span>
                 <span className="text-gray-500 mx-2">—</span>
                 <span className="font-medium text-gray-900">
-                  {new Date(endDate).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                  {endDateObj?.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                 </span>
               </div>
             ) : (
-              <span className="text-gray-500 text-sm">Seleziona le date</span>
+              <span className="text-gray-500 text-sm">
+                {selectingStart ? 'Seleziona data di inizio' : 'Seleziona data di fine'}
+              </span>
             )}
           </div>
         </div>
@@ -223,7 +331,7 @@ export default function EnhancedDatePicker({
 
       {/* Calendar Modal */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden min-w-[500px]">
+        <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden min-w-[520px]">
           <div ref={modalRef}>
             {/* Header */}
             <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
@@ -232,8 +340,9 @@ export default function EnhancedDatePicker({
                   Seleziona periodo
                 </h3>
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleClose}
                   className="p-1 hover:bg-white/50 rounded-full transition-colors"
+                  aria-label="Chiudi calendario"
                 >
                   <X className="h-4 w-4 text-gray-500" />
                 </button>
@@ -253,6 +362,7 @@ export default function EnhancedDatePicker({
                       key={index}
                       onClick={() => applyQuickRange(range.start, range.end)}
                       className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors"
+                      type="button"
                     >
                       {range.label}
                     </button>
@@ -262,6 +372,7 @@ export default function EnhancedDatePicker({
                     <button
                       onClick={clearDates}
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors mt-2 border-t border-gray-200 pt-3"
+                      type="button"
                     >
                       Cancella selezione
                     </button>
@@ -276,17 +387,21 @@ export default function EnhancedDatePicker({
                   <button
                     onClick={() => navigateMonth('prev')}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    type="button"
+                    aria-label="Mese precedente"
                   >
                     <ChevronLeft className="h-4 w-4 text-gray-600" />
                   </button>
                   
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900 min-w-[200px] text-center">
                     {MONTHS[currentMonth]} {currentYear}
                   </h3>
                   
                   <button
                     onClick={() => navigateMonth('next')}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    type="button"
+                    aria-label="Mese successivo"
                   >
                     <ChevronRight className="h-4 w-4 text-gray-600" />
                   </button>
@@ -304,29 +419,32 @@ export default function EnhancedDatePicker({
                 {/* Calendar Grid */}
                 <div className="grid grid-cols-7 gap-1">
                   {days.map(({ date, isCurrentMonth }, index) => {
-                    const isToday = date.toDateString() === today.toDateString();
+                    const isToday = isSameDay(date, today);
                     const isStart = isDateStart(date);
                     const isEnd = isDateEnd(date);
                     const isInRange = isDateInRange(date);
                     const isInHoverRange = isDateInHoverRange(date);
                     const isPast = date < today && !isToday;
+                    const isClickable = isCurrentMonth && !isPast;
 
                     return (
                       <button
-                        key={index}
-                        onClick={() => handleDateClick(date)}
-                        onMouseEnter={() => setHoverDate(date)}
+                        key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${index}`}
+                        onClick={() => isClickable && handleDateClick(date)}
+                        onMouseEnter={() => isCurrentMonth && setHoverDate(date)}
                         onMouseLeave={() => setHoverDate(null)}
-                        disabled={!isCurrentMonth}
+                        disabled={!isClickable}
+                        type="button"
+                        aria-label={`Seleziona ${date.toLocaleDateString('it-IT')}`}
                         className={`
-                          relative h-10 w-10 text-sm rounded-lg transition-all
+                          relative h-10 w-10 text-sm rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
                           ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : ''}
-                          ${isCurrentMonth && !isStart && !isEnd && !isInRange && !isInHoverRange ? 'text-gray-700 hover:bg-blue-50 hover:text-blue-700' : ''}
+                          ${isPast && isCurrentMonth ? 'text-gray-400 cursor-not-allowed opacity-50' : ''}
+                          ${isClickable && !isStart && !isEnd && !isInRange && !isInHoverRange ? 'text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:scale-105' : ''}
                           ${isToday && !isStart && !isEnd ? 'ring-2 ring-blue-500 font-bold' : ''}
-                          ${isStart || isEnd ? 'bg-blue-600 text-white font-bold' : ''}
+                          ${isStart || isEnd ? 'bg-blue-600 text-white font-bold shadow-md scale-105' : ''}
                           ${isInRange && !isStart && !isEnd ? 'bg-blue-100 text-blue-800' : ''}
                           ${isInHoverRange && !isStart && !isEnd && !isInRange ? 'bg-blue-50 text-blue-700' : ''}
-                          ${isPast && isCurrentMonth ? 'opacity-60' : ''}
                         `}
                       >
                         {date.getDate()}
@@ -338,10 +456,18 @@ export default function EnhancedDatePicker({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="text-sm text-gray-600">
-                {startDate && endDate ? (
-                  <>Periodo selezionato: <span className="font-medium">{startDate} — {endDate}</span></>
+                {hasValidDateRange ? (
+                  <>
+                    Periodo selezionato: 
+                    <span className="font-medium ml-1">
+                      {startDate} — {endDate}
+                    </span>
+                    <span className="text-gray-500 ml-2">
+                      ({Math.abs(Math.ceil((endDateObj!.getTime() - startDateObj!.getTime()) / (1000 * 60 * 60 * 24))) + 1} giorni)
+                    </span>
+                  </>
                 ) : (
                   'Seleziona entrambe le date per continuare'
                 )}
@@ -349,18 +475,17 @@ export default function EnhancedDatePicker({
               
               <div className="flex space-x-3">
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleClose}
                   className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                  type="button"
                 >
                   Annulla
                 </button>
                 <button
-                  onClick={() => {
-                    onApply();
-                    setIsOpen(false);
-                  }}
-                  disabled={!startDate || !endDate || loading}
+                  onClick={handleApply}
+                  disabled={!hasValidDateRange || loading}
                   className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center"
+                  type="button"
                 >
                   {loading ? (
                     <>
