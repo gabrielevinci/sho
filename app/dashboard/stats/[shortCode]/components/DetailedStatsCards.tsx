@@ -82,16 +82,30 @@ const SortableHeader = ({ children, field, currentSort, onSort }: {
 }) => {
   const isActive = currentSort.field === field;
   const IconComponent = isActive && currentSort.direction === 'asc' ? ChevronUp : ChevronDown;
+  const isRightAligned = field !== 'name';
   
   return (
     <button
       onClick={() => onSort(field)}
-      className="flex items-center space-x-1 hover:text-gray-700 transition-colors"
+      className={`flex items-center space-x-1 hover:text-gray-700 transition-colors w-full p-0 m-0 ${
+        isRightAligned ? 'justify-end text-right' : 'justify-start text-left'
+      }`}
     >
-      <span>{children}</span>
-      <IconComponent 
-        className={`h-3 w-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30'}`} 
-      />
+      {isRightAligned ? (
+        <>
+          <IconComponent 
+            className={`h-3 w-3 transition-opacity flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-30'}`} 
+          />
+          <span className="flex-shrink-0">{children}</span>
+        </>
+      ) : (
+        <>
+          <span className="flex-1">{children}</span>
+          <IconComponent 
+            className={`h-3 w-3 transition-opacity flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-30'}`} 
+          />
+        </>
+      )}
     </button>
   );
 };
@@ -545,26 +559,26 @@ const StatCard = ({
           <div>
             {/* Header tabella compatto con ordinamento */}
             <div className="grid grid-cols-12 gap-2 text-[10px] font-medium text-gray-500 uppercase tracking-wide pb-1.5 border-b border-gray-100">
-              <span className="col-span-6">
+              <div className="col-span-6">
                 <SortableHeader field="name" currentSort={sortState} onSort={handleSort}>
                   Nome
                 </SortableHeader>
-              </span>
-              <span className="col-span-2 text-right">
+              </div>
+              <div className="col-span-2 text-right">
                 <SortableHeader field="count" currentSort={sortState} onSort={handleSort}>
                   Totali
                 </SortableHeader>
-              </span>
-              <span className="col-span-2 text-right">
+              </div>
+              <div className="col-span-2 text-right">
                 <SortableHeader field="unique_count" currentSort={sortState} onSort={handleSort}>
                   Unici
                 </SortableHeader>
-              </span>
-              <span className="col-span-2 text-right">
+              </div>
+              <div className="col-span-2 text-right">
                 <SortableHeader field="percentage" currentSort={sortState} onSort={handleSort}>
                   % totali
                 </SortableHeader>
-              </span>
+              </div>
             </div>
             
             {/* Contenuto scrollabile compatto */}
