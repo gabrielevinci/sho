@@ -96,15 +96,24 @@ export async function GET(
               clicks
             WHERE
               link_id = $1
+          ),
+          current_hour_rome AS (
+            SELECT DATE_TRUNC('hour', NOW() AT TIME ZONE 'Europe/Rome') as current_hour
           )
           SELECT
             serie_oraria.ora AS ora_italiana,
             COALESCE(COUNT(cr.id), 0) AS click_totali,
-            COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici
+            COALESCE(SUM(CASE WHEN cr.rn = 1 THEN 1 ELSE 0 END), 0) AS click_unici,
+            -- Indica se questa è l'ora corrente
+            CASE 
+              WHEN serie_oraria.ora = (SELECT current_hour FROM current_hour_rome) 
+              THEN true 
+              ELSE false 
+            END AS is_current_hour
           FROM
             generate_series(
-              DATE_TRUNC('hour', (NOW() AT TIME ZONE 'Europe/Rome') - INTERVAL '23 hours'),
-              DATE_TRUNC('hour', (NOW() AT TIME ZONE 'Europe/Rome')),
+              (SELECT current_hour FROM current_hour_rome) - INTERVAL '23 hours',
+              (SELECT current_hour FROM current_hour_rome),
               '1 hour'
             ) AS serie_oraria(ora)
           LEFT JOIN

@@ -170,8 +170,7 @@ const WeeklyChart: React.FC<WeeklyChartProps> = ({ shortCode, year, triggerRefre
         const date = new Date(dateStr);
         return date.toLocaleDateString('it-IT', {
           day: '2-digit',
-          month: 'short',
-          timeZone: 'Europe/Rome'
+          month: 'short'
         });
       };
       

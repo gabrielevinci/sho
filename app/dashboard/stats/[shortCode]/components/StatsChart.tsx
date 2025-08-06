@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { CalendarDays, TrendingUp, Users } from 'lucide-react';
-import TimeFormat from '@/app/components/TimeFormat';
-import { formatDate, DATE_FORMAT_OPTIONS } from '@/app/lib/datetime-config';
 
 interface ChartDataPoint {
   date: string;
@@ -10,6 +8,7 @@ interface ChartDataPoint {
   dayName?: string; // Nome del giorno per il tooltip (solo per filtri giornalieri)
   clickTotali: number;
   clickUnici: number;
+  isCurrentHour?: boolean; // Indica se questa è l'ora corrente (solo per filtro 24h)
 }
 
 interface ChartProps {
@@ -75,45 +74,75 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
         let dateValue = item[dateKey];
         const date = new Date(dateValue);
 
-        // IMPORTANTE: Forza sempre il fuso orario Europe/Rome per garantire
-        // che gli orari mostrati corrispondano a quelli del server,
-        // indipendentemente dal fuso orario del browser dell'utente
+        // Formatta la data per la visualizzazione
         let displayDate: string;
         let fullDate: string;
         let dayName: string | undefined;
 
         if (filter === '24h') {
-          // Per le ore, forza il fuso orario di Roma e mostra solo l'ora
-          displayDate = formatDate.toLocaleTimeString(date, DATE_FORMAT_OPTIONS.timeOnly);
-          fullDate = formatDate.toLocaleString(date, DATE_FORMAT_OPTIONS.dateTime);
-          dayName = formatDate.toLocaleDateString(date, { 
-            weekday: 'long',
-            timeZone: 'Europe/Rome'
+          // Per le ore, mostra solo l'ora 
+          const isCurrentHour = item.is_current_hour;
+          const baseHour = date.toLocaleTimeString('it-IT', {
+            hour: '2-digit',
+            minute: '2-digit'
           });
+          
+          // Debug log per l'ora corrente
+          if (isCurrentHour) {
+            console.log(`🕐 Ora corrente identificata: ${baseHour} (${item.click_totali} click totali, ${item.click_unici} click unici)`);
+          }
+          
+          // Per l'asse X manteniamo la visualizzazione pulita
+          displayDate = baseHour;
+          
+          // Per il tooltip includiamo l'indicazione dell'ora corrente
+          fullDate = date.toLocaleString('it-IT', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          
+          if (isCurrentHour) {
+            fullDate += ' (ora corrente)';
+          }
+          
+          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
         } else {
-          // Per i giorni, forza il fuso orario di Roma
-          dayName = formatDate.toLocaleDateString(date, { 
-            weekday: 'long',
-            timeZone: 'Europe/Rome'
-          });
+          // Per i giorni, mostra la data
+          dayName = date.toLocaleDateString('it-IT', { weekday: 'long' });
           
           if (filter === 'all') {
             // Per il filtro "all", usa formato più compatto per gestire periodi lunghi
-            displayDate = formatDate.toLocaleDateString(date, DATE_FORMAT_OPTIONS.chartYear);
+            displayDate = date.toLocaleDateString('it-IT', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit'
+            });
           } else {
             // Per altri filtri, formato senza anno
-            displayDate = formatDate.toLocaleDateString(date, DATE_FORMAT_OPTIONS.dateShort);
+            displayDate = date.toLocaleDateString('it-IT', {
+              day: '2-digit',
+              month: '2-digit'
+            });
           }
           
-          fullDate = formatDate.toLocaleDateString(date, DATE_FORMAT_OPTIONS.dateTimeLong);
+          fullDate = date.toLocaleDateString('it-IT', {
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+          });
         }
 
-        const transformedItem = {
+        const transformedItem: ChartDataPoint = {
           date: displayDate,
           fullDate: fullDate,
           dayName: dayName,
           clickTotali: parseInt(item.click_totali) || 0,
-          clickUnici: parseInt(item.click_unici) || 0
+          clickUnici: parseInt(item.click_unici) || 0,
+          isCurrentHour: filter === '24h' ? item.is_current_hour : undefined
         };
 
         return transformedItem;
@@ -280,6 +309,100 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
     );
   };
 
+  // Componente personalizzato per i tick dell'asse X nel filtro 24h
+  const CustomXAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    const value = payload.value;
+    
+    if (filter !== '24h') {
+      // Comportamento normale per altri filtri
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text x={0} y={0} dy={16} textAnchor="middle" fill="#6b7280" fontSize="12">
+            {value}
+          </text>
+        </g>
+      );
+    }
+    
+    // Per il filtro 24h, verifica se questo è il tick dell'ora corrente
+    const dataPoint = chartData.find(item => item.date === value);
+    const isCurrentHour = dataPoint?.isCurrentHour;
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text 
+          x={0} 
+          y={0} 
+          dy={16} 
+          textAnchor="middle" 
+          fill={isCurrentHour ? "#3b82f6" : "#6b7280"} 
+          fontSize="12"
+          fontWeight={isCurrentHour ? "bold" : "normal"}
+        >
+          {value}
+        </text>
+        {isCurrentHour && (
+          <circle
+            cx={0}
+            cy={-8}
+            r={2}
+            fill="#3b82f6"
+          />
+        )}
+      </g>
+    );
+  };
+  const CustomDot = (props: any) => {
+    const { cx, cy, payload, dataKey } = props;
+    const isCurrentHour = payload?.isCurrentHour;
+    
+    if (filter !== '24h' || !isCurrentHour) {
+      // Comportamento normale per filtri diversi da 24h o per ore non correnti
+      return null;
+    }
+    
+    // Dot speciale per l'ora corrente
+    const color = dataKey === 'clickTotali' ? '#3b82f6' : '#10b981';
+    
+    return (
+      <g>
+        {/* Anello pulsante per l'ora corrente */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={8}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          opacity={0.6}
+        >
+          <animate
+            attributeName="r"
+            values="8;12;8"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="opacity"
+            values="0.6;0.2;0.6"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+        </circle>
+        {/* Dot centrale */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={5}
+          fill={color}
+          stroke="white"
+          strokeWidth={2}
+        />
+      </g>
+    );
+  };
+
   // Tooltip personalizzato
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -287,6 +410,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
       const clickUnici = payload[0]?.payload?.clickUnici || 0;
       const fullDate = payload[0]?.payload?.fullDate || label;
       const dayName = payload[0]?.payload?.dayName;
+      const isCurrentHour = payload[0]?.payload?.isCurrentHour;
       
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-xl">
@@ -297,6 +421,11 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             {dayName && filter !== '24h' && (
               <p className="text-xs text-gray-600 capitalize">
                 {dayName}
+              </p>
+            )}
+            {isCurrentHour && (
+              <p className="text-xs text-blue-600 font-medium">
+                ⏰ Ora corrente - dati in tempo reale
               </p>
             )}
           </div>
@@ -327,6 +456,11 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
             Andamento click
           </h3>
+          {filter === '24h' && (
+            <p className="text-xs text-gray-500 mt-1">
+              📊 Dati delle ultime 24 ore • L'ora con animazione è quella corrente
+            </p>
+          )}
         </div>
         
         {/* Statistiche di riepilogo */}
@@ -365,6 +499,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
               angle={filter === 'all' && chartData.length > 30 ? -45 : 0}
               textAnchor={filter === 'all' && chartData.length > 30 ? 'end' : 'middle'}
               height={filter === 'all' && chartData.length > 30 ? 60 : 30}
+              tick={<CustomXAxisTick />}
             />
             <YAxis 
               stroke="#6b7280"
@@ -384,7 +519,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
                 dataKey="clickTotali" 
                 stroke="#3b82f6" 
                 strokeWidth={2}
-                dot={{ fill: '#3b82f6', strokeWidth: 0, r: 4 }}
+                dot={filter === '24h' ? <CustomDot dataKey="clickTotali" /> : { fill: '#3b82f6', strokeWidth: 0, r: 4 }}
                 activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
                 name="Click Totali"
               />
@@ -396,7 +531,7 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
                 stroke="#10b981" 
                 strokeWidth={2}
                 strokeDasharray="8 4"
-                dot={{ fill: '#10b981', strokeWidth: 0, r: 4 }}
+                dot={filter === '24h' ? <CustomDot dataKey="clickUnici" /> : { fill: '#10b981', strokeWidth: 0, r: 4 }}
                 activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
                 name="Click Unici"
               />

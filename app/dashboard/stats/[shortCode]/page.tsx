@@ -9,7 +9,6 @@ import {
 import { SITE_URL } from '@/app/lib/config';
 import LinkActions from '@/app/dashboard/components/LinkActions';
 import NumberFormat from '@/app/components/NumberFormat';
-import DateFormat from '@/app/components/DateFormat';
 import NoSSR from '@/app/components/NoSSR';
 import EnhancedDatePicker from '@/app/dashboard/components/EnhancedDatePicker';
 import { useStatsCache, type FilterType, type LinkStats } from '@/app/hooks/use-stats-cache';
@@ -314,16 +313,13 @@ export default function LinkStatsPage() {
 
                 <div className="flex flex-col">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Data di Creazione</span>
-                  <div className="text-gray-800 text-sm">
-                    <DateFormat 
-                      date={link.createdAt}
-                      options={{
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      }}
-                    />
-                  </div>
+                  <p className="text-gray-800 text-sm">
+                    {new Date(link.createdAt).toLocaleDateString('it-IT', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
                 </div>
               </div>
             </div>
