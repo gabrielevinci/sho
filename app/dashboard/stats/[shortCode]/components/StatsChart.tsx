@@ -456,11 +456,6 @@ const StatsChart: React.FC<ChartProps> = ({ shortCode, filter, startDate, endDat
             <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
             Andamento click
           </h3>
-          {filter === '24h' && (
-            <p className="text-xs text-gray-500 mt-1">
-              📊 Dati delle ultime 24 ore • L'ora con animazione è quella corrente
-            </p>
-          )}
         </div>
         
         {/* Statistiche di riepilogo */}
