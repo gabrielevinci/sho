@@ -148,6 +148,62 @@ const getDomainFromURL = (url: string): string => {
     return domain || 'Sconosciuto';
   }
 };
+
+// Funzione per formattare i nomi in modo user-friendly
+const formatDisplayName = (value: string): string => {
+  if (!value) return 'Sconosciuto';
+  
+  // Decodifica URL encoding
+  let decoded = decodeURIComponent(value.replace(/\+/g, ' '));
+  
+  // Converti in lowercase e poi capitalizza
+  decoded = decoded.toLowerCase();
+  
+  // Mappatura per casi speciali
+  const specialCases: { [key: string]: string } = {
+    'qr code': 'QR Code',
+    'bing search': 'Bing',
+    'google search': 'Google',
+    'duckduckgo': 'DuckDuckGo',
+    'yahoo search': 'Yahoo',
+    'facebook': 'Facebook',
+    'instagram': 'Instagram',
+    'linkedin': 'LinkedIn',
+    'twitter': 'Twitter',
+    'tiktok': 'TikTok',
+    'youtube': 'YouTube',
+    'whatsapp': 'WhatsApp',
+    'telegram': 'Telegram',
+    'chrome': 'Chrome',
+    'firefox': 'Firefox',
+    'safari': 'Safari',
+    'edge': 'Edge',
+    'opera': 'Opera',
+    'android': 'Android',
+    'ios': 'iOS',
+    'windows': 'Windows',
+    'macos': 'macOS',
+    'linux': 'Linux',
+    'ubuntu': 'Ubuntu',
+    'iphone': 'iPhone',
+    'ipad': 'iPad',
+    'macbook': 'MacBook',
+    'samsung': 'Samsung',
+    'xiaomi': 'Xiaomi',
+    'huawei': 'Huawei',
+    'oneplus': 'OnePlus'
+  };
+  
+  // Controlla se è un caso speciale
+  if (specialCases[decoded]) {
+    return specialCases[decoded];
+  }
+  
+  // Capitalizza la prima lettera di ogni parola
+  return decoded.split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(' ');
+};
 const getLanguageEmoji = (language: string): string => {
   if (!language) return '🌍';
   
@@ -219,8 +275,8 @@ const StatCard = ({
       <div className="p-4">
         {/* Header compatto */}
         <div className="flex items-center space-x-2 mb-3">
-          <div className={`p-1.5 ${bgColor} rounded`}>
-            <div className={`h-3.5 w-3.5 ${iconColor}`}>
+          <div className={`p-1.5 ${bgColor} rounded flex items-center justify-center`}>
+            <div className={`${iconColor} flex items-center justify-center`}>
               {icon}
             </div>
           </div>
@@ -243,7 +299,7 @@ const StatCard = ({
             </div>
             
             {/* Contenuto scrollabile compatto */}
-            <div className={`${data.length > 8 ? 'max-h-48 overflow-y-auto pr-3' : ''} space-y-0.5 mt-1.5`}>
+            <div className={`${data.length > 8 ? 'max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400' : ''} space-y-0.5 mt-1.5 pr-1`}>
               {data.map((item, index) => renderItem(item, index, totalClicks))}
             </div>
           </div>
@@ -464,7 +520,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getBrowserEmoji(browser.browser)}</span>
                 <span className="font-medium text-gray-900 truncate" title={browser.browser}>
-                  {browser.browser || 'Sconosciuto'}
+                  {formatDisplayName(browser.browser) || 'Sconosciuto'}
                 </span>
               </div>
               <div className="col-span-2 text-right font-medium text-gray-900">
@@ -534,7 +590,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getDeviceEmoji(device.device)}</span>
                 <span className="font-medium text-gray-900 truncate" title={device.device}>
-                  {device.device || 'Sconosciuto'}
+                  {formatDisplayName(device.device) || 'Sconosciuto'}
                 </span>
               </div>
               <div className="col-span-2 text-right font-medium text-gray-900">
@@ -569,7 +625,7 @@ export default function DetailedStatsCards({ shortCode, filter, startDate, endDa
               <div className="col-span-6 flex items-center space-x-2 min-w-0">
                 <span className="text-sm">{getOSEmoji(os.os)}</span>
                 <span className="font-medium text-gray-900 truncate" title={os.os}>
-                  {os.os || 'Sconosciuto'}
+                  {formatDisplayName(os.os) || 'Sconosciuto'}
                 </span>
               </div>
               <div className="col-span-2 text-right font-medium text-gray-900">
